@@ -1,0 +1,4 @@
+/target
+*.log
+# Large binaries, fetched by scripts/fetch-ffmpeg.ps1
+/vendor/ffmpeg/
