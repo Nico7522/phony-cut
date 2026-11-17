@@ -90,6 +90,7 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
 | Logs                    | `tracing` + `tracing-subscriber`                        | Fichier de log dans `%APPDATA%`             |
 | Sérialisation           | `serde` + `serde_json`                                  | Marqueurs, réglages                         |
 | Chemins système         | `directories`                                           |                                             |
+| Sélecteur de dossier    | `rfd` (sans features par défaut)                        | Ouvert dans un thread, jamais sur le thread UI |
 | Packaging               | `cargo-dist` (installeur MSI) ou Inno Setup             | Décision à prendre en phase 6               |
 
 **Règle : demander avant d'ajouter une dépendance importante** qui n'est pas dans ce tableau.
