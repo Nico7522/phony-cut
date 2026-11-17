@@ -149,8 +149,9 @@ phonecut/
 │  │     ├─ scrcpy/        # lancement du serveur, protocole, lecture des paquets
 │  │     ├─ decode.rs      # H.264 → frames RGBA
 │  │     ├─ record.rs      # mux des paquets vers .mkv (sans réencodage)
-│  │     ├─ markers.rs     # marqueurs de cut (JSON sidecar)
-│  │     ├─ export.rs      # export de clips
+│  │     ├─ markers.rs     # marqueurs de cut et segments (JSON sidecar)
+│  │     ├─ player.rs      # lecture d'un enregistrement (Mes clips)
+│  │     ├─ export.rs      # export de clips (.mp4 rapide / précis)
 │  │     └─ platform/      # code spécifique Windows / macOS
 │  └─ app/                 # interface eframe/egui
 │     └─ src/
@@ -286,7 +287,11 @@ vendor\adb\adb.exe devices -l    # vérifier le téléphone à la main
 - **Performances en debug** : ne pas retirer `[profile.dev.package."*"] opt-level = 3` du
   `Cargo.toml`. Sans lui, la conversion des images par egui prend ~190 ms par image et
   l'aperçu tombe à ~5 fps.
-- **Licences** : FFmpeg uniquement en build LGPL shared, jamais de build GPL.
+- **Licences** : FFmpeg uniquement en build LGPL shared, jamais de build GPL. Pour
+  réencoder en H.264, utiliser `libopenh264` (BSD) : x264 est GPL et absent.
+- **Durée des images en MKV** : les blocs MKV ne stockent pas de durée. Tout code qui
+  réécrit des paquets (export, futur montage) doit donner au dernier paquet sa durée
+  jusqu'à la fin voulue, sinon un écran figé en fin de clip disparaît.
 
 ## 10. Travail en équipe d'agents (à partir de la phase 3)
 
