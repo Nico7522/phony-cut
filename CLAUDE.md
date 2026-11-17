@@ -159,7 +159,7 @@ phonecut/
 │        ├─ screens/       # onboarding, live, clips, settings
 │        └─ widgets/       # timeline, gros boutons, indicateur d'état
 ├─ vendor/                 # binaires tiers (voir §4)
-├─ assets/                 # icônes, images du tutoriel
+├─ assets/                 # icônes, images du tutoriel (tutorial/1..6.png, exemple Xiaomi)
 └─ docs/                   # notes techniques, décisions (ADR)
 ```
 
