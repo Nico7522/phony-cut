@@ -1,0 +1,19 @@
+[package]
+name = "phonecut-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "phonecut_core"
+
+[dependencies]
+crossbeam-channel.workspace = true
+directories.workspace = true
+ffmpeg-next.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true

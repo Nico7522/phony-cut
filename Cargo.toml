@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# Debug builds: optimize dependencies (egui converts every video pixel; unoptimized it
+# costs ~190 ms per 1080p frame) and lightly optimize our own code (per-frame loops),
+# while keeping debug info and fast incremental builds.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[workspace.dependencies]
+phonecut-core = { path = "crates/core" }
+anyhow = "1.0.104"
+crossbeam-channel = "0.5.17"
+thiserror = "2.0.21"
+directories = "6.0.0"
+eframe = "0.37.0"
+ffmpeg-next = { version = "9.1.0", default-features = false, features = ["codec", "format", "software-scaling"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

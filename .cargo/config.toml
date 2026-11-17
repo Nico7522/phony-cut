@@ -1,0 +1,11 @@
+# Build environment for ffmpeg-sys-next. Values set in the real environment win
+# (no `force`), so a developer can point to other locations.
+[env]
+# Pinned LGPL shared build, fetched by scripts/fetch-ffmpeg.ps1.
+FFMPEG_DIR = { value = "vendor/ffmpeg", relative = true }
+# libclang for bindgen (default LLVM install location on Windows).
+LIBCLANG_PATH = "C:\\Program Files\\LLVM\\bin"
+
+# Puts vendor\ffmpeg\bin on PATH for `cargo run` and `cargo test`.
+[target.x86_64-pc-windows-msvc]
+runner = "scripts/ffmpeg-runner.cmd"

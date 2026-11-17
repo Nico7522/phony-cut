@@ -1,0 +1,18 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "phonecut"
+path = "src/main.rs"
+
+[dependencies]
+phonecut-core.workspace = true
+anyhow.workspace = true
+crossbeam-channel.workspace = true
+eframe.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
