@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
+use phonecut_core::api::VideoQuality;
 use serde::{Deserialize, Serialize};
 
 const FILE_NAME: &str = "settings.json";
@@ -13,12 +14,57 @@ const FILE_NAME: &str = "settings.json";
 pub struct Settings {
     /// Where recordings are saved.
     pub output_dir: PathBuf,
+    pub quality: QualityPreset,
+    pub fps: Fps,
+    /// The connection assistant was completed once (not shown at startup).
+    pub onboarding_done: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             output_dir: default_output_dir(),
+            quality: QualityPreset::default(),
+            fps: Fps::default(),
+            onboarding_done: false,
+        }
+    }
+}
+
+/// Video quality, in words a non-developer understands.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum QualityPreset {
+    /// 1280 px, 4 Mbit/s: small files, slower PCs.
+    Light,
+    /// 1920 px, 8 Mbit/s.
+    #[default]
+    Standard,
+    /// Native resolution, 16 Mbit/s.
+    High,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Fps {
+    Thirty,
+    #[default]
+    Sixty,
+}
+
+impl Settings {
+    /// What to ask the phone for.
+    pub fn video_quality(&self) -> VideoQuality {
+        let (max_size, bit_rate) = match self.quality {
+            QualityPreset::Light => (1280, 4_000_000),
+            QualityPreset::Standard => (1920, 8_000_000),
+            QualityPreset::High => (0, 16_000_000),
+        };
+        VideoQuality {
+            max_size,
+            bit_rate,
+            max_fps: match self.fps {
+                Fps::Thirty => 30,
+                Fps::Sixty => 60,
+            },
         }
     }
 }
@@ -74,9 +120,35 @@ mod tests {
     }
 
     #[test]
+    fn presets_map_to_stream_settings() {
+        let mut s = Settings::default();
+        assert_eq!(
+            s.video_quality(),
+            VideoQuality::default(),
+            "standard = core default"
+        );
+        s.quality = QualityPreset::High;
+        s.fps = Fps::Thirty;
+        let q = s.video_quality();
+        assert_eq!((q.max_size, q.bit_rate, q.max_fps), (0, 16_000_000, 30));
+    }
+
+    #[test]
+    fn phase_3_settings_file_still_loads() {
+        let old = r#"{ "output_dir": "D:\\Clips" }"#;
+        let s: Settings = serde_json::from_str(old).unwrap();
+        assert_eq!(s.output_dir, PathBuf::from(r"D:\Clips"));
+        assert_eq!(s.quality, QualityPreset::Standard);
+        assert!(!s.onboarding_done);
+    }
+
+    #[test]
     fn json_round_trip_and_missing_fields() {
         let settings = Settings {
             output_dir: PathBuf::from(r"D:\Clips"),
+            quality: QualityPreset::Light,
+            fps: Fps::Thirty,
+            onboarding_done: true,
         };
         let text = serde_json::to_string(&settings).unwrap();
         assert_eq!(serde_json::from_str::<Settings>(&text).unwrap(), settings);

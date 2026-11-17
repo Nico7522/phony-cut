@@ -22,6 +22,7 @@ pub enum Command {
     /// Start mirroring the screen of this device (stops any running mirror).
     StartMirror {
         serial: String,
+        quality: VideoQuality,
     },
     /// Stop the running mirror, if any.
     StopMirror,
@@ -61,6 +62,26 @@ pub enum Command {
     CancelExport,
     /// Stop the service: background threads end and adb is cleaned up.
     Shutdown,
+}
+
+/// Video stream settings requested from the phone (also what gets recorded).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VideoQuality {
+    /// Longest side in pixels; 0 = the phone's native resolution.
+    pub max_size: u32,
+    /// Bits per second.
+    pub bit_rate: u32,
+    pub max_fps: u32,
+}
+
+impl Default for VideoQuality {
+    fn default() -> Self {
+        Self {
+            max_size: 1920,
+            bit_rate: 8_000_000,
+            max_fps: 60,
+        }
+    }
 }
 
 /// Notifications sent by the core service to the UI.

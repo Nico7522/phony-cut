@@ -7,6 +7,7 @@ pub mod adb;
 pub mod api;
 pub mod decode;
 pub mod export;
+pub mod image;
 pub mod markers;
 pub mod paths;
 pub mod platform;

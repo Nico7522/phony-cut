@@ -62,11 +62,25 @@ pub fn find_vendor_file(
 }
 
 fn vendor_candidates(exe_dir: &Path, relative: &Path) -> Vec<PathBuf> {
+    bundled_candidates(exe_dir, "vendor", relative)
+}
+
+fn bundled_candidates(exe_dir: &Path, top: &str, relative: &Path) -> Vec<PathBuf> {
     exe_dir
         .ancestors()
         .take(8)
-        .map(|dir| dir.join("vendor").join(relative))
+        .map(|dir| dir.join(top).join(relative))
         .collect()
+}
+
+/// Finds a file shipped in `assets/` (images…), same search as
+/// [`find_vendor_file`]. `None` when missing: assets are optional extras.
+pub fn find_asset_file(relative: &Path) -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    bundled_candidates(dir, "assets", relative)
+        .into_iter()
+        .find(|p| p.is_file())
 }
 
 #[cfg(test)]

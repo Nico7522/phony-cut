@@ -9,6 +9,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::adb::{Adb, AdbError};
+use crate::api::VideoQuality;
 use crate::paths;
 use crate::scrcpy::protocol::{self, ProtocolError};
 use crate::scrcpy::SCRCPY_VERSION;
@@ -43,6 +44,17 @@ impl Default for ServerOptions {
             video_bit_rate: 8_000_000,
             max_fps: 60,
             key_frame_interval_s: 1,
+        }
+    }
+}
+
+impl From<VideoQuality> for ServerOptions {
+    fn from(quality: VideoQuality) -> Self {
+        Self {
+            max_size: quality.max_size,
+            video_bit_rate: quality.bit_rate,
+            max_fps: quality.max_fps,
+            ..Self::default()
         }
     }
 }

@@ -11,7 +11,7 @@ use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use crate::adb::{Adb, AdbError, ProductInfo};
 use crate::api::{
     AdbProblem, AdbStatus, Command, DeviceInfo, DeviceState, Event, ExportProblem, ExportState,
-    FrameSlot, MirrorEnd, MirrorState, RecordingProblem, RecordingState,
+    FrameSlot, MirrorEnd, MirrorState, RecordingProblem, RecordingState, VideoQuality,
 };
 use crate::export::ExportJob;
 use crate::platform;
@@ -173,7 +173,9 @@ impl Worker {
             match self.commands.recv_timeout(wait) {
                 Ok(Command::Shutdown) | Err(RecvTimeoutError::Disconnected) => break,
                 Ok(Command::RefreshDevices) => next_poll = Instant::now(),
-                Ok(Command::StartMirror { serial }) => self.start_mirror(serial),
+                Ok(Command::StartMirror { serial, quality }) => {
+                    self.start_mirror(serial, quality);
+                }
                 Ok(Command::StopMirror) => self.stop_mirror(),
                 Ok(Command::StartRecording { folder }) => self.start_recording(&folder),
                 Ok(Command::StopRecording) => {
@@ -217,7 +219,7 @@ impl Worker {
         tracing::info!("core service stopped");
     }
 
-    fn start_mirror(&mut self, serial: String) {
+    fn start_mirror(&mut self, serial: String, quality: VideoQuality) {
         self.stop_mirror();
         let Some(adb) = self.adb.clone() else {
             self.send(Event::Mirror(MirrorState::Stopped {
@@ -229,7 +231,7 @@ impl Worker {
         let ctx = SessionContext {
             adb,
             serial: serial.clone(),
-            options: ServerOptions::default(),
+            options: ServerOptions::from(quality),
             frames: Arc::clone(&self.frames),
             events: self.events.clone(),
             notify: Arc::clone(&self.notify),

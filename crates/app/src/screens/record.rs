@@ -20,6 +20,8 @@ pub enum RecordAction {
     PickFolder,
     /// Open this recording in "Mes clips".
     EditVideo(PathBuf),
+    /// Go to "Mes clips".
+    OpenClips,
 }
 
 const RED: Color32 = Color32::from_rgb(207, 34, 46);
@@ -93,27 +95,14 @@ impl RecordPanel {
     ) -> Option<RecordAction> {
         let mut action = None;
         ui.add_space(6.0);
+        // The three big buttons: record/stop, mark a cut, my clips.
+        let big = egui::vec2(250.0, 48.0);
         ui.horizontal(|ui| {
             if self.is_recording() {
-                let stop = egui::Button::new(RichText::new(texts::RECORD_STOP).size(18.0))
-                    .min_size(egui::vec2(260.0, 44.0));
+                let stop =
+                    egui::Button::new(RichText::new(texts::RECORD_STOP).size(18.0)).min_size(big);
                 if ui.add(stop).clicked() {
                     action = Some(RecordAction::Stop);
-                }
-                let cut = egui::Button::new(RichText::new(texts::MARK_CUT).size(18.0))
-                    .min_size(egui::vec2(200.0, 44.0));
-                if ui
-                    .add_enabled(self.can_mark_cut(), cut)
-                    .on_hover_text(texts::MARK_CUT_HINT)
-                    .clicked()
-                {
-                    action = Some(RecordAction::MarkCut);
-                }
-                ui.add_space(12.0);
-                self.live_indicator(ui);
-                if let Some(last) = self.last_cut {
-                    ui.add_space(12.0);
-                    ui.label(texts::cuts_summary(self.cuts, last));
                 }
             } else {
                 let record = egui::Button::new(
@@ -122,14 +111,37 @@ impl RecordPanel {
                         .color(Color32::WHITE),
                 )
                 .fill(RED)
-                .min_size(egui::vec2(220.0, 44.0));
+                .min_size(big);
                 if ui.add_enabled(can_record, record).clicked() {
                     self.starting = true;
                     self.notice = None;
                     action = Some(RecordAction::Start);
                 }
             }
+            let cut = egui::Button::new(RichText::new(texts::MARK_CUT).size(18.0)).min_size(big);
+            if ui
+                .add_enabled(self.can_mark_cut(), cut)
+                .on_hover_text(texts::MARK_CUT_HINT)
+                .on_disabled_hover_text(texts::MARK_CUT_HINT)
+                .clicked()
+            {
+                action = Some(RecordAction::MarkCut);
+            }
+            let clips =
+                egui::Button::new(RichText::new(texts::OPEN_CLIPS).size(18.0)).min_size(big);
+            if ui.add(clips).clicked() {
+                action = Some(RecordAction::OpenClips);
+            }
         });
+        if self.is_recording() {
+            ui.horizontal(|ui| {
+                self.live_indicator(ui);
+                if let Some(last) = self.last_cut {
+                    ui.add_space(12.0);
+                    ui.label(texts::cuts_summary(self.cuts, last));
+                }
+            });
+        }
         if let Some(result) = self.result(ui) {
             action = Some(result);
         }

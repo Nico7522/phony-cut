@@ -266,6 +266,207 @@ pub fn device_state_short(state: &DeviceState) -> &'static str {
     }
 }
 
+/// Texts of the first-connection assistant.
+pub mod onboarding {
+    use crate::screens::onboarding::{Brand, Step};
+
+    pub const TITLE: &str = "Connecter votre téléphone";
+    pub const STEP_SHORT: [&str; 4] = ["Mode développeur", "Débogage USB", "Câble", "Autorisation"];
+    pub const VARIES_NOTICE: &str = "Les menus varient selon la marque du téléphone, mais \
+        restent proches. Les images ci-dessous montrent un téléphone Xiaomi. Si vous ne \
+        trouvez pas une option, cherchez sur internet « activer le débogage USB » suivi du \
+        modèle de votre téléphone.";
+    pub const BRAND_LABEL: &str = "Marque de votre téléphone :";
+    pub const WAITING_PHONE: &str = "En attente du téléphone…";
+    pub const WAITING_AUTHORIZATION: &str = "En attente de votre autorisation sur le téléphone…";
+    pub const HELP_TITLE: &str = "Ça ne marche pas ?";
+    pub const PREVIOUS: &str = "Précédent";
+    pub const NEXT: &str = "Suivant";
+    pub const SKIP: &str = "Passer l'assistant";
+    pub const SKIP_HINT: &str = "Vous pourrez le rouvrir à tout moment depuis les Réglages.";
+    pub const DONE_TITLE: &str = "C'est prêt !";
+    pub const DONE_BODY: &str = "Votre téléphone est connecté. Vous pouvez maintenant voir \
+        son écran, l'enregistrer et créer des clips. Cet assistant reste disponible dans les \
+        Réglages.";
+    pub const START: &str = "Commencer";
+
+    pub fn step(step: Step) -> (&'static str, &'static str) {
+        match step {
+            Step::DeveloperOptions => (
+                "1. Activer les options pour les développeurs",
+                "Sur le téléphone, ouvrez les Paramètres, puis « À propos du téléphone ». \
+                 Touchez plusieurs fois de suite la ligne « Numéro de build » (son nom change \
+                 selon la marque, voir ci-dessous) pour débloquer les options pour les \
+                 développeurs. Appuyez ensuite sur « Suivant ».",
+            ),
+            Step::UsbDebugging => (
+                "2. Activer le débogage USB",
+                "Ouvrez « Options pour les développeurs » et activez « Débogage USB ». \
+                 Confirmez dans la fenêtre d'avertissement qui s'affiche, puis appuyez sur \
+                 « Suivant ». Seul « Débogage USB » est nécessaire : les autres options \
+                 peuvent rester désactivées.",
+            ),
+            Step::Plug => (
+                "3. Brancher le téléphone",
+                "Branchez le téléphone à l'ordinateur avec un câble USB, de préférence sur un \
+                 port à l'arrière du PC. Attention : certains câbles ne servent qu'à charger et \
+                 ne transmettent pas de données. Si une notification USB apparaît sur le \
+                 téléphone, choisissez « Transfert de fichiers ». PhoneCut détecte le \
+                 téléphone tout seul.",
+            ),
+            Step::Authorize => (
+                "4. Autoriser cet ordinateur",
+                "Déverrouillez le téléphone : une fenêtre « Autoriser le débogage USB ? » \
+                 s'affiche. Cochez « Toujours autoriser sur cet ordinateur », puis appuyez sur \
+                 « Autoriser ».",
+            ),
+            Step::Done => ("", ""),
+        }
+    }
+
+    pub fn brand_name(brand: Brand) -> &'static str {
+        match brand {
+            Brand::Xiaomi => "Xiaomi, Redmi, POCO",
+            Brand::Samsung => "Samsung",
+            Brand::Pixel => "Google Pixel",
+            Brand::OppoOnePlus => "Oppo, OnePlus, realme",
+            Brand::Other => "Autre marque",
+        }
+    }
+
+    /// Menu path for enabling developer options (`developer`) or USB debugging.
+    pub fn brand_path(brand: Brand, developer: bool) -> &'static str {
+        match (brand, developer) {
+            (Brand::Xiaomi, true) => {
+                "Paramètres → À propos du téléphone → touchez plusieurs fois « Version de \
+                 l'OS » (ou « Version de MIUI » sur les modèles plus anciens)."
+            }
+            (Brand::Xiaomi, false) => {
+                "Paramètres → Paramètres supplémentaires → Options pour les développeurs → \
+                 Débogage USB."
+            }
+            (Brand::Samsung, true) => {
+                "Paramètres → À propos du téléphone → Informations sur le logiciel → touchez \
+                 plusieurs fois « Numéro de version »."
+            }
+            (Brand::Samsung, false) => {
+                "Paramètres → Options de développement (tout en bas de la liste) → Débogage USB."
+            }
+            (Brand::Pixel, true) => {
+                "Paramètres → À propos du téléphone → touchez plusieurs fois « Numéro de build »."
+            }
+            (Brand::Pixel, false) => {
+                "Paramètres → Système → Options pour les développeurs → Débogage USB."
+            }
+            (Brand::OppoOnePlus, true) => {
+                "Paramètres → À propos de l'appareil → Version → touchez plusieurs fois « Numéro \
+                 de build »."
+            }
+            (Brand::OppoOnePlus, false) => {
+                "Paramètres → Paramètres supplémentaires (ou Système) → Options pour les \
+                 développeurs → Débogage USB."
+            }
+            (Brand::Other, true) => {
+                "En général : Paramètres → À propos du téléphone → touchez plusieurs fois « Numéro \
+                 de build » (parfois rangé dans « Informations sur le logiciel »)."
+            }
+            (Brand::Other, false) => {
+                "En général : Paramètres → Système → Options pour les développeurs → Débogage USB."
+            }
+        }
+    }
+
+    /// Troubleshooting tips for a step.
+    pub fn help(step: Step) -> &'static [&'static str] {
+        match step {
+            Step::DeveloperOptions => &[
+                "Si le téléphone demande votre code de verrouillage, saisissez-le : c'est normal.",
+                "« Options pour les développeurs » n'apparaît pas ? Tapez « développeur » dans \
+                 la barre de recherche des Paramètres.",
+                "Toujours bloqué ? Cherchez sur internet « activer options développeur » suivi \
+                 du modèle de votre téléphone.",
+            ],
+            Step::UsbDebugging => &[
+                "Une fenêtre d'avertissement s'affiche quand vous activez le débogage USB : \
+                 c'est normal, confirmez.",
+                "Vous ne trouvez pas l'option ? Tapez « débogage USB » dans la barre de \
+                 recherche des Paramètres, ou cherchez sur internet avec le modèle de votre \
+                 téléphone.",
+            ],
+            Step::Plug | Step::Done => &[
+                "Le téléphone charge mais rien ne se passe ? Le câble ne transmet sans doute \
+                 pas de données : essayez le câble d'origine du téléphone, ou un câble qui vous \
+                 a déjà servi à transférer des photos.",
+                "Branchez directement sur un port à l'arrière du PC (sans hub ni rallonge). Les \
+                 ports à l'avant sont souvent moins fiables.",
+                "Ouvrez la notification USB du téléphone et choisissez « Transfert de fichiers ».",
+                "Vérifiez que « Débogage USB » est toujours activé : il se désactive parfois \
+                 après une mise à jour du téléphone.",
+                "Certains téléphones ont besoin du pilote USB de leur fabricant (par exemple \
+                 « Samsung USB Driver »). Cherchez « pilote USB » et la marque de votre \
+                 téléphone sur le site du fabricant.",
+                "Redémarrez le téléphone, puis rebranchez-le.",
+            ],
+            Step::Authorize => &[
+                "La fenêtre n'apparaît que si l'écran du téléphone est déverrouillé.",
+                "Toujours rien ? Dans « Options pour les développeurs », touchez « Révoquer les \
+                 autorisations de débogage USB », puis débranchez et rebranchez le câble.",
+                "Fermez les autres logiciels Android ouverts sur l'ordinateur (Android Studio, \
+                 outils de transfert…).",
+            ],
+        }
+    }
+}
+
+pub const TAB_SETTINGS: &str = "Réglages";
+pub const CONNECTION_HELP: &str = "Aide à la connexion";
+pub const OPEN_CLIPS: &str = "Mes clips";
+
+/// Texts of the settings screen.
+pub mod settings {
+    use crate::settings::{Fps, QualityPreset};
+
+    pub const TITLE: &str = "Réglages";
+    pub const QUALITY: &str = "Qualité vidéo";
+    pub const FPS: &str = "Fluidité";
+    pub const FOLDER: &str = "Dossier des vidéos";
+    pub const ASSISTANT: &str = "Connexion du téléphone";
+    pub const ASSISTANT_BUTTON: &str = "Ouvrir l'assistant de connexion";
+    pub const APPLIES_NOW: &str = "Les changements s'appliquent tout de suite à l'aperçu. \
+        Pendant un enregistrement, ils s'appliqueront dès qu'il sera terminé.";
+
+    pub fn quality(preset: QualityPreset) -> (&'static str, &'static str) {
+        match preset {
+            QualityPreset::Light => (
+                "Légère",
+                "Image plus petite (1280 pixels) et fichiers légers. Pour les ordinateurs \
+                 modestes ou les longs enregistrements.",
+            ),
+            QualityPreset::Standard => (
+                "Standard (recommandée)",
+                "Bonne netteté (1920 pixels) avec des fichiers de taille raisonnable.",
+            ),
+            QualityPreset::High => (
+                "Haute",
+                "Résolution maximale du téléphone. Fichiers environ deux fois plus gros.",
+            ),
+        }
+    }
+
+    pub fn fps(fps: Fps) -> (&'static str, &'static str) {
+        match fps {
+            Fps::Thirty => (
+                "30 images par seconde",
+                "Fichiers plus légers. Suffisant pour la plupart des applications.",
+            ),
+            Fps::Sixty => (
+                "60 images par seconde (recommandé)",
+                "Mouvements plus fluides, idéal pour les jeux.",
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

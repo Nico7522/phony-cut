@@ -176,7 +176,8 @@ impl Adb {
                 "-s",
                 serial,
                 "shell",
-                "getprop ro.product.manufacturer; getprop ro.product.model",
+                "getprop ro.product.manufacturer; getprop ro.product.model; \
+                 getprop ro.product.marketname",
             ],
             QUICK_TIMEOUT,
         )?;
@@ -231,6 +232,8 @@ impl Adb {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProductInfo {
     pub manufacturer: Option<String>,
+    /// Commercial name when the phone exposes one (`ro.product.marketname`,
+    /// e.g. "POCO X7 Pro"), otherwise the model reference ("2412DPC0AG").
     pub model: Option<String>,
 }
 
@@ -296,9 +299,12 @@ fn parse_product_info(output: &str) -> ProductInfo {
         .lines()
         .map(str::trim)
         .map(|l| (!l.is_empty()).then(|| l.to_owned()));
+    let manufacturer = lines.next().flatten();
+    let model = lines.next().flatten();
+    let market_name = lines.next().flatten();
     ProductInfo {
-        manufacturer: lines.next().flatten(),
-        model: lines.next().flatten(),
+        manufacturer,
+        model: market_name.or(model),
     }
 }
 
@@ -360,6 +366,14 @@ mod tests {
             }
         );
         assert_eq!(parse_product_info(""), ProductInfo::default());
+        // The commercial name wins when present.
+        assert_eq!(
+            parse_product_info("Xiaomi\n2412DPC0AG\nPOCO X7 Pro\n"),
+            ProductInfo {
+                manufacturer: Some("Xiaomi".into()),
+                model: Some("POCO X7 Pro".into()),
+            }
+        );
         assert_eq!(
             parse_product_info("\nPixel 7\n"),
             ProductInfo {

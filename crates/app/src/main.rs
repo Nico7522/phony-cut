@@ -21,7 +21,9 @@ use phonecut_core::APP_NAME;
 use screens::clips::{ClipsAction, ClipsScreen};
 use screens::home::HomeScreen;
 use screens::live::{LiveScreen, MirrorRequest};
+use screens::onboarding::{Onboarding, OnboardingAction};
 use screens::record::{RecordAction, RecordPanel};
+use screens::settings::SettingsAction;
 use settings::Settings;
 
 /// Upper bound on how long closing the window may wait for the core to clean up.
@@ -78,6 +80,7 @@ fn main() -> anyhow::Result<()> {
 enum Tab {
     Live,
     Clips,
+    Settings,
 }
 
 struct PhoneCutApp {
@@ -91,6 +94,11 @@ struct PhoneCutApp {
     live: LiveScreen,
     record: RecordPanel,
     clips: ClipsScreen,
+    onboarding: Onboarding,
+    /// The first-launch check for the assistant was done.
+    onboarding_checked: bool,
+    /// Video settings changed during a recording: restart the mirror after it.
+    restart_after_recording: bool,
     /// Answer of the open folder dialog (runs on its own thread).
     folder_picker: Option<Receiver<Option<PathBuf>>>,
 }
@@ -110,7 +118,51 @@ impl PhoneCutApp {
             live: LiveScreen::default(),
             record: RecordPanel::default(),
             clips: ClipsScreen::default(),
+            onboarding: Onboarding::default(),
+            onboarding_checked: false,
+            restart_after_recording: false,
             folder_picker: None,
+        }
+    }
+
+    /// Restarts the mirror with the current video settings.
+    fn restart_mirror(&mut self) {
+        if let Some(device) = self.home.ready_device() {
+            let serial = device.serial.clone();
+            tracing::info!("video settings changed, restarting the preview");
+            self.send(Some(MirrorRequest::Start(serial)));
+        }
+    }
+
+    fn handle_settings(&mut self, actions: Vec<SettingsAction>, ctx: &egui::Context) {
+        for action in actions {
+            match action {
+                SettingsAction::VideoChanged => {
+                    if let Err(err) = self.settings.save() {
+                        tracing::warn!(%err, "cannot save settings");
+                    }
+                    if self.record.is_recording() {
+                        self.restart_after_recording = true;
+                    } else {
+                        self.restart_mirror();
+                    }
+                }
+                SettingsAction::PickFolder => self.pick_folder(ctx),
+                SettingsAction::OpenFolder(folder) => {
+                    self.handle_record(Some(RecordAction::OpenFolder(folder)), ctx);
+                }
+                SettingsAction::OpenAssistant => self.onboarding.open(ctx),
+            }
+        }
+    }
+
+    fn close_onboarding(&mut self) {
+        self.onboarding.close();
+        if !self.settings.onboarding_done {
+            self.settings.onboarding_done = true;
+            if let Err(err) = self.settings.save() {
+                tracing::warn!(%err, "cannot save settings");
+            }
         }
     }
 
@@ -166,7 +218,12 @@ impl PhoneCutApp {
             } else {
                 texts::TAB_LIVE.to_owned()
             };
-            for (tab, label) in [(Tab::Live, live), (Tab::Clips, texts::TAB_CLIPS.to_owned())] {
+            let tabs = [
+                (Tab::Live, live),
+                (Tab::Clips, texts::TAB_CLIPS.to_owned()),
+                (Tab::Settings, texts::TAB_SETTINGS.to_owned()),
+            ];
+            for (tab, label) in tabs {
                 let text = RichText::new(label).size(17.0);
                 if ui.selectable_label(self.tab == tab, text).clicked() {
                     chosen = Some(tab);
@@ -239,7 +296,10 @@ impl PhoneCutApp {
 
     fn send(&self, request: Option<MirrorRequest>) {
         match request {
-            Some(MirrorRequest::Start(serial)) => self.command(Command::StartMirror { serial }),
+            Some(MirrorRequest::Start(serial)) => self.command(Command::StartMirror {
+                serial,
+                quality: self.settings.video_quality(),
+            }),
             None => {}
         }
     }
@@ -268,6 +328,7 @@ impl PhoneCutApp {
             }
             Some(RecordAction::PickFolder) => self.pick_folder(ctx),
             Some(RecordAction::EditVideo(path)) => self.edit_video(path),
+            Some(RecordAction::OpenClips) => self.switch_tab(Tab::Clips),
             None => {}
         }
     }
@@ -295,7 +356,14 @@ impl eframe::App for PhoneCutApp {
                     if matches!(state, RecordingState::Finished { .. }) {
                         self.clips.invalidate(); // a new video exists
                     }
+                    let ended = matches!(
+                        state,
+                        RecordingState::Finished { .. } | RecordingState::Failed { .. }
+                    );
                     self.record.apply(state);
+                    if ended && std::mem::take(&mut self.restart_after_recording) {
+                        self.restart_mirror();
+                    }
                 }
                 Event::CutMarked { time, count } => self.record.cut_marked(time, count),
                 Event::Recordings(list) => self.clips.set_recordings(list),
@@ -326,11 +394,36 @@ impl eframe::App for PhoneCutApp {
             .plan(self.home.devices(), self.home.ready_device());
         self.send(request);
 
-        egui::Panel::top("tabs").show(ui, |ui| self.tab_bar(ui));
-        if self.tab == Tab::Clips {
-            let actions = self.clips.show(ui);
-            self.handle_clips(actions);
+        // First launch: the connection assistant.
+        if !self.onboarding_checked {
+            self.onboarding_checked = true;
+            if !self.settings.onboarding_done {
+                self.onboarding.open(&ctx);
+            }
+        }
+        if self.onboarding.is_open() {
+            self.onboarding.update(self.home.devices());
+            let device = self.home.ready_device().or(self.home.devices().first());
+            if let Some(OnboardingAction::Close) = self.onboarding.show(ui, device) {
+                self.close_onboarding();
+            }
             return;
+        }
+
+        egui::Panel::top("tabs").show(ui, |ui| self.tab_bar(ui));
+        match self.tab {
+            Tab::Clips => {
+                let actions = self.clips.show(ui);
+                self.handle_clips(actions);
+                return;
+            }
+            Tab::Settings => {
+                let picking = self.folder_picker.is_some();
+                let actions = screens::settings::show(ui, &mut self.settings, picking);
+                self.handle_settings(actions, &ctx);
+                return;
+            }
+            Tab::Live => {}
         }
 
         // Recording controls: while there is video, or to show the last result.
@@ -351,13 +444,24 @@ impl eframe::App for PhoneCutApp {
                 .show(ui, |ui| self.live.show_video(ui));
         } else {
             let mut retry = None;
+            let mut help = false;
             egui::CentralPanel::default().show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     self.home.show(ui);
                     retry = self.live.show_status(ui, self.home.ready_device());
+                    if self.home.ready_device().is_none() {
+                        ui.add_space(24.0);
+                        let button =
+                            egui::Button::new(RichText::new(texts::CONNECTION_HELP).size(18.0))
+                                .min_size(egui::vec2(240.0, 44.0));
+                        help = ui.add(button).clicked();
+                    }
                 });
             });
             self.send(retry);
+            if help {
+                self.onboarding.open(&ctx);
+            }
         }
     }
 }
