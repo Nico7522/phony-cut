@@ -5,6 +5,7 @@ mod logging;
 mod screens;
 mod settings;
 mod texts;
+mod widgets;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -12,11 +13,12 @@ use std::time::Duration;
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, Color32, RichText};
-use phonecut_core::api::{Command, Event, FrameSlot};
+use phonecut_core::api::{Command, Event, FrameSlot, RecordingState};
 use phonecut_core::platform;
 use phonecut_core::service::Core;
 use phonecut_core::APP_NAME;
 
+use screens::clips::{ClipsAction, ClipsScreen};
 use screens::home::HomeScreen;
 use screens::live::{LiveScreen, MirrorRequest};
 use screens::record::{RecordAction, RecordPanel};
@@ -50,7 +52,7 @@ fn main() -> anyhow::Result<()> {
         Box::new(|cc| {
             let ctx = cc.egui_ctx.clone();
             let started = Core::start(Arc::new(move || ctx.request_repaint()))?;
-            let app = PhoneCutApp::new(started.commands(), started.events(), started.frames());
+            let app = PhoneCutApp::new(&started);
             core = Some(started);
             Ok(Box::new(app))
         }),
@@ -72,31 +74,107 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    Live,
+    Clips,
+}
+
 struct PhoneCutApp {
     commands: Sender<Command>,
     events: Receiver<Event>,
     frames: Arc<FrameSlot>,
+    player_frames: Arc<FrameSlot>,
     settings: Settings,
+    tab: Tab,
     home: HomeScreen,
     live: LiveScreen,
     record: RecordPanel,
+    clips: ClipsScreen,
     /// Answer of the open folder dialog (runs on its own thread).
     folder_picker: Option<Receiver<Option<PathBuf>>>,
 }
 
 impl PhoneCutApp {
-    fn new(commands: Sender<Command>, events: Receiver<Event>, frames: Arc<FrameSlot>) -> Self {
+    fn new(core: &Core) -> Self {
         let settings = Settings::load();
         tracing::info!(output_dir = %settings.output_dir.display(), "settings loaded");
         Self {
-            commands,
-            events,
-            frames,
+            commands: core.commands(),
+            events: core.events(),
+            frames: core.frames(),
+            player_frames: core.player_frames(),
             settings,
+            tab: Tab::Live,
             home: HomeScreen::default(),
             live: LiveScreen::default(),
             record: RecordPanel::default(),
+            clips: ClipsScreen::default(),
             folder_picker: None,
+        }
+    }
+
+    fn switch_tab(&mut self, tab: Tab) {
+        if tab == self.tab {
+            return;
+        }
+        if self.tab == Tab::Clips {
+            self.command(Command::Pause);
+            let pending = self.clips.flush();
+            self.handle_clips(pending);
+        }
+        self.tab = tab;
+        if tab == Tab::Clips && self.clips.needs_listing() {
+            self.handle_clips(vec![ClipsAction::Refresh]);
+        }
+    }
+
+    /// Opens a recording in "Mes clips".
+    fn edit_video(&mut self, path: PathBuf) {
+        self.switch_tab(Tab::Clips);
+        let actions = self.clips.open(path);
+        self.handle_clips(actions);
+    }
+
+    fn handle_clips(&mut self, actions: Vec<ClipsAction>) {
+        for action in actions {
+            match action {
+                ClipsAction::Refresh => self.command(Command::ListRecordings {
+                    folder: self.settings.output_dir.clone(),
+                }),
+                ClipsAction::Open(path) => self.command(Command::OpenVideo { path }),
+                ClipsAction::Play => self.command(Command::Play),
+                ClipsAction::Pause => self.command(Command::Pause),
+                ClipsAction::Seek(time) => self.command(Command::Seek { time }),
+                ClipsAction::Save(video, cuts) => self.command(Command::SaveCuts { video, cuts }),
+                ClipsAction::Export(request) => self.command(Command::Export(request)),
+                ClipsAction::CancelExport => self.command(Command::CancelExport),
+                ClipsAction::OpenFolder(folder) => {
+                    if let Err(err) = platform::open_in_file_manager(&folder) {
+                        tracing::warn!(%err, folder = %folder.display(), "cannot open folder");
+                    }
+                }
+            }
+        }
+    }
+
+    fn tab_bar(&mut self, ui: &mut egui::Ui) {
+        let mut chosen = None;
+        ui.horizontal(|ui| {
+            let live = if self.record.is_recording() {
+                format!("{}{}", texts::TAB_LIVE, texts::TAB_RECORDING)
+            } else {
+                texts::TAB_LIVE.to_owned()
+            };
+            for (tab, label) in [(Tab::Live, live), (Tab::Clips, texts::TAB_CLIPS.to_owned())] {
+                let text = RichText::new(label).size(17.0);
+                if ui.selectable_label(self.tab == tab, text).clicked() {
+                    chosen = Some(tab);
+                }
+            }
+        });
+        if let Some(tab) = chosen {
+            self.switch_tab(tab);
         }
     }
 
@@ -149,6 +227,7 @@ impl PhoneCutApp {
         if std::fs::create_dir_all(&folder).is_ok() {
             tracing::info!(folder = %folder.display(), "output folder changed");
             self.settings.output_dir = folder;
+            self.clips.invalidate();
             if let Err(err) = self.settings.save() {
                 tracing::warn!(%err, "cannot save settings");
             }
@@ -177,6 +256,7 @@ impl PhoneCutApp {
                 folder: self.settings.output_dir.clone(),
             }),
             Some(RecordAction::Stop) => self.command(Command::StopRecording),
+            Some(RecordAction::MarkCut) => self.command(Command::MarkCut),
             Some(RecordAction::OpenFolder(folder)) => {
                 // The default folder may not exist before the first recording.
                 let opened = std::fs::create_dir_all(&folder)
@@ -187,6 +267,7 @@ impl PhoneCutApp {
                 }
             }
             Some(RecordAction::PickFolder) => self.pick_folder(ctx),
+            Some(RecordAction::EditVideo(path)) => self.edit_video(path),
             None => {}
         }
     }
@@ -206,22 +287,51 @@ impl PhoneCutApp {
 
 impl eframe::App for PhoneCutApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        for event in self.events.try_iter() {
+        let events: Vec<Event> = self.events.try_iter().collect();
+        for event in events {
             match event {
                 Event::Mirror(state) => self.live.apply(state),
-                Event::Recording(state) => self.record.apply(state),
+                Event::Recording(state) => {
+                    if matches!(state, RecordingState::Finished { .. }) {
+                        self.clips.invalidate(); // a new video exists
+                    }
+                    self.record.apply(state);
+                }
+                Event::CutMarked { time, count } => self.record.cut_marked(time, count),
+                Event::Recordings(list) => self.clips.set_recordings(list),
+                Event::Player(event) => self.clips.apply_player(event),
+                Event::CutsSaveFailed { .. } => self.clips.cuts_save_failed(),
+                Event::Export(state) => self.clips.apply_export(state),
                 other => self.home.apply(other),
             }
         }
         self.poll_folder_picker();
+        let ctx = ui.ctx().clone();
+        // Keyboard shortcut: M marks a cut (unless typing in a text field).
+        let typing = ctx.memory(|m| m.focused().is_some());
+        if self.record.can_mark_cut() && !typing && ui.input(|i| i.key_pressed(egui::Key::M)) {
+            self.command(Command::MarkCut);
+        }
         if let Some(frame) = self.frames.take() {
-            let ctx = ui.ctx().clone();
-            self.live.show_frame(&ctx, frame);
+            // Off screen: drop it (no texture upload).
+            if self.tab == Tab::Live {
+                self.live.show_frame(&ctx, frame);
+            }
+        }
+        if let Some(frame) = self.player_frames.take() {
+            self.clips.show_frame(&ctx, &frame);
         }
         let request = self
             .live
             .plan(self.home.devices(), self.home.ready_device());
         self.send(request);
+
+        egui::Panel::top("tabs").show(ui, |ui| self.tab_bar(ui));
+        if self.tab == Tab::Clips {
+            let actions = self.clips.show(ui);
+            self.handle_clips(actions);
+            return;
+        }
 
         // Recording controls: while there is video, or to show the last result.
         if self.live.has_video() || self.record.has_message() || self.record.is_recording() {
@@ -249,5 +359,14 @@ impl eframe::App for PhoneCutApp {
             });
             self.send(retry);
         }
+    }
+}
+
+impl Drop for PhoneCutApp {
+    fn drop(&mut self) {
+        // Window closing: save pending clip edits (the core is still running
+        // and handles commands in order, before its shutdown).
+        let pending = self.clips.flush();
+        self.handle_clips(pending);
     }
 }

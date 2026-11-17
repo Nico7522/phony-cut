@@ -51,7 +51,13 @@ impl HomeScreen {
             }
             Event::AdbConflict => self.adb_conflict = true,
             // Handled by the live and record screens.
-            Event::Mirror(_) | Event::Recording(_) => {}
+            Event::Mirror(_)
+            | Event::Recording(_)
+            | Event::CutMarked { .. }
+            | Event::Recordings(_)
+            | Event::Player(_)
+            | Event::CutsSaveFailed { .. }
+            | Event::Export(_) => {}
         }
     }
 

@@ -135,6 +135,17 @@ impl MirrorSession {
         Ok(())
     }
 
+    /// Puts a cut marker in the running recording, if any.
+    pub fn mark_cut(&self) -> bool {
+        match lock(&self.shared.recorder).as_ref() {
+            Some(recorder) => {
+                recorder.mark();
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Stops the recording, if any, and waits until the file is finalized.
     pub fn stop_recording(&self) -> bool {
         let recorder = lock(&self.shared.recorder).take();

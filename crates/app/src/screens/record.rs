@@ -2,6 +2,7 @@
 //! output folder.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use eframe::egui::{self, Color32, RichText};
 use phonecut_core::api::{RecordingEnd, RecordingInfo, RecordingState};
@@ -13,9 +14,12 @@ use crate::texts;
 pub enum RecordAction {
     Start,
     Stop,
+    MarkCut,
     OpenFolder(PathBuf),
     /// Open the system "choose a folder" dialog.
     PickFolder,
+    /// Open this recording in "Mes clips".
+    EditVideo(PathBuf),
 }
 
 const RED: Color32 = Color32::from_rgb(207, 34, 46);
@@ -27,6 +31,9 @@ pub struct RecordPanel {
     starting: bool,
     /// The folder dialog is open.
     picking_folder: bool,
+    /// Cut markers in the current recording: count and last position.
+    cuts: usize,
+    last_cut: Option<Duration>,
     /// Message to show (folder could not be used…).
     notice: Option<&'static str>,
 }
@@ -34,7 +41,21 @@ pub struct RecordPanel {
 impl RecordPanel {
     pub fn apply(&mut self, state: RecordingState) {
         self.starting = false;
+        if matches!(state, RecordingState::WaitingKeyFrame { .. }) {
+            self.cuts = 0;
+            self.last_cut = None;
+        }
         self.state = Some(state);
+    }
+
+    pub fn cut_marked(&mut self, time: Duration, count: usize) {
+        self.cuts = count;
+        self.last_cut = Some(time);
+    }
+
+    /// Writing has started: cuts can be marked.
+    pub fn can_mark_cut(&self) -> bool {
+        matches!(self.state, Some(RecordingState::Recording(_)))
     }
 
     pub fn is_recording(&self) -> bool {
@@ -79,8 +100,21 @@ impl RecordPanel {
                 if ui.add(stop).clicked() {
                     action = Some(RecordAction::Stop);
                 }
+                let cut = egui::Button::new(RichText::new(texts::MARK_CUT).size(18.0))
+                    .min_size(egui::vec2(200.0, 44.0));
+                if ui
+                    .add_enabled(self.can_mark_cut(), cut)
+                    .on_hover_text(texts::MARK_CUT_HINT)
+                    .clicked()
+                {
+                    action = Some(RecordAction::MarkCut);
+                }
                 ui.add_space(12.0);
                 self.live_indicator(ui);
+                if let Some(last) = self.last_cut {
+                    ui.add_space(12.0);
+                    ui.label(texts::cuts_summary(self.cuts, last));
+                }
             } else {
                 let record = egui::Button::new(
                     RichText::new(texts::RECORD_START)
@@ -187,6 +221,10 @@ fn saved_line(ui: &mut egui::Ui, info: &RecordingInfo) -> Option<RecordAction> {
             texts::duration(info.duration),
             texts::file_size(info.bytes)
         ));
+        let edit = egui::Button::new(RichText::new(texts::EDIT_VIDEO).strong());
+        if ui.add(edit).clicked() {
+            action = Some(RecordAction::EditVideo(info.path.clone()));
+        }
         if let Some(folder) = info.path.parent() {
             if ui.button(texts::OPEN_FOLDER).clicked() {
                 action = Some(RecordAction::OpenFolder(folder.to_path_buf()));
@@ -200,7 +238,6 @@ fn saved_line(ui: &mut egui::Ui, info: &RecordingInfo) -> Option<RecordAction> {
 mod tests {
     use super::*;
     use phonecut_core::api::RecordingProblem;
-    use std::time::Duration;
 
     fn info() -> RecordingInfo {
         RecordingInfo {

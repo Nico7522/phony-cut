@@ -3,10 +3,11 @@
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, pos2, Color32, Rect, RichText, Sense, TextureHandle, TextureOptions};
+use eframe::egui::{self, RichText, TextureHandle};
 use phonecut_core::api::{DeviceInfo, MirrorEnd, MirrorState, VideoFrame};
 
 use crate::texts;
+use crate::widgets::video;
 
 /// What the UI should ask the core to do.
 #[derive(Debug, PartialEq, Eq)]
@@ -93,17 +94,7 @@ impl LiveScreen {
             return;
         }
         let started = Instant::now();
-        let size = [frame.width as usize, frame.height as usize];
-        // Frames are opaque (alpha = 255), so premultiplied == unmultiplied,
-        // and this conversion is ~3x cheaper.
-        let image = egui::ColorImage::from_rgba_premultiplied(size, &frame.rgba);
-        match &mut self.texture {
-            Some(texture) => texture.set(image, TextureOptions::LINEAR),
-            None => {
-                self.texture =
-                    Some(ctx.load_texture("phone-screen", image, TextureOptions::LINEAR));
-            }
-        }
+        video::upload(ctx, &mut self.texture, "phone-screen", &frame);
         self.stats.record(started.elapsed());
     }
 
@@ -118,18 +109,9 @@ impl LiveScreen {
 
     /// Draws the phone screen, as large as possible with the right ratio.
     pub fn show_video(&self, ui: &mut egui::Ui) {
-        let Some(texture) = &self.texture else { return };
-        let area = ui.available_rect_before_wrap();
-        let [w, h] = texture.size().map(|v| v as f32);
-        let scale = (area.width() / w).min(area.height() / h);
-        let rect = Rect::from_center_size(area.center(), egui::vec2(w * scale, h * scale));
-        ui.allocate_rect(area, Sense::hover());
-        ui.painter().image(
-            texture.id(),
-            rect,
-            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-            Color32::WHITE,
-        );
+        if let Some(texture) = &self.texture {
+            video::fit(ui, texture);
+        }
     }
 
     /// Status below the connection message when no video is shown.

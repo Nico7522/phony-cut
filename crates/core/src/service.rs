@@ -10,11 +10,13 @@ use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 
 use crate::adb::{Adb, AdbError, ProductInfo};
 use crate::api::{
-    AdbProblem, AdbStatus, Command, DeviceInfo, DeviceState, Event, FrameSlot, MirrorEnd,
-    MirrorState, RecordingProblem, RecordingState,
+    AdbProblem, AdbStatus, Command, DeviceInfo, DeviceState, Event, ExportProblem, ExportState,
+    FrameSlot, MirrorEnd, MirrorState, RecordingProblem, RecordingState,
 };
+use crate::export::ExportJob;
 use crate::platform;
-use crate::record::{recording_file_name, unique_path};
+use crate::player::{Control, Player, PlayerSetup};
+use crate::record::{list_recordings, recording_file_name, unique_path};
 use crate::scrcpy::server::ServerOptions;
 use crate::scrcpy::session::{MirrorSession, SessionContext};
 
@@ -28,6 +30,7 @@ pub struct Core {
     commands: Sender<Command>,
     events: Receiver<Event>,
     frames: Arc<FrameSlot>,
+    player_frames: Arc<FrameSlot>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -38,7 +41,14 @@ impl Core {
         let (cmd_tx, cmd_rx) = unbounded();
         let (ev_tx, ev_rx) = unbounded();
         let frames = Arc::new(FrameSlot::default());
-        let worker = Worker::new(cmd_rx, ev_tx, notify, Arc::clone(&frames));
+        let player_frames = Arc::new(FrameSlot::default());
+        let worker = Worker::new(
+            cmd_rx,
+            ev_tx,
+            notify,
+            Arc::clone(&frames),
+            Arc::clone(&player_frames),
+        );
         let thread = thread::Builder::new()
             .name("core-service".into())
             .spawn(move || worker.run())?;
@@ -46,8 +56,14 @@ impl Core {
             commands: cmd_tx,
             events: ev_rx,
             frames,
+            player_frames,
             thread: Some(thread),
         })
+    }
+
+    /// Latest frame of the video open in the player.
+    pub fn player_frames(&self) -> Arc<FrameSlot> {
+        Arc::clone(&self.player_frames)
     }
 
     pub fn commands(&self) -> Sender<Command> {
@@ -100,6 +116,9 @@ struct Worker {
     products: HashMap<String, ProductInfo>,
     frames: Arc<FrameSlot>,
     mirror: Option<MirrorSession>,
+    player_frames: Arc<FrameSlot>,
+    player: Option<Player>,
+    export: Option<ExportJob>,
 }
 
 impl Worker {
@@ -108,6 +127,7 @@ impl Worker {
         events: Sender<Event>,
         notify: Notifier,
         frames: Arc<FrameSlot>,
+        player_frames: Arc<FrameSlot>,
     ) -> Self {
         Self {
             commands,
@@ -115,6 +135,9 @@ impl Worker {
             notify,
             frames,
             mirror: None,
+            player_frames,
+            player: None,
+            export: None,
             adb: None,
             server_running: false,
             owns_server: false,
@@ -158,10 +181,37 @@ impl Worker {
                         mirror.stop_recording();
                     }
                 }
+                Ok(Command::MarkCut) => {
+                    if !self.mirror.as_ref().is_some_and(MirrorSession::mark_cut) {
+                        tracing::info!("cut ignored: not recording");
+                    }
+                }
+                Ok(Command::ListRecordings { folder }) => {
+                    self.send(Event::Recordings(list_recordings(&folder)));
+                }
+                Ok(Command::OpenVideo { path }) => self.open_video(path),
+                Ok(Command::Play) => self.player_control(Control::Play),
+                Ok(Command::Pause) => self.player_control(Control::Pause),
+                Ok(Command::Seek { time }) => self.player_control(Control::Seek(time)),
+                Ok(Command::CloseVideo) => self.player = None,
+                Ok(Command::SaveCuts { video, cuts }) => {
+                    if let Err(err) = cuts.save(&video) {
+                        tracing::error!(%err, video = %video.display(), "cannot save cuts");
+                        self.send(Event::CutsSaveFailed { video });
+                    }
+                }
+                Ok(Command::Export(request)) => self.start_export(request),
+                Ok(Command::CancelExport) => {
+                    if let Some(job) = &self.export {
+                        job.cancel();
+                    }
+                }
                 Err(RecvTimeoutError::Timeout) => {}
             }
         }
 
+        self.player = None;
+        self.export = None;
         self.stop_mirror();
         self.cleanup();
         tracing::info!("core service stopped");
@@ -191,6 +241,49 @@ impl Worker {
                 self.send(Event::Mirror(MirrorState::Stopped {
                     serial,
                     end: MirrorEnd::Failed,
+                }));
+            }
+        }
+    }
+
+    fn open_video(&mut self, path: std::path::PathBuf) {
+        self.player = None; // closes the previous video
+        tracing::info!(path = %path.display(), "open video");
+        let setup = PlayerSetup {
+            path: path.clone(),
+            frames: Arc::clone(&self.player_frames),
+            events: self.events.clone(),
+            notify: Arc::clone(&self.notify),
+        };
+        match Player::open(setup) {
+            Ok(player) => self.player = Some(player),
+            Err(err) => {
+                tracing::error!(%err, "cannot start player thread");
+                self.send(Event::Player(crate::api::PlayerEvent::Failed { path }));
+            }
+        }
+    }
+
+    fn player_control(&self, control: Control) {
+        if let Some(player) = &self.player {
+            player.send(control);
+        }
+    }
+
+    fn start_export(&mut self, request: crate::api::ExportRequest) {
+        if self.export.as_ref().is_some_and(|job| !job.is_finished()) {
+            self.send(Event::Export(ExportState::Failed {
+                problem: ExportProblem::Busy,
+            }));
+            return;
+        }
+        self.export = None;
+        match ExportJob::start(request, self.events.clone(), Arc::clone(&self.notify)) {
+            Ok(job) => self.export = Some(job),
+            Err(err) => {
+                tracing::error!(%err, "cannot start export thread");
+                self.send(Event::Export(ExportState::Failed {
+                    problem: ExportProblem::CannotWrite,
                 }));
             }
         }

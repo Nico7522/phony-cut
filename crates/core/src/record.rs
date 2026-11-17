@@ -21,7 +21,10 @@ use ffmpeg::util::mathematics::Rescale;
 use ffmpeg::{codec, format, Dictionary, Rational};
 use ffmpeg_next as ffmpeg;
 
-use crate::api::{Event, Notifier, RecordingEnd, RecordingInfo, RecordingProblem, RecordingState};
+use crate::api::{
+    Event, Notifier, RecordingEnd, RecordingEntry, RecordingInfo, RecordingProblem, RecordingState,
+};
+use crate::markers::{sidecar_path, CutFile, Marker};
 use crate::platform::LocalDateTime;
 use crate::scrcpy::protocol::MediaPacket;
 
@@ -63,6 +66,30 @@ pub fn unique_path(folder: &Path, name: &str) -> PathBuf {
         })
         .find(|p| !p.exists())
         .unwrap_or(candidate)
+}
+
+/// Recordings (`.mkv`) of a folder, newest first. A missing folder is empty.
+pub fn list_recordings(folder: &Path) -> Vec<RecordingEntry> {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return Vec::new();
+    };
+    let mut list: Vec<RecordingEntry> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("mkv")))
+        .filter_map(|path| {
+            let meta = fs::metadata(&path).ok()?;
+            let cuts = CutFile::load(&path).map_or(0, |c| c.markers.len());
+            Some(RecordingEntry {
+                bytes: meta.len(),
+                modified: meta.modified().ok(),
+                cuts,
+                path,
+            })
+        })
+        .collect();
+    list.sort_by_key(|entry| std::cmp::Reverse(entry.modified));
+    list
 }
 
 /// Maps device PTS to file time (µs from the first recorded frame).
@@ -246,6 +273,7 @@ pub struct RecorderSetup {
 enum Input {
     Packet(MediaPacket, Instant),
     Resized { width: u32, height: u32 },
+    Mark(Instant),
     Stop(RecordingEnd, Instant),
 }
 
@@ -290,6 +318,11 @@ impl Recorder {
         let _ = self.input.send(Input::Resized { width, height });
     }
 
+    /// Puts a cut marker at the current position.
+    pub fn mark(&self) {
+        let _ = self.input.send(Input::Mark(Instant::now()));
+    }
+
     /// Finalizes the file and waits for it to be complete.
     pub fn stop(mut self, end: RecordingEnd) {
         let _ = self.input.send(Input::Stop(end, Instant::now()));
@@ -324,6 +357,8 @@ struct Task {
     /// New SPS/PPS (after a rotation) to put in front of the next frame.
     inline_config: Option<Vec<u8>>,
     writer: Option<(MkvWriter, Timeline)>,
+    /// Cut markers, saved next to the video after each new one.
+    cuts: CutFile,
     failed: bool,
     events: Sender<Event>,
     notify: Notifier,
@@ -339,6 +374,7 @@ impl Task {
             config: setup.config,
             inline_config: None,
             writer: None,
+            cuts: CutFile::default(),
             failed: false,
             events: setup.events,
             notify: setup.notify,
@@ -358,6 +394,7 @@ impl Task {
                     self.width = width;
                     self.height = height;
                 }
+                Ok(Input::Mark(at)) => self.mark(at),
                 Ok(Input::Stop(end, at)) => return self.finish(end, at),
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => {
@@ -426,6 +463,26 @@ impl Task {
         }
     }
 
+    fn mark(&mut self, at: Instant) {
+        let Some((_, timeline)) = &self.writer else {
+            tracing::info!("cut ignored: recording has not started yet");
+            return;
+        };
+        let time_ms = u64::try_from(timeline.time_at(at) / 1000).unwrap_or(0);
+        self.cuts.markers.push(Marker { time_ms });
+        if let Err(err) = self.cuts.save(&self.path) {
+            tracing::error!(%err, "cannot save cut markers");
+        }
+        tracing::info!(time_ms, "cut marked");
+        let event = Event::CutMarked {
+            time: Duration::from_millis(time_ms),
+            count: self.cuts.markers.len(),
+        };
+        if self.events.send(event).is_ok() {
+            (self.notify)();
+        }
+    }
+
     fn writer_just_started(&self) -> bool {
         self.writer
             .as_ref()
@@ -472,6 +529,7 @@ impl Task {
             None => {
                 tracing::info!("recording stopped before the first key frame");
                 let _ = fs::remove_file(&self.path);
+                let _ = fs::remove_file(sidecar_path(&self.path));
                 self.send(RecordingState::Failed {
                     path: None,
                     problem: RecordingProblem::NoVideo,

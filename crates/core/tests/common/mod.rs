@@ -16,6 +16,35 @@ pub const FRAME_US: u64 = 33_333;
 /// Encodes `FRAMES` frames of a moving gradient; returns Annex-B packets
 /// with their key-frame flag.
 pub fn encode_h264(width: u32, height: u32) -> Vec<(Vec<u8>, bool)> {
+    encode_h264_with(width, height, FRAMES, 30)
+}
+
+/// Writes a test recording with our own MKV writer: `seconds` of 30 fps
+/// video with a key frame every second (like the real stream). Returns the
+/// duration in ms.
+pub fn write_test_recording(path: &std::path::Path, seconds: usize) -> u64 {
+    write_test_recording_with_tail(path, seconds, 0)
+}
+
+/// Like [`write_test_recording`], followed by `tail_ms` of static screen
+/// (no frame, like the real server when nothing changes).
+pub fn write_test_recording_with_tail(path: &std::path::Path, seconds: usize, tail_ms: i64) -> u64 {
+    use phonecut_core::record::MkvWriter;
+    let packets = encode_h264_with(160, 96, seconds * 30, 30);
+    let (config, first) = split_config(&packets[0].0);
+    let mut writer = MkvWriter::create(path, 160, 96, &config).expect("create mkv");
+    for (i, (au, key)) in packets.iter().enumerate() {
+        let data = if i == 0 { first.clone() } else { au.clone() };
+        let time_us = i as i64 * FRAME_US as i64;
+        writer.write(data, time_us, *key).expect("write");
+    }
+    let end_us = (packets.len() as i64) * FRAME_US as i64 + tail_ms * 1000;
+    writer.finish(end_us).expect("finish");
+    (end_us / 1000) as u64
+}
+
+/// Like [`encode_h264`] with a frame count and key frame interval.
+pub fn encode_h264_with(width: u32, height: u32, frames: usize, gop: u32) -> Vec<(Vec<u8>, bool)> {
     ffmpeg::init().expect("ffmpeg init");
     ffmpeg::util::log::set_level(ffmpeg::util::log::Level::Error);
     let codec = ffmpeg::encoder::find_by_name("libopenh264").expect("libopenh264 encoder");
@@ -28,7 +57,7 @@ pub fn encode_h264(width: u32, height: u32) -> Vec<(Vec<u8>, bool)> {
     ctx.set_format(Pixel::YUV420P);
     ctx.set_time_base((1, 30));
     ctx.set_bit_rate(400_000);
-    ctx.set_gop(30);
+    ctx.set_gop(gop);
     let mut encoder = ctx.open_as(codec).expect("open encoder");
 
     let mut packets = Vec::new();
@@ -40,7 +69,7 @@ pub fn encode_h264(width: u32, height: u32) -> Vec<(Vec<u8>, bool)> {
         }
     };
 
-    for i in 0..FRAMES {
+    for i in 0..frames {
         let mut picture = frame::Video::new(Pixel::YUV420P, width, height);
         for plane in 0..3 {
             let stride = picture.stride(plane);

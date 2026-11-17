@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use phonecut_core::api::{AdbProblem, DeviceInfo, DeviceState, RecordingProblem};
+use phonecut_core::api::{AdbProblem, DeviceInfo, DeviceState, ExportProblem, RecordingProblem};
 
 /// Main message (title) and what the user should do (hint).
 pub struct Message {
@@ -44,6 +44,109 @@ pub const LIVE_BADGE: &str = "Aperçu en direct";
 pub const RECORD_START: &str = "●  Enregistrer";
 pub const RECORD_STOP: &str = "Arrêter l'enregistrement";
 pub const RECORD_WAITING: &str = "Démarrage de l'enregistrement…";
+pub const MARK_CUT: &str = "Marquer un cut  (M)";
+pub const MARK_CUT_HINT: &str = "Pose un repère à cet instant. Vous pourrez ensuite découper \
+    la vidéo à ces repères dans « Mes clips ». Raccourci : touche M.";
+
+pub const TAB_LIVE: &str = "Direct";
+pub const TAB_CLIPS: &str = "Mes clips";
+pub const TAB_RECORDING: &str = "  ● REC";
+pub const EDIT_VIDEO: &str = "Découper cette vidéo";
+
+pub const CLIPS_LIST_TITLE: &str = "Vos vidéos";
+pub const CLIPS_REFRESH: &str = "Actualiser";
+pub const CLIPS_EMPTY: &str = "Aucune vidéo pour l'instant. Enregistrez l'écran de votre \
+    téléphone depuis l'onglet « Direct ».";
+pub const CLIPS_PICK: &str = "Choisissez une vidéo dans la liste pour la découper en clips.";
+pub const CLIPS_LOADING: &str = "Ouverture de la vidéo…";
+pub const PLAYER_FAILED: &str = "Impossible d'ouvrir cette vidéo. Elle a peut-être été \
+    déplacée, supprimée ou endommagée.";
+pub const CUTS_SAVE_FAILED: &str = "Impossible d'enregistrer vos modifications à côté de la \
+    vidéo. Vérifiez que le dossier n'est pas en lecture seule.";
+pub const PLAY: &str = "Lecture";
+pub const PAUSE: &str = "Pause";
+pub const PLAY_HINT: &str = "Raccourci : barre d'espace.";
+pub const SPLIT_HERE: &str = "Couper ici";
+pub const SPLIT_HINT: &str = "Coupe le clip sélectionné en deux à la position de lecture.";
+pub const RESET_SEGMENTS: &str = "Revenir aux cuts d'origine";
+pub const SEGMENTS_TITLE: &str = "Clips";
+pub const SEGMENTS_HINT: &str = "Cochez les clips à exporter. Faites glisser les poignées \
+    jaunes sur la barre pour ajuster le début et la fin du clip sélectionné.";
+pub const SEGMENT_GO: &str = "Voir";
+pub const SEGMENT_SET_START: &str = "Début ici";
+pub const SEGMENT_SET_END: &str = "Fin ici";
+pub const EXPORT_MODE: &str = "Export :";
+pub const EXPORT_FAST: &str = "Rapide";
+pub const EXPORT_FAST_HINT: &str = "Instantané et sans perte de qualité. Le clip peut \
+    commencer jusqu'à 1 seconde avant le début choisi.";
+pub const EXPORT_PRECISE: &str = "Précis";
+pub const EXPORT_PRECISE_HINT: &str = "Commence exactement au début choisi. Plus lent : \
+    la vidéo est recompressée.";
+pub const EXPORT_RUNNING: &str = "Export en cours…";
+pub const EXPORT_CANCEL: &str = "Annuler";
+pub const EXPORT_CANCELLED: &str = "Export annulé.";
+
+pub fn export_button(count: usize) -> String {
+    match count {
+        0 => "Aucun clip coché".to_owned(),
+        1 => "Exporter 1 clip".to_owned(),
+        n => format!("Exporter {n} clips"),
+    }
+}
+
+pub fn export_done(count: usize) -> String {
+    match count {
+        1 => "1 clip exporté en MP4.".to_owned(),
+        n => format!("{n} clips exportés en MP4."),
+    }
+}
+
+pub fn export_problem(problem: ExportProblem) -> &'static str {
+    match problem {
+        ExportProblem::NothingToExport => "Cochez au moins un clip à exporter.",
+        ExportProblem::CannotRead => {
+            "Impossible de lire la vidéo. Elle a peut-être été déplacée ou supprimée."
+        }
+        ExportProblem::CannotWrite => {
+            "Impossible d'écrire les clips (disque plein ou dossier protégé ?). Libérez de \
+             la place ou changez le dossier des vidéos, puis réessayez."
+        }
+        ExportProblem::NoEncoder => {
+            "L'export précis n'est pas disponible sur cet ordinateur. Utilisez l'export rapide."
+        }
+        ExportProblem::Busy => "Un export est déjà en cours. Attendez qu'il se termine.",
+    }
+}
+
+/// `01:02 → 01:30  (28 s)`
+pub fn segment_range(start_ms: u64, end_ms: u64) -> String {
+    let len = end_ms.saturating_sub(start_ms);
+    let length = if len < 60_000 {
+        format!("{:.1} s", len as f64 / 1000.0).replace('.', ",")
+    } else {
+        duration(Duration::from_millis(len))
+    };
+    format!(
+        "{} → {}  ({length})",
+        duration(Duration::from_millis(start_ms)),
+        duration(Duration::from_millis(end_ms))
+    )
+}
+
+/// `10,1 Mo · 3 cuts`
+pub fn recording_details(bytes: u64, cuts: usize) -> String {
+    match cuts {
+        0 => file_size(bytes),
+        1 => format!("{}  ·  1 cut", file_size(bytes)),
+        n => format!("{}  ·  {n} cuts", file_size(bytes)),
+    }
+}
+
+/// `3 cuts · dernier à 01:23`
+pub fn cuts_summary(count: usize, last: Duration) -> String {
+    let noun = if count > 1 { "cuts" } else { "cut" };
+    format!("{count} {noun}  ·  dernier à {}", duration(last))
+}
 pub const RECORD_LIVE: &str = "● REC";
 pub const RECORD_SAVED: &str = "Vidéo enregistrée :";
 pub const RECORD_SAVED_AFTER_UNPLUG: &str = "Le téléphone s'est déconnecté : l'enregistrement \

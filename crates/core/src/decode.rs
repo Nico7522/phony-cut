@@ -42,14 +42,88 @@ struct ScalerKey {
     height: u32,
 }
 
+/// Converts decoded frames (any pixel format and size) to packed RGBA,
+/// rebuilding its scaler when the input changes (rotation).
+#[derive(Default)]
+pub struct RgbaConverter {
+    scaler: Option<(ScalerKey, scaling::Context)>,
+    converted: Option<frame::Video>,
+}
+
+impl RgbaConverter {
+    /// `pts_us`: presentation time to attach to the result.
+    pub fn convert(
+        &mut self,
+        decoded: &frame::Video,
+        pts_us: Option<u64>,
+    ) -> Result<VideoFrame, DecodeError> {
+        let key = ScalerKey {
+            format: decoded.format(),
+            width: decoded.width(),
+            height: decoded.height(),
+        };
+        let scaler = match &mut self.scaler {
+            Some((current, scaler)) if *current == key => scaler,
+            slot => {
+                let scaler = scaling::Context::get(
+                    key.format,
+                    key.width,
+                    key.height,
+                    Pixel::RGBA,
+                    key.width,
+                    key.height,
+                    scaling::Flags::BILINEAR,
+                )?;
+                &mut slot.insert((key, scaler)).1
+            }
+        };
+        let converted = self.converted.get_or_insert_with(frame::Video::empty);
+        scaler.run(decoded, converted)?;
+
+        let (width, height) = (key.width as usize, key.height as usize);
+        let row_len = width * 4;
+        let stride = converted.stride(0);
+        let data = converted.data(0);
+        let mut rgba = Vec::with_capacity(row_len * height);
+        for row in data.chunks(stride).take(height) {
+            rgba.extend_from_slice(&row[..row_len]);
+        }
+
+        Ok(VideoFrame {
+            width: key.width,
+            height: key.height,
+            rgba,
+            pts_us,
+        })
+    }
+}
+
+/// Receives every available frame from `decoder`, calling `on_frame` for
+/// each; stops when the decoder needs more input.
+pub fn drain_frames(
+    decoder: &mut ffmpeg::decoder::Video,
+    frame: &mut frame::Video,
+    mut on_frame: impl FnMut(&frame::Video) -> Result<(), DecodeError>,
+) -> Result<(), DecodeError> {
+    loop {
+        match decoder.receive_frame(frame) {
+            Ok(()) => on_frame(frame)?,
+            Err(ffmpeg::Error::Other { errno }) if errno == ffmpeg::util::error::EAGAIN => {
+                return Ok(())
+            }
+            Err(ffmpeg::Error::Eof) => return Ok(()),
+            Err(err) => return Err(err.into()),
+        }
+    }
+}
+
 pub struct H264Decoder {
     decoder: ffmpeg::decoder::Video,
-    scaler: Option<(ScalerKey, scaling::Context)>,
+    converter: RgbaConverter,
     /// SPS/PPS waiting to be prepended to the next frame packet (scrcpy sends
     /// them as a separate "config" packet).
     pending_config: Option<Vec<u8>>,
     decoded: frame::Video,
-    converted: frame::Video,
 }
 
 impl H264Decoder {
@@ -61,10 +135,9 @@ impl H264Decoder {
         let decoder = context.decoder().video()?;
         Ok(Self {
             decoder,
-            scaler: None,
+            converter: RgbaConverter::default(),
             pending_config: None,
             decoded: frame::Video::empty(),
-            converted: frame::Video::empty(),
         })
     }
 
@@ -92,56 +165,12 @@ impl H264Decoder {
         self.decoder.send_packet(&av_packet)?;
 
         let mut latest = None;
-        loop {
-            match self.decoder.receive_frame(&mut self.decoded) {
-                Ok(()) => latest = Some(self.convert()?),
-                Err(ffmpeg::Error::Other { errno }) if errno == ffmpeg::util::error::EAGAIN => {
-                    break
-                }
-                Err(ffmpeg::Error::Eof) => break,
-                Err(err) => return Err(err.into()),
-            }
-        }
+        let converter = &mut self.converter;
+        drain_frames(&mut self.decoder, &mut self.decoded, |decoded| {
+            let pts = decoded.pts().and_then(|p| u64::try_from(p).ok());
+            latest = Some(converter.convert(decoded, pts)?);
+            Ok(())
+        })?;
         Ok(latest)
-    }
-
-    fn convert(&mut self) -> Result<VideoFrame, DecodeError> {
-        let key = ScalerKey {
-            format: self.decoded.format(),
-            width: self.decoded.width(),
-            height: self.decoded.height(),
-        };
-        let scaler = match &mut self.scaler {
-            Some((current, scaler)) if *current == key => scaler,
-            slot => {
-                let scaler = scaling::Context::get(
-                    key.format,
-                    key.width,
-                    key.height,
-                    Pixel::RGBA,
-                    key.width,
-                    key.height,
-                    scaling::Flags::BILINEAR,
-                )?;
-                &mut slot.insert((key, scaler)).1
-            }
-        };
-        scaler.run(&self.decoded, &mut self.converted)?;
-
-        let (width, height) = (key.width as usize, key.height as usize);
-        let row_len = width * 4;
-        let stride = self.converted.stride(0);
-        let data = self.converted.data(0);
-        let mut rgba = Vec::with_capacity(row_len * height);
-        for row in data.chunks(stride).take(height) {
-            rgba.extend_from_slice(&row[..row_len]);
-        }
-
-        Ok(VideoFrame {
-            width: key.width,
-            height: key.height,
-            rgba,
-            pts_us: self.decoded.pts().and_then(|p| u64::try_from(p).ok()),
-        })
     }
 }

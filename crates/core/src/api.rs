@@ -6,7 +6,9 @@
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+
+pub use crate::markers::{CutFile, Marker, Segment};
 
 /// Provided by the UI: called after each event and each new video frame so
 /// the UI wakes up and repaints.
@@ -18,20 +20,51 @@ pub enum Command {
     /// Re-read the device list now instead of waiting for the next poll.
     RefreshDevices,
     /// Start mirroring the screen of this device (stops any running mirror).
-    StartMirror { serial: String },
+    StartMirror {
+        serial: String,
+    },
     /// Stop the running mirror, if any.
     StopMirror,
     /// Start recording the running mirror into a new file in `folder`
     /// (created if needed).
-    StartRecording { folder: PathBuf },
+    StartRecording {
+        folder: PathBuf,
+    },
     /// Stop the recording; the file is finalized.
     StopRecording,
+    /// Put a cut marker at the current position of the recording.
+    MarkCut,
+
+    // --- "Mes clips" ---
+    /// List the recordings (`.mkv`) of a folder → [`Event::Recordings`].
+    ListRecordings {
+        folder: PathBuf,
+    },
+    /// Open a recording in the player (closes the previous one).
+    OpenVideo {
+        path: PathBuf,
+    },
+    Play,
+    Pause,
+    /// Show the frame at `time` (frame-accurate).
+    Seek {
+        time: Duration,
+    },
+    CloseVideo,
+    /// Save edited segments/markers next to the video.
+    SaveCuts {
+        video: PathBuf,
+        cuts: CutFile,
+    },
+    /// Export clips (one file per selected segment).
+    Export(ExportRequest),
+    CancelExport,
     /// Stop the service: background threads end and adb is cleaned up.
     Shutdown,
 }
 
 /// Notifications sent by the core service to the UI.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     /// The adb connection layer changed state.
     AdbStatus(AdbStatus),
@@ -45,6 +78,101 @@ pub enum Event {
     Mirror(MirrorState),
     /// Recording progress and result.
     Recording(RecordingState),
+    /// A cut marker was saved, at `time` in the video being recorded.
+    CutMarked {
+        time: Duration,
+        count: usize,
+    },
+    /// Recordings of the folder, newest first.
+    Recordings(Vec<RecordingEntry>),
+    Player(PlayerEvent),
+    /// Edited segments could not be written next to the video.
+    CutsSaveFailed {
+        video: PathBuf,
+    },
+    Export(ExportState),
+}
+
+/// A recording file in the library.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordingEntry {
+    pub path: PathBuf,
+    pub bytes: u64,
+    pub modified: Option<SystemTime>,
+    /// Number of cut markers saved for it.
+    pub cuts: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlayerEvent {
+    /// The video is open; the first frame follows (paused).
+    Loaded(LoadedVideo),
+    /// Current position, sent while playing and after each seek.
+    Position { time: Duration, playing: bool },
+    /// Playback reached the end (paused on the last frame).
+    Ended,
+    /// The file could not be opened or read.
+    Failed { path: PathBuf },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadedVideo {
+    pub path: PathBuf,
+    pub duration: Duration,
+    pub width: u32,
+    pub height: u32,
+    /// Markers and saved segments (empty if none).
+    pub cuts: CutFile,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportRequest {
+    pub video: PathBuf,
+    /// Segments to export, in order (each becomes one `.mp4`).
+    pub segments: Vec<Segment>,
+    pub mode: ExportMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExportMode {
+    /// Stream copy: instant, the clip starts on the key frame at or before
+    /// the in point (at most ~1 s earlier).
+    #[default]
+    Fast,
+    /// Re-encoded: starts exactly on the in point, slower.
+    Precise,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExportState {
+    /// `clip` (0-based) of `clips` is being written; `fraction` of the whole job.
+    Progress {
+        clip: usize,
+        clips: usize,
+        fraction: f32,
+    },
+    Finished {
+        files: Vec<PathBuf>,
+        folder: PathBuf,
+    },
+    Cancelled,
+    Failed {
+        problem: ExportProblem,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportProblem {
+    /// No segment selected.
+    NothingToExport,
+    /// The recording cannot be read (moved, deleted, damaged).
+    CannotRead,
+    /// The clips cannot be written (folder, disk full…).
+    CannotWrite,
+    /// No H.264 encoder available for precise export.
+    NoEncoder,
+    /// An export is already running.
+    Busy,
 }
 
 /// Lifecycle of a recording.
