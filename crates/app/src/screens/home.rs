@@ -50,8 +50,8 @@ impl HomeScreen {
                 self.devices = devices;
             }
             Event::AdbConflict => self.adb_conflict = true,
-            // Handled by the live screen.
-            Event::Mirror(_) => {}
+            // Handled by the live and record screens.
+            Event::Mirror(_) | Event::Recording(_) => {}
         }
     }
 

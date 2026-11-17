@@ -11,12 +11,14 @@ use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use crate::adb::{Adb, AdbError, ProductInfo};
 use crate::api::{
     AdbProblem, AdbStatus, Command, DeviceInfo, DeviceState, Event, FrameSlot, MirrorEnd,
-    MirrorState,
+    MirrorState, RecordingProblem, RecordingState,
 };
+use crate::platform;
+use crate::record::{recording_file_name, unique_path};
 use crate::scrcpy::server::ServerOptions;
 use crate::scrcpy::session::{MirrorSession, SessionContext};
 
-pub use crate::scrcpy::session::Notifier;
+pub use crate::api::Notifier;
 
 /// How often the device list is re-read.
 pub const POLL_INTERVAL: Duration = Duration::from_secs(1);
@@ -150,6 +152,12 @@ impl Worker {
                 Ok(Command::RefreshDevices) => next_poll = Instant::now(),
                 Ok(Command::StartMirror { serial }) => self.start_mirror(serial),
                 Ok(Command::StopMirror) => self.stop_mirror(),
+                Ok(Command::StartRecording { folder }) => self.start_recording(&folder),
+                Ok(Command::StopRecording) => {
+                    if let Some(mirror) = &self.mirror {
+                        mirror.stop_recording();
+                    }
+                }
                 Err(RecvTimeoutError::Timeout) => {}
             }
         }
@@ -185,6 +193,24 @@ impl Worker {
                     end: MirrorEnd::Failed,
                 }));
             }
+        }
+    }
+
+    fn start_recording(&mut self, folder: &std::path::Path) {
+        let result = match &self.mirror {
+            Some(mirror) if !mirror.is_finished() => {
+                let path = unique_path(folder, &recording_file_name(platform::local_now()));
+                tracing::info!(path = %path.display(), "start recording");
+                mirror.start_recording(path)
+            }
+            _ => Err(RecordingProblem::NotMirroring),
+        };
+        if let Err(problem) = result {
+            tracing::warn!(?problem, "recording not started");
+            self.send(Event::Recording(RecordingState::Failed {
+                path: None,
+                problem,
+            }));
         }
     }
 

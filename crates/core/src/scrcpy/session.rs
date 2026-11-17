@@ -3,21 +3,22 @@
 
 use std::io::BufReader;
 use std::net::{Shutdown, TcpStream};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::Sender;
 
 use crate::adb::Adb;
-use crate::api::{Event, FrameSlot, MirrorEnd, MirrorState};
+use crate::api::{
+    Event, FrameSlot, MirrorEnd, MirrorState, Notifier, RecordingEnd, RecordingProblem,
+};
 use crate::decode::{DecodeError, H264Decoder};
+use crate::record::{Recorder, RecorderSetup};
 use crate::scrcpy::protocol::{self, ProtocolError, StreamItem, VideoCodec};
 use crate::scrcpy::server::{RunningServer, ServerError, ServerOptions};
-
-/// Wakes the UI after an event or a new frame.
-pub type Notifier = Arc<dyn Fn() + Send + Sync>;
 
 /// After the stream ends, how many times / how often to check whether the
 /// phone is still there (adb may take a moment to notice an unplug).
@@ -44,6 +45,23 @@ struct Shared {
     stop: AtomicBool,
     /// Clone of the video socket, so `stop()` can unblock the reading thread.
     socket: Mutex<Option<TcpStream>>,
+    /// What a recorder starting mid-stream needs to know.
+    stream: Mutex<StreamInfo>,
+    /// Active recording, fed by the session thread.
+    recorder: Mutex<Option<Recorder>>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct StreamInfo {
+    size: Option<(u32, u32)>,
+    /// Last codec configuration packet (SPS/PPS).
+    config: Option<Vec<u8>>,
+}
+
+/// Locks a mutex, ignoring poisoning (the data stays consistent: every
+/// critical section here is a simple swap or clone).
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 /// Everything the session thread needs.
@@ -68,6 +86,8 @@ impl SessionContext {
 pub struct MirrorSession {
     serial: String,
     shared: Arc<Shared>,
+    events: Sender<Event>,
+    notify: Notifier,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -75,6 +95,8 @@ impl MirrorSession {
     pub fn start(ctx: SessionContext) -> std::io::Result<Self> {
         let shared = Arc::new(Shared::default());
         let serial = ctx.serial.clone();
+        let events = ctx.events.clone();
+        let notify = Arc::clone(&ctx.notify);
         let thread_shared = Arc::clone(&shared);
         let thread = thread::Builder::new()
             .name("mirror-session".into())
@@ -82,12 +104,47 @@ impl MirrorSession {
         Ok(Self {
             serial,
             shared,
+            events,
+            notify,
             thread: Some(thread),
         })
     }
 
     pub fn serial(&self) -> &str {
         &self.serial
+    }
+
+    /// Starts recording the stream into `path`.
+    pub fn start_recording(&self, path: PathBuf) -> Result<(), RecordingProblem> {
+        let stream = lock(&self.shared.stream).clone();
+        let Some((width, height)) = stream.size else {
+            return Err(RecordingProblem::NotMirroring);
+        };
+        let mut slot = lock(&self.shared.recorder);
+        if slot.is_some() {
+            return Err(RecordingProblem::AlreadyRecording);
+        }
+        *slot = Some(Recorder::start(RecorderSetup {
+            path,
+            width,
+            height,
+            config: stream.config,
+            events: self.events.clone(),
+            notify: Arc::clone(&self.notify),
+        })?);
+        Ok(())
+    }
+
+    /// Stops the recording, if any, and waits until the file is finalized.
+    pub fn stop_recording(&self) -> bool {
+        let recorder = lock(&self.shared.recorder).take();
+        match recorder {
+            Some(recorder) => {
+                recorder.stop(RecordingEnd::Requested);
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn is_finished(&self) -> bool {
@@ -97,12 +154,7 @@ impl MirrorSession {
     /// Asks the session to stop (non-blocking).
     pub fn request_stop(&self) {
         self.shared.stop.store(true, Ordering::Relaxed);
-        let socket = self
-            .shared
-            .socket
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .take();
+        let socket = lock(&self.shared.socket).take();
         if let Some(socket) = socket {
             let _ = socket.shutdown(Shutdown::Both);
         }
@@ -126,6 +178,11 @@ fn run(ctx: SessionContext, shared: &Shared) {
     });
 
     let result = stream(&ctx, shared);
+    // The stream is over: finalize any recording so the file stays playable.
+    let recorder = lock(&shared.recorder).take();
+    if let Some(recorder) = recorder {
+        recorder.stop(RecordingEnd::MirrorStopped);
+    }
     let end = if shared.stop.load(Ordering::Relaxed) {
         MirrorEnd::Requested
     } else {
@@ -157,7 +214,7 @@ fn stream(ctx: &SessionContext, shared: &Shared) -> Result<(), SessionError> {
     // Publish a clone so request_stop() can unblock reads, then re-check the
     // flag in case stop was requested just before.
     let clone = socket.try_clone().map_err(ProtocolError::from)?;
-    *shared.socket.lock().unwrap_or_else(PoisonError::into_inner) = Some(clone);
+    *lock(&shared.socket) = Some(clone);
     if shared.stop.load(Ordering::Relaxed) {
         return Ok(());
     }
@@ -177,6 +234,7 @@ fn stream(ctx: &SessionContext, shared: &Shared) -> Result<(), SessionError> {
         height,
     };
     ctx.send(running(session.width, session.height));
+    lock(&shared.stream).size = Some((session.width, session.height));
 
     let mut decoder = H264Decoder::new()?;
     let mut stats = Stats::new();
@@ -192,8 +250,21 @@ fn stream(ctx: &SessionContext, shared: &Shared) -> Result<(), SessionError> {
                 );
                 decoder = H264Decoder::new()?;
                 ctx.send(running(session.width, session.height));
+                *lock(&shared.stream) = StreamInfo {
+                    size: Some((session.width, session.height)),
+                    config: None, // a new one follows
+                };
+                if let Some(recorder) = lock(&shared.recorder).as_ref() {
+                    recorder.resized(session.width, session.height);
+                }
             }
             StreamItem::Packet(packet) => {
+                if packet.config {
+                    lock(&shared.stream).config = Some(packet.data.clone());
+                }
+                if let Some(recorder) = lock(&shared.recorder).as_ref() {
+                    recorder.push(&packet);
+                }
                 let started = Instant::now();
                 match decoder.decode(&packet) {
                     Ok(Some(frame)) => {

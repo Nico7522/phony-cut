@@ -4,7 +4,13 @@
 //! The UI owns user-facing wording: types here describe *what* happened, never
 //! how to phrase it.
 
-use std::sync::{Mutex, PoisonError};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
+
+/// Provided by the UI: called after each event and each new video frame so
+/// the UI wakes up and repaints.
+pub type Notifier = Arc<dyn Fn() + Send + Sync>;
 
 /// Requests sent by the UI to the core service.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,6 +21,11 @@ pub enum Command {
     StartMirror { serial: String },
     /// Stop the running mirror, if any.
     StopMirror,
+    /// Start recording the running mirror into a new file in `folder`
+    /// (created if needed).
+    StartRecording { folder: PathBuf },
+    /// Stop the recording; the file is finalized.
+    StopRecording,
     /// Stop the service: background threads end and adb is cleaned up.
     Shutdown,
 }
@@ -32,6 +43,60 @@ pub enum Event {
     /// The screen mirror changed state. Frames themselves go through
     /// [`FrameSlot`], not through events.
     Mirror(MirrorState),
+    /// Recording progress and result.
+    Recording(RecordingState),
+}
+
+/// Lifecycle of a recording.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecordingState {
+    /// File created; waiting for the next key frame (at most ~1 s) to start.
+    WaitingKeyFrame { path: PathBuf },
+    /// Writing. Sent when writing starts, then about twice per second.
+    Recording(RecordingInfo),
+    /// The file is complete and playable.
+    Finished {
+        info: RecordingInfo,
+        end: RecordingEnd,
+    },
+    /// The recording could not start or could not be completed.
+    Failed {
+        path: Option<PathBuf>,
+        problem: RecordingProblem,
+    },
+}
+
+/// Facts about a recording file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordingInfo {
+    pub path: PathBuf,
+    /// Current size on disk.
+    pub bytes: u64,
+    /// Video duration (what players will show).
+    pub duration: Duration,
+}
+
+/// Why a recording ended normally.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecordingEnd {
+    /// The user stopped it.
+    Requested,
+    /// The mirror stopped (phone unplugged…); the file was still finalized.
+    MirrorStopped,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecordingProblem {
+    /// No mirror is running, there is nothing to record.
+    NotMirroring,
+    /// A recording is already running.
+    AlreadyRecording,
+    /// The output folder or file cannot be created.
+    CannotCreateFile,
+    /// Writing failed (disk full, drive removed…).
+    WriteFailed,
+    /// Stopped before the first key frame: nothing was recorded (file removed).
+    NoVideo,
 }
 
 /// Lifecycle of the screen mirror.

@@ -8,6 +8,7 @@ pub mod api;
 pub mod decode;
 pub mod paths;
 pub mod platform;
+pub mod record;
 pub mod scrcpy;
 pub mod service;
 

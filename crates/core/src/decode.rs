@@ -24,7 +24,7 @@ pub enum DecodeError {
 
 static FFMPEG_INIT: Once = Once::new();
 
-fn init_ffmpeg() {
+pub(crate) fn init_ffmpeg() {
     FFMPEG_INIT.call_once(|| {
         if let Err(err) = ffmpeg::init() {
             tracing::error!(%err, "FFmpeg initialisation failed");
