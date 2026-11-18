@@ -88,6 +88,8 @@ pub struct ClipsScreen {
     export: Option<ExportState>,
     exporting: bool,
     notice: Option<&'static str>,
+    /// Show the discreet "Support the project" link under the finished export.
+    support_link: bool,
 }
 
 impl ClipsScreen {
@@ -152,8 +154,13 @@ impl ClipsScreen {
         }
     }
 
-    pub fn apply_export(&mut self, state: ExportState) {
+    /// `support_link`: show the support link under a finished export (the
+    /// caller limits it to once a week).
+    pub fn apply_export(&mut self, state: ExportState, support_link: bool) {
         self.exporting = matches!(state, ExportState::Progress { .. });
+        if matches!(state, ExportState::Finished { .. }) {
+            self.support_link = support_link;
+        }
         self.export = Some(state);
     }
 
@@ -450,6 +457,12 @@ impl ClipsScreen {
                         actions.push(ClipsAction::OpenFolder(folder.clone()));
                     }
                 });
+                if self.support_link {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(texts::support_after_export()).weak());
+                        ui.hyperlink_to(texts::support_project(), texts::support_url());
+                    });
+                }
             }
             Some(ExportState::Cancelled) => {
                 ui.label(texts::export_cancelled());
@@ -567,13 +580,30 @@ mod tests {
     #[test]
     fn export_state_tracking() {
         let mut screen = ClipsScreen::default();
-        screen.apply_export(ExportState::Progress {
-            clip: 0,
-            clips: 2,
-            fraction: 0.2,
-        });
+        screen.apply_export(
+            ExportState::Progress {
+                clip: 0,
+                clips: 2,
+                fraction: 0.2,
+            },
+            false,
+        );
         assert!(screen.exporting);
-        screen.apply_export(ExportState::Cancelled);
+        screen.apply_export(ExportState::Cancelled, false);
         assert!(!screen.exporting);
+    }
+
+    #[test]
+    fn support_link_only_after_a_finished_export() {
+        let mut screen = ClipsScreen::default();
+        let finished = || ExportState::Finished {
+            files: vec![PathBuf::from("a.mp4")],
+            folder: PathBuf::from("clips"),
+        };
+        screen.apply_export(finished(), true);
+        assert!(screen.support_link);
+        // The next export, once the week is not over, hides it again.
+        screen.apply_export(finished(), false);
+        assert!(!screen.support_link);
     }
 }

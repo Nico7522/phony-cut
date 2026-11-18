@@ -124,6 +124,11 @@ pub fn show(
             if ui.button(t::open_licenses()).clicked() {
                 actions.push(SettingsAction::OpenLicenses);
             }
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(texts::support_after_export()).weak());
+                ui.hyperlink_to(texts::support_project(), texts::support_url());
+            });
         });
     });
     actions

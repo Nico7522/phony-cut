@@ -507,6 +507,23 @@ pub fn export_button(count: usize) -> String {
     }
 }
 
+/// Website page with the ways to support the project, in the UI language.
+pub fn support_url() -> &'static str {
+    tr(
+        "https://nico7522.github.io/phony-cut/fr/support/",
+        "https://nico7522.github.io/phony-cut/support/",
+    )
+}
+pub fn support_project() -> &'static str {
+    tr("Soutenir le projet", "Support the project")
+}
+pub fn support_after_export() -> &'static str {
+    tr(
+        "PhoneCut est gratuit. S'il vous est utile, vous pouvez soutenir le projet :",
+        "PhoneCut is free. If it is useful to you, you can support the project:",
+    )
+}
+
 pub fn export_done(count: usize) -> String {
     match (language(), count) {
         (Language::French, 1) => "1 clip exporté en MP4.".to_owned(),

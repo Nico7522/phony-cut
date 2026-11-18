@@ -22,6 +22,9 @@ pub struct Settings {
     pub onboarding_done: bool,
     /// Interface language.
     pub language: LanguageChoice,
+    /// When the "Support the project" link was last shown after an export
+    /// (Unix seconds), to show it at most once a week.
+    pub support_shown_at: Option<u64>,
 }
 
 /// The user's language choice; `Auto` follows Windows (French or English).
@@ -52,6 +55,7 @@ impl Default for Settings {
             fps: Fps::default(),
             onboarding_done: false,
             language: LanguageChoice::default(),
+            support_shown_at: None,
         }
     }
 }
@@ -73,6 +77,14 @@ pub enum Fps {
     Thirty,
     #[default]
     Sixty,
+}
+
+/// The support link is shown at most once a week after a successful export.
+pub const SUPPORT_INTERVAL_SECS: u64 = 7 * 24 * 60 * 60;
+
+/// The support link may be shown after an export at `now` (Unix seconds).
+pub fn support_due(last_shown: Option<u64>, now: u64) -> bool {
+    last_shown.is_none_or(|last| now.saturating_sub(last) >= SUPPORT_INTERVAL_SECS)
 }
 
 impl Settings {
@@ -171,6 +183,17 @@ mod tests {
     }
 
     #[test]
+    fn support_link_at_most_once_a_week() {
+        let now = 1_800_000_000;
+        assert!(support_due(None, now));
+        assert!(!support_due(Some(now - 60), now));
+        assert!(!support_due(Some(now - SUPPORT_INTERVAL_SECS + 1), now));
+        assert!(support_due(Some(now - SUPPORT_INTERVAL_SECS), now));
+        // A clock set back in time does not show it again too early.
+        assert!(!support_due(Some(now + 3600), now));
+    }
+
+    #[test]
     fn phase_3_settings_file_still_loads() {
         let old = r#"{ "output_dir": "D:\\Clips" }"#;
         let s: Settings = serde_json::from_str(old).unwrap();
@@ -187,6 +210,7 @@ mod tests {
             fps: Fps::Thirty,
             onboarding_done: true,
             language: LanguageChoice::English,
+            support_shown_at: Some(1_700_000_000),
         };
         let text = serde_json::to_string(&settings).unwrap();
         assert_eq!(serde_json::from_str::<Settings>(&text).unwrap(), settings);

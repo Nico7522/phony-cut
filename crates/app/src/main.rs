@@ -14,7 +14,9 @@ use std::time::Duration;
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, Color32, RichText};
-use phonecut_core::api::{Command, Event, FrameSlot, PhoneButton, PhoneInput, RecordingState};
+use phonecut_core::api::{
+    Command, Event, ExportState, FrameSlot, PhoneButton, PhoneInput, RecordingState,
+};
 use phonecut_core::platform;
 use phonecut_core::service::Core;
 use phonecut_core::APP_NAME;
@@ -342,6 +344,22 @@ impl PhoneCutApp {
         }
     }
 
+    /// After a successful export: show the support link at most once a week
+    /// (remembered in the settings).
+    fn support_link_due(&mut self) -> bool {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        if !settings::support_due(self.settings.support_shown_at, now) {
+            return false;
+        }
+        self.settings.support_shown_at = Some(now);
+        if let Err(err) = self.settings.save() {
+            tracing::warn!(%err, "cannot save settings");
+        }
+        true
+    }
+
     fn send(&self, request: Option<MirrorRequest>) {
         match request {
             Some(MirrorRequest::Start(serial)) => self.command(Command::StartMirror {
@@ -441,7 +459,11 @@ impl eframe::App for PhoneCutApp {
                 Event::Recordings(list) => self.clips.set_recordings(list),
                 Event::Player(event) => self.clips.apply_player(event),
                 Event::CutsSaveFailed { .. } => self.clips.cuts_save_failed(),
-                Event::Export(state) => self.clips.apply_export(state),
+                Event::Export(state) => {
+                    let support =
+                        matches!(state, ExportState::Finished { .. }) && self.support_link_due();
+                    self.clips.apply_export(state, support);
+                }
                 other => self.home.apply(other),
             }
         }
