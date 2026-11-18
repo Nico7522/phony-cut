@@ -38,12 +38,21 @@ fn main() -> anyhow::Result<()> {
         "{APP_NAME} starting"
     );
 
+    // Settings first: the language is needed for every message.
+    let settings = Settings::load();
+    texts::set_language(settings.language.resolve());
+    tracing::info!(
+        output_dir = %settings.output_dir.display(),
+        language = ?texts::language(),
+        "settings loaded"
+    );
+
     // Two PhoneCut at once would fight over the phone (two previews).
     let Some(_instance) = platform::single_instance() else {
         tracing::info!("{APP_NAME} is already running");
         rfd::MessageDialog::new()
             .set_title(APP_NAME)
-            .set_description(texts::ALREADY_RUNNING)
+            .set_description(texts::already_running())
             .set_level(rfd::MessageLevel::Info)
             .show();
         return Ok(());
@@ -71,7 +80,7 @@ fn main() -> anyhow::Result<()> {
         Box::new(|cc| {
             let ctx = cc.egui_ctx.clone();
             let started = Core::start(Arc::new(move || ctx.request_repaint()))?;
-            let app = PhoneCutApp::new(&started);
+            let app = PhoneCutApp::new(&started, settings);
             core = Some(started);
             Ok(Box::new(app))
         }),
@@ -121,9 +130,7 @@ struct PhoneCutApp {
 }
 
 impl PhoneCutApp {
-    fn new(core: &Core) -> Self {
-        let settings = Settings::load();
-        tracing::info!(output_dir = %settings.output_dir.display(), "settings loaded");
+    fn new(core: &Core, settings: Settings) -> Self {
         Self {
             commands: core.commands(),
             events: core.events(),
@@ -169,6 +176,13 @@ impl PhoneCutApp {
                     self.handle_record(Some(RecordAction::OpenFolder(folder)), ctx);
                 }
                 SettingsAction::OpenAssistant => self.onboarding.open(ctx),
+                SettingsAction::LanguageChanged => {
+                    texts::set_language(self.settings.language.resolve());
+                    tracing::info!(language = ?texts::language(), "language changed");
+                    if let Err(err) = self.settings.save() {
+                        tracing::warn!(%err, "cannot save settings");
+                    }
+                }
                 SettingsAction::OpenLicenses => {
                     // Shipped as vendor/licenses next to the executable.
                     let marker =
@@ -248,14 +262,14 @@ impl PhoneCutApp {
         let mut chosen = None;
         ui.horizontal(|ui| {
             let live = if self.record.is_recording() {
-                format!("{}{}", texts::TAB_LIVE, texts::TAB_RECORDING)
+                format!("{}{}", texts::tab_live(), texts::tab_recording())
             } else {
-                texts::TAB_LIVE.to_owned()
+                texts::tab_live().to_owned()
             };
             let tabs = [
                 (Tab::Live, live),
-                (Tab::Clips, texts::TAB_CLIPS.to_owned()),
-                (Tab::Settings, texts::TAB_SETTINGS.to_owned()),
+                (Tab::Clips, texts::tab_clips().to_owned()),
+                (Tab::Settings, texts::tab_settings().to_owned()),
             ];
             for (tab, label) in tabs {
                 let text = RichText::new(label).size(17.0);
@@ -280,7 +294,7 @@ impl PhoneCutApp {
         let spawned = std::thread::Builder::new()
             .name("folder-dialog".into())
             .spawn(move || {
-                let mut dialog = rfd::FileDialog::new().set_title(texts::PICK_FOLDER_TITLE);
+                let mut dialog = rfd::FileDialog::new().set_title(texts::pick_folder_title());
                 // The default folder may not exist yet: start from its parent.
                 if let Some(existing) = start.ancestors().find(|p| p.is_dir()) {
                     dialog = dialog.set_directory(existing);
@@ -324,7 +338,7 @@ impl PhoneCutApp {
             }
         } else {
             tracing::warn!(folder = %folder.display(), "unusable output folder");
-            self.record.set_notice(texts::FOLDER_INVALID);
+            self.record.set_notice(texts::folder_invalid());
         }
     }
 
@@ -357,7 +371,7 @@ impl PhoneCutApp {
                     .and_then(|()| platform::open_in_file_manager(&folder));
                 if let Err(err) = opened {
                     tracing::warn!(%err, folder = %folder.display(), "cannot open folder");
-                    self.record.set_notice(texts::OPEN_FOLDER_FAILED);
+                    self.record.set_notice(texts::open_folder_failed());
                 }
             }
             Some(RecordAction::PickFolder) => self.pick_folder(ctx),
@@ -374,7 +388,7 @@ impl PhoneCutApp {
                 ui.label(RichText::new(texts::device(device).title).strong());
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(texts::LIVE_BADGE);
+                ui.label(texts::live_badge());
             });
         });
     }
@@ -486,7 +500,7 @@ impl eframe::App for PhoneCutApp {
                     if self.home.ready_device().is_none() {
                         ui.add_space(24.0);
                         let button =
-                            egui::Button::new(RichText::new(texts::CONNECTION_HELP).size(18.0))
+                            egui::Button::new(RichText::new(texts::connection_help()).size(18.0))
                                 .min_size(egui::vec2(240.0, 44.0));
                         help = ui.add(button).clicked();
                     }

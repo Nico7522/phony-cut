@@ -39,12 +39,16 @@ UninstallDisplayName={#AppName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+ShowLanguageDialog=auto
 ; Detects a running PhoneCut (see platform::SINGLE_INSTANCE_MUTEX).
 AppMutex=PhoneCutAppMutex
 CloseApplications=yes
 RestartApplications=no
 
 [Languages]
+; Chosen from the Windows display language; the app itself follows Windows
+; too unless the user picks a language in its settings.
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Tasks]
@@ -62,6 +66,8 @@ Source: "..\vendor\VERSIONS.md"; DestDir: "{app}\vendor"; Flags: ignoreversion
 Source: "..\vendor\licenses\*"; DestDir: "{app}\vendor\licenses"; Flags: ignoreversion
 Source: "..\assets\tutorial\*.jpg"; DestDir: "{app}\assets\tutorial"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\assets\tutorial\*.png"; DestDir: "{app}\assets\tutorial"; Flags: ignoreversion skipifsourcedoesntexist
+; Optional English pictures (assets\tutorial\en\), used when the app is in English.
+Source: "..\assets\tutorial\en\*"; DestDir: "{app}\assets\tutorial\en"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\assets\icon\phonecut.ico"; DestDir: "{app}\assets\icon"; Flags: ignoreversion
 
 [InstallDelete]

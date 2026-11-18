@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use phonecut_core::api::VideoQuality;
+
+use crate::texts::Language;
 use serde::{Deserialize, Serialize};
 
 const FILE_NAME: &str = "settings.json";
@@ -18,6 +20,28 @@ pub struct Settings {
     pub fps: Fps,
     /// The connection assistant was completed once (not shown at startup).
     pub onboarding_done: bool,
+    /// Interface language.
+    pub language: LanguageChoice,
+}
+
+/// The user's language choice; `Auto` follows Windows (French or English).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LanguageChoice {
+    #[default]
+    Auto,
+    French,
+    English,
+}
+
+impl LanguageChoice {
+    pub fn resolve(self) -> Language {
+        match self {
+            Self::French => Language::French,
+            Self::English => Language::English,
+            Self::Auto if phonecut_core::platform::system_prefers_french() => Language::French,
+            Self::Auto => Language::English,
+        }
+    }
 }
 
 impl Default for Settings {
@@ -27,6 +51,7 @@ impl Default for Settings {
             quality: QualityPreset::default(),
             fps: Fps::default(),
             onboarding_done: false,
+            language: LanguageChoice::default(),
         }
     }
 }
@@ -88,10 +113,13 @@ impl Settings {
             return Self::default();
         };
         match fs::read_to_string(&path) {
-            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|err| {
-                tracing::warn!(%err, "invalid settings file, using defaults");
-                Self::default()
-            }),
+            // Windows tools often add a UTF-8 BOM, which JSON parsers reject.
+            Ok(text) => {
+                serde_json::from_str(text.trim_start_matches('\u{feff}')).unwrap_or_else(|err| {
+                    tracing::warn!(%err, "invalid settings file, using defaults");
+                    Self::default()
+                })
+            }
             Err(_) => Self::default(),
         }
     }
@@ -134,6 +162,15 @@ mod tests {
     }
 
     #[test]
+    fn language_choice_is_stored() {
+        let s: Settings = serde_json::from_str(r#"{ "language": "English" }"#).unwrap();
+        assert_eq!(s.language, LanguageChoice::English);
+        assert_eq!(s.language.resolve(), Language::English);
+        assert_eq!(LanguageChoice::French.resolve(), Language::French);
+        assert_eq!(Settings::default().language, LanguageChoice::Auto);
+    }
+
+    #[test]
     fn phase_3_settings_file_still_loads() {
         let old = r#"{ "output_dir": "D:\\Clips" }"#;
         let s: Settings = serde_json::from_str(old).unwrap();
@@ -149,6 +186,7 @@ mod tests {
             quality: QualityPreset::Light,
             fps: Fps::Thirty,
             onboarding_done: true,
+            language: LanguageChoice::English,
         };
         let text = serde_json::to_string(&settings).unwrap();
         assert_eq!(serde_json::from_str::<Settings>(&text).unwrap(), settings);

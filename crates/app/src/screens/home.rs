@@ -97,23 +97,23 @@ impl HomeScreen {
             View::Starting => (
                 Severity::Waiting,
                 texts::Message {
-                    title: texts::STARTING.into(),
-                    hint: texts::STARTING_HINT,
+                    title: texts::starting().into(),
+                    hint: texts::starting_hint(),
                 },
             ),
             View::Problem(problem) => (Severity::Error, texts::adb_problem(problem)),
             View::NoDevice => (
                 Severity::Waiting,
                 texts::Message {
-                    title: texts::NO_DEVICE.into(),
-                    hint: texts::NO_DEVICE_HINT,
+                    title: texts::no_device().into(),
+                    hint: texts::no_device_hint(),
                 },
             ),
             View::ChooseDevice => (
                 Severity::Waiting,
                 texts::Message {
-                    title: texts::CHOOSE_DEVICE.into(),
-                    hint: texts::CHOOSE_DEVICE_HINT,
+                    title: texts::choose_device().into(),
+                    hint: texts::choose_device_hint(),
                 },
             ),
             View::Device(device) => (severity_of(&device.state), texts::device(device)),
@@ -135,7 +135,7 @@ impl HomeScreen {
                 ui.add_space(20.0);
                 ui.add(
                     egui::Label::new(
-                        RichText::new(texts::ADB_CONFLICT)
+                        RichText::new(texts::adb_conflict())
                             .size(14.0)
                             .color(severity_color(Severity::Waiting)),
                     )
@@ -151,7 +151,7 @@ impl HomeScreen {
     }
 
     fn device_list(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new(texts::DEVICE_LIST).size(16.0));
+        ui.label(RichText::new(texts::device_list()).size(16.0));
         ui.add_space(4.0);
         for device in &self.devices {
             let label = format!(

@@ -158,7 +158,7 @@ impl ClipsScreen {
     }
 
     pub fn cuts_save_failed(&mut self) {
-        self.notice = Some(texts::CUTS_SAVE_FAILED);
+        self.notice = Some(texts::cuts_save_failed());
     }
 
     pub fn show_frame(&mut self, ctx: &egui::Context, frame: &VideoFrame) {
@@ -184,13 +184,13 @@ impl ClipsScreen {
                 ui.vertical_centered(|ui| {
                     ui.add_space(ui.available_height() * 0.3);
                     let message = if self.opening.is_some() {
-                        texts::CLIPS_LOADING
+                        texts::clips_loading()
                     } else if self.failed.is_some() {
-                        texts::PLAYER_FAILED
+                        texts::player_failed()
                     } else if self.recordings.is_empty() {
-                        texts::CLIPS_EMPTY
+                        texts::clips_empty()
                     } else {
-                        texts::CLIPS_PICK
+                        texts::clips_pick()
                     };
                     ui.add(egui::Label::new(RichText::new(message).size(18.0)).wrap());
                 });
@@ -214,8 +214,8 @@ impl ClipsScreen {
     fn recordings_list(&mut self, ui: &mut egui::Ui, actions: &mut Vec<ClipsAction>) {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
-            ui.heading(texts::CLIPS_LIST_TITLE);
-            if ui.button(texts::CLIPS_REFRESH).clicked() {
+            ui.heading(texts::clips_list_title());
+            if ui.button(texts::clips_refresh()).clicked() {
                 actions.push(ClipsAction::Refresh);
             }
         });
@@ -277,13 +277,13 @@ impl ClipsScreen {
         // Transport.
         ui.horizontal(|ui| {
             let (label, action) = if self.playing {
-                (texts::PAUSE, ClipsAction::Pause)
+                (texts::pause(), ClipsAction::Pause)
             } else {
-                (texts::PLAY, ClipsAction::Play)
+                (texts::play(), ClipsAction::Play)
             };
             let button = egui::Button::new(RichText::new(label).size(16.0))
                 .min_size(egui::vec2(110.0, 32.0));
-            if ui.add(button).on_hover_text(texts::PLAY_HINT).clicked() {
+            if ui.add(button).on_hover_text(texts::play_hint()).clicked() {
                 actions.push(action);
             }
             ui.monospace(format!(
@@ -293,8 +293,8 @@ impl ClipsScreen {
             ));
             ui.separator();
             if ui
-                .button(texts::SPLIT_HERE)
-                .on_hover_text(texts::SPLIT_HINT)
+                .button(texts::split_here())
+                .on_hover_text(texts::split_hint())
                 .clicked()
             {
                 if let Some(i) = split_at(&mut editing.segments, self.position_ms) {
@@ -302,7 +302,7 @@ impl ClipsScreen {
                     editing.changed();
                 }
             }
-            if ui.button(texts::RESET_SEGMENTS).clicked() {
+            if ui.button(texts::reset_segments()).clicked() {
                 editing.segments = default_segments(&editing.cuts.markers, editing.duration_ms);
                 editing.selected = (!editing.segments.is_empty()).then_some(0);
                 editing.changed();
@@ -344,8 +344,8 @@ impl ClipsScreen {
 
         // Segments.
         ui.add_space(6.0);
-        ui.label(RichText::new(texts::SEGMENTS_TITLE).strong())
-            .on_hover_text(texts::SEGMENTS_HINT);
+        ui.label(RichText::new(texts::segments_title()).strong())
+            .on_hover_text(texts::segments_hint());
         let position = self.position_ms;
         egui::ScrollArea::vertical()
             .max_height(150.0)
@@ -370,16 +370,16 @@ impl ClipsScreen {
                         }
                         changed |= response.changed();
                         ui.monospace(texts::segment_range(segment.start_ms, segment.end_ms));
-                        if ui.button(texts::SEGMENT_GO).clicked() {
+                        if ui.button(texts::segment_go()).clicked() {
                             editing.selected = Some(i);
                             actions
                                 .push(ClipsAction::Seek(Duration::from_millis(segment.start_ms)));
                         }
-                        if ui.button(texts::SEGMENT_SET_START).clicked() {
+                        if ui.button(texts::segment_set_start()).clicked() {
                             segment.set_start(position);
                             changed = true;
                         }
-                        if ui.button(texts::SEGMENT_SET_END).clicked() {
+                        if ui.button(texts::segment_set_end()).clicked() {
                             segment.set_end(position, duration_ms);
                             changed = true;
                         }
@@ -399,14 +399,14 @@ impl ClipsScreen {
             mode: self.mode,
         };
         ui.horizontal(|ui| {
-            ui.label(texts::EXPORT_MODE);
-            ui.radio_value(&mut self.mode, ExportMode::Fast, texts::EXPORT_FAST)
-                .on_hover_text(texts::EXPORT_FAST_HINT);
-            ui.radio_value(&mut self.mode, ExportMode::Precise, texts::EXPORT_PRECISE)
-                .on_hover_text(texts::EXPORT_PRECISE_HINT);
+            ui.label(texts::export_mode());
+            ui.radio_value(&mut self.mode, ExportMode::Fast, texts::export_fast())
+                .on_hover_text(texts::export_fast_hint());
+            ui.radio_value(&mut self.mode, ExportMode::Precise, texts::export_precise())
+                .on_hover_text(texts::export_precise_hint());
             ui.add_space(12.0);
             if self.exporting {
-                if ui.button(texts::EXPORT_CANCEL).clicked() {
+                if ui.button(texts::export_cancel()).clicked() {
                     actions.push(ClipsAction::CancelExport);
                 }
             } else {
@@ -426,8 +426,8 @@ impl ClipsScreen {
         });
         ui.label(
             RichText::new(match self.mode {
-                ExportMode::Fast => texts::EXPORT_FAST_HINT,
-                ExportMode::Precise => texts::EXPORT_PRECISE_HINT,
+                ExportMode::Fast => texts::export_fast_hint(),
+                ExportMode::Precise => texts::export_precise_hint(),
             })
             .small(),
         );
@@ -440,19 +440,19 @@ impl ClipsScreen {
                 ui.add(
                     egui::ProgressBar::new(*fraction)
                         .show_percentage()
-                        .text(texts::EXPORT_RUNNING),
+                        .text(texts::export_running()),
                 );
             }
             Some(ExportState::Finished { files, folder }) => {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(texts::export_done(files.len())).strong());
-                    if ui.button(texts::OPEN_FOLDER).clicked() {
+                    if ui.button(texts::open_folder()).clicked() {
                         actions.push(ClipsAction::OpenFolder(folder.clone()));
                     }
                 });
             }
             Some(ExportState::Cancelled) => {
-                ui.label(texts::EXPORT_CANCELLED);
+                ui.label(texts::export_cancelled());
             }
             Some(ExportState::Failed { problem }) => {
                 ui.colored_label(RED, texts::export_problem(*problem));
@@ -474,7 +474,7 @@ pub fn split_at(segments: &mut Vec<Segment>, ms: u64) -> Option<usize> {
         .iter()
         .position(|s| s.start_ms + MIN_SEGMENT_MS <= ms && ms + MIN_SEGMENT_MS <= s.end_ms)?;
     let second = Segment {
-        name: format!("{} (suite)", segments[i].name),
+        name: texts::continued(&segments[i].name),
         start_ms: ms,
         end_ms: segments[i].end_ms,
         export: segments[i].export,
@@ -508,7 +508,11 @@ mod tests {
         assert_eq!(split_at(&mut segments, 4_000), Some(0));
         let ranges: Vec<_> = segments.iter().map(|s| (s.start_ms, s.end_ms)).collect();
         assert_eq!(ranges, vec![(0, 4_000), (4_000, 10_000)]);
-        assert_eq!(segments[1].name, "Clip 1 (suite)");
+        assert!(
+            segments[1].name.starts_with("Clip 1 ("),
+            "{}",
+            segments[1].name
+        );
     }
 
     #[test]

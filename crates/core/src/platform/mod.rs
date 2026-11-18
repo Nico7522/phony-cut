@@ -33,6 +33,28 @@ pub fn open_in_file_manager(folder: &Path) -> io::Result<()> {
     Command::new(program).arg(folder).spawn().map(|_| ())
 }
 
+/// True when the user's display language is French (to pick the interface
+/// language when the user did not choose one).
+#[cfg(windows)]
+pub fn system_prefers_french() -> bool {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetUserDefaultUILanguage() -> u16;
+    }
+    // SAFETY: no arguments, cannot fail.
+    let lang_id = unsafe { GetUserDefaultUILanguage() };
+    const LANG_FRENCH: u16 = 0x0C; // primary language id (low 10 bits)
+    lang_id & 0x3FF == LANG_FRENCH
+}
+
+#[cfg(not(windows))]
+pub fn system_prefers_french() -> bool {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .iter()
+        .find_map(|v| std::env::var(v).ok().filter(|s| !s.is_empty()))
+        .is_some_and(|lang| lang.starts_with("fr"))
+}
+
 /// Name of the mutex marking a running PhoneCut. The installer checks the same
 /// name (`AppMutex` in `installer/phonecut.iss`) before updating or removing
 /// the program.

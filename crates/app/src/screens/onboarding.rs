@@ -9,7 +9,7 @@ use eframe::egui::{self, Color32, RichText, TextureHandle};
 use phonecut_core::api::{DeviceInfo, DeviceState, VideoFrame};
 use phonecut_core::{image, paths};
 
-use crate::texts::{self, onboarding as t};
+use crate::texts::{self, onboarding as t, Language};
 use crate::widgets::video;
 
 /// Steps of the assistant, in order.
@@ -107,6 +107,8 @@ pub struct Onboarding {
     step: Option<Step>,
     brand: Brand,
     images: Vec<Option<TextureHandle>>,
+    /// Language the pictures were loaded for.
+    images_language: Option<Language>,
     loader: Option<Receiver<(usize, VideoFrame)>>,
 }
 
@@ -117,7 +119,13 @@ impl Onboarding {
 
     pub fn open(&mut self, ctx: &egui::Context) {
         self.step = Some(Step::DeveloperOptions);
+        // Reload when the language changed (pictures may differ per language).
+        if self.images_language != Some(texts::language()) {
+            self.images.clear();
+            self.loader = None;
+        }
         if self.loader.is_none() && self.images.iter().all(Option::is_none) {
+            self.images_language = Some(texts::language());
             self.loader = Some(load_images_in_background(ctx.clone()));
         }
     }
@@ -144,7 +152,7 @@ impl Onboarding {
         egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.add_space(8.0);
-                ui.heading(RichText::new(t::TITLE).size(26.0));
+                ui.heading(RichText::new(t::title()).size(26.0));
                 ui.add_space(4.0);
                 progress_dots(ui, step);
                 ui.add_space(12.0);
@@ -176,7 +184,7 @@ impl Onboarding {
         if matches!(step, Step::DeveloperOptions | Step::UsbDebugging) {
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                ui.label(t::BRAND_LABEL);
+                ui.label(t::brand_label());
                 egui::ComboBox::from_id_salt("brand")
                     .selected_text(t::brand_name(self.brand))
                     .show_ui(ui, |ui| {
@@ -201,8 +209,8 @@ impl Onboarding {
                 ui.spinner();
                 let waiting = match (step, device) {
                     (Step::Plug, Some(d)) => texts::device(d).title,
-                    (Step::Plug, None) => t::WAITING_PHONE.to_owned(),
-                    _ => t::WAITING_AUTHORIZATION.to_owned(),
+                    (Step::Plug, None) => t::waiting_phone().to_owned(),
+                    _ => t::waiting_authorization().to_owned(),
                 };
                 ui.label(RichText::new(waiting).size(16.0).italics());
             });
@@ -210,13 +218,15 @@ impl Onboarding {
 
         ui.add_space(10.0);
         ui.add(
-            egui::Label::new(RichText::new(t::VARIES_NOTICE).color(Color32::from_rgb(160, 110, 0)))
-                .wrap(),
+            egui::Label::new(
+                RichText::new(t::varies_notice()).color(Color32::from_rgb(160, 110, 0)),
+            )
+            .wrap(),
         );
         ui.add_space(8.0);
         self.pictures(ui, step);
         ui.add_space(8.0);
-        egui::CollapsingHeader::new(RichText::new(t::HELP_TITLE).strong())
+        egui::CollapsingHeader::new(RichText::new(t::help_title()).strong())
             .id_salt(("help", step.index()))
             .show(ui, |ui| {
                 for tip in t::help(step) {
@@ -250,14 +260,14 @@ impl Onboarding {
     }
 
     fn done(&self, ui: &mut egui::Ui, device: Option<&DeviceInfo>) -> Option<OnboardingAction> {
-        ui.label(RichText::new(t::DONE_TITLE).size(24.0).strong());
+        ui.label(RichText::new(t::done_title()).size(24.0).strong());
         if let Some(device) = device {
             ui.label(RichText::new(texts::device(device).title).size(18.0));
         }
         ui.add_space(8.0);
-        ui.add(egui::Label::new(RichText::new(t::DONE_BODY).size(16.0)).wrap());
+        ui.add(egui::Label::new(RichText::new(t::done_body()).size(16.0)).wrap());
         ui.add_space(12.0);
-        let start = egui::Button::new(RichText::new(t::START).size(20.0).color(Color32::WHITE))
+        let start = egui::Button::new(RichText::new(t::start()).size(20.0).color(Color32::WHITE))
             .fill(Color32::from_rgb(46, 125, 50))
             .min_size(egui::vec2(240.0, 52.0));
         ui.add(start).clicked().then_some(OnboardingAction::Close)
@@ -272,19 +282,19 @@ impl Onboarding {
             };
             if step != Step::DeveloperOptions
                 && step != Step::Done
-                && ui.add(big(t::PREVIOUS)).clicked()
+                && ui.add(big(t::previous())).clicked()
             {
                 target = Some(step.previous());
             }
             // Steps 1–2 cannot be detected: the user says when they are done.
             if matches!(step, Step::DeveloperOptions | Step::UsbDebugging)
-                && ui.add(big(t::NEXT)).clicked()
+                && ui.add(big(t::next())).clicked()
             {
                 target = Some(step.next());
             }
             if step != Step::Done {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button(t::SKIP).on_hover_text(t::SKIP_HINT).clicked() {
+                    if ui.button(t::skip()).on_hover_text(t::skip_hint()).clicked() {
                         target = Some(Step::Done);
                     }
                 });
@@ -321,12 +331,21 @@ impl Onboarding {
 /// Decodes `assets/tutorial/1..=5.(png|jpg)` off the UI thread.
 fn load_images_in_background(ctx: egui::Context) -> Receiver<(usize, VideoFrame)> {
     let (tx, rx) = unbounded();
+    let language = texts::language();
     let spawned = thread::Builder::new()
         .name("tutorial-images".into())
         .spawn(move || {
             for n in 1..=5 {
-                let found = ["png", "jpg", "jpeg"].iter().find_map(|ext| {
-                    paths::find_asset_file(&Path::new("tutorial").join(format!("{n}.{ext}")))
+                // Pictures in the interface language first (tutorial/en/…),
+                // then the default ones (a French Xiaomi).
+                let folders: &[&str] = match language {
+                    Language::English => &["tutorial/en", "tutorial"],
+                    Language::French => &["tutorial"],
+                };
+                let found = folders.iter().find_map(|folder| {
+                    ["png", "jpg", "jpeg"].iter().find_map(|ext| {
+                        paths::find_asset_file(&Path::new(folder).join(format!("{n}.{ext}")))
+                    })
                 });
                 let Some(path) = found else { continue };
                 match image::load_rgba(&path) {
@@ -347,7 +366,7 @@ fn load_images_in_background(ctx: egui::Context) -> Receiver<(usize, VideoFrame)
 
 fn progress_dots(ui: &mut egui::Ui, step: Step) {
     ui.horizontal(|ui| {
-        for (i, label) in t::STEP_SHORT.iter().enumerate() {
+        for (i, label) in t::step_short().iter().enumerate() {
             let (color, strong) = match i.cmp(&step.index()) {
                 std::cmp::Ordering::Less => (Color32::from_rgb(46, 160, 67), false),
                 std::cmp::Ordering::Equal => (Color32::from_rgb(52, 101, 164), true),
@@ -355,7 +374,7 @@ fn progress_dots(ui: &mut egui::Ui, step: Step) {
             };
             let text = RichText::new(format!("{}. {label}", i + 1)).color(color);
             ui.label(if strong { text.strong() } else { text });
-            if i + 1 < t::STEP_SHORT.len() {
+            if i + 1 < t::step_short().len() {
                 ui.label(RichText::new("—").color(Color32::GRAY));
             }
         }

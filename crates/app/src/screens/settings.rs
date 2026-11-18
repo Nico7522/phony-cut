@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use eframe::egui::{self, RichText};
 
-use crate::settings::{Fps, QualityPreset, Settings};
+use crate::settings::{Fps, LanguageChoice, QualityPreset, Settings};
 use crate::texts::{self, settings as t};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -15,6 +15,8 @@ pub enum SettingsAction {
     OpenFolder(PathBuf),
     OpenAssistant,
     OpenLicenses,
+    /// The interface language changed (already written into the settings).
+    LanguageChanged,
 }
 
 /// Draws the settings; edits `settings` in place.
@@ -26,42 +28,58 @@ pub fn show(
     let mut actions = Vec::new();
     egui::CentralPanel::default().show(ui, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.heading(RichText::new(t::TITLE).size(24.0));
+            ui.heading(RichText::new(t::title()).size(24.0));
             ui.add_space(12.0);
 
-            section(ui, t::QUALITY);
+            section(ui, t::language_title());
+            for choice in [
+                LanguageChoice::Auto,
+                LanguageChoice::French,
+                LanguageChoice::English,
+            ] {
+                let label = RichText::new(t::language_choice(choice)).size(16.0);
+                if ui
+                    .radio_value(&mut settings.language, choice, label)
+                    .changed()
+                {
+                    actions.push(SettingsAction::LanguageChanged);
+                }
+            }
+            ui.add_space(12.0);
+
+            section(ui, t::quality());
             for preset in [
                 QualityPreset::Light,
                 QualityPreset::Standard,
                 QualityPreset::High,
             ] {
-                let (name, hint) = t::quality(preset);
+                let (name, hint) = t::quality_preset(preset);
                 if choice(ui, &mut settings.quality, preset, name, hint) {
                     actions.push(SettingsAction::VideoChanged);
                 }
             }
             ui.add_space(12.0);
 
-            section(ui, t::FPS);
+            section(ui, t::fps());
             for fps in [Fps::Thirty, Fps::Sixty] {
-                let (name, hint) = t::fps(fps);
+                let (name, hint) = t::fps_choice(fps);
                 if choice(ui, &mut settings.fps, fps, name, hint) {
                     actions.push(SettingsAction::VideoChanged);
                 }
             }
-            ui.label(RichText::new(t::APPLIES_NOW).small());
+            ui.label(RichText::new(t::applies_now()).small());
             ui.add_space(16.0);
 
-            section(ui, t::FOLDER);
+            section(ui, t::folder());
             ui.horizontal(|ui| {
                 ui.monospace(settings.output_dir.display().to_string());
             });
             ui.horizontal(|ui| {
-                if ui.button(texts::OPEN_FOLDER).clicked() {
+                if ui.button(texts::open_folder()).clicked() {
                     actions.push(SettingsAction::OpenFolder(settings.output_dir.clone()));
                 }
                 if ui
-                    .add_enabled(!picking_folder, egui::Button::new(texts::FOLDER_CHANGE))
+                    .add_enabled(!picking_folder, egui::Button::new(texts::folder_change()))
                     .clicked()
                 {
                     actions.push(SettingsAction::PickFolder);
@@ -69,24 +87,24 @@ pub fn show(
             });
             ui.add_space(16.0);
 
-            section(ui, t::ASSISTANT);
+            section(ui, t::assistant());
             if ui
-                .button(RichText::new(t::ASSISTANT_BUTTON).size(16.0))
+                .button(RichText::new(t::assistant_button()).size(16.0))
                 .clicked()
             {
                 actions.push(SettingsAction::OpenAssistant);
             }
             ui.add_space(16.0);
 
-            section(ui, t::ABOUT);
+            section(ui, t::about());
             ui.label(RichText::new(t::version(env!("CARGO_PKG_VERSION"))).strong());
             ui.add_space(4.0);
-            ui.label(t::ABOUT_USES);
-            for credit in t::ABOUT_CREDITS {
+            ui.label(t::about_uses());
+            for credit in t::about_credits() {
                 ui.add(egui::Label::new(format!("•  {credit}")).wrap());
             }
             ui.add_space(4.0);
-            if ui.button(t::OPEN_LICENSES).clicked() {
+            if ui.button(t::open_licenses()).clicked() {
                 actions.push(SettingsAction::OpenLicenses);
             }
         });

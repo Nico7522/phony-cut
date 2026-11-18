@@ -126,20 +126,24 @@ impl LiveScreen {
             Some(MirrorState::Starting { .. }) | Some(MirrorState::Running { .. }) => {
                 ui.add_space(24.0);
                 ui.spinner();
-                ui.label(RichText::new(texts::MIRROR_STARTING).size(16.0));
+                ui.label(RichText::new(texts::mirror_starting()).size(16.0));
                 None
             }
             Some(MirrorState::Stopped { serial, end })
                 if serial == &device.serial && *end != MirrorEnd::Requested =>
             {
                 ui.add_space(24.0);
-                ui.label(RichText::new(texts::MIRROR_INTERRUPTED).size(18.0).strong());
+                ui.label(
+                    RichText::new(texts::mirror_interrupted())
+                        .size(18.0)
+                        .strong(),
+                );
                 ui.add(
-                    egui::Label::new(RichText::new(texts::MIRROR_INTERRUPTED_HINT).size(14.0))
+                    egui::Label::new(RichText::new(texts::mirror_interrupted_hint()).size(14.0))
                         .wrap(),
                 );
                 ui.add_space(8.0);
-                let button = egui::Button::new(RichText::new(texts::MIRROR_RETRY).size(18.0))
+                let button = egui::Button::new(RichText::new(texts::mirror_retry()).size(18.0))
                     .min_size(egui::vec2(220.0, 44.0));
                 ui.add(button)
                     .clicked()

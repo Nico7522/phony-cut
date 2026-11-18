@@ -100,13 +100,13 @@ impl RecordPanel {
         ui.horizontal(|ui| {
             if self.is_recording() {
                 let stop =
-                    egui::Button::new(RichText::new(texts::RECORD_STOP).size(18.0)).min_size(big);
+                    egui::Button::new(RichText::new(texts::record_stop()).size(18.0)).min_size(big);
                 if ui.add(stop).clicked() {
                     action = Some(RecordAction::Stop);
                 }
             } else {
                 let record = egui::Button::new(
-                    RichText::new(texts::RECORD_START)
+                    RichText::new(texts::record_start())
                         .size(18.0)
                         .color(Color32::WHITE),
                 )
@@ -118,17 +118,17 @@ impl RecordPanel {
                     action = Some(RecordAction::Start);
                 }
             }
-            let cut = egui::Button::new(RichText::new(texts::MARK_CUT).size(18.0)).min_size(big);
+            let cut = egui::Button::new(RichText::new(texts::mark_cut()).size(18.0)).min_size(big);
             if ui
                 .add_enabled(self.can_mark_cut(), cut)
-                .on_hover_text(texts::MARK_CUT_HINT)
-                .on_disabled_hover_text(texts::MARK_CUT_HINT)
+                .on_hover_text(texts::mark_cut_hint())
+                .on_disabled_hover_text(texts::mark_cut_hint())
                 .clicked()
             {
                 action = Some(RecordAction::MarkCut);
             }
             let clips =
-                egui::Button::new(RichText::new(texts::OPEN_CLIPS).size(18.0)).min_size(big);
+                egui::Button::new(RichText::new(texts::open_clips()).size(18.0)).min_size(big);
             if ui.add(clips).clicked() {
                 action = Some(RecordAction::OpenClips);
             }
@@ -160,7 +160,7 @@ impl RecordPanel {
         match &self.state {
             Some(RecordingState::Recording(info)) => {
                 ui.label(
-                    RichText::new(texts::RECORD_LIVE)
+                    RichText::new(texts::record_live())
                         .color(RED)
                         .strong()
                         .size(18.0),
@@ -177,7 +177,7 @@ impl RecordPanel {
             }
             _ => {
                 ui.spinner();
-                ui.label(texts::RECORD_WAITING);
+                ui.label(texts::record_waiting());
             }
         }
     }
@@ -187,7 +187,7 @@ impl RecordPanel {
         match &self.state {
             Some(RecordingState::Finished { info, end }) => {
                 if *end == RecordingEnd::MirrorStopped {
-                    ui.label(texts::RECORD_SAVED_AFTER_UNPLUG);
+                    ui.label(texts::record_saved_after_unplug());
                 }
                 saved_line(ui, info)
             }
@@ -202,14 +202,14 @@ impl RecordPanel {
     fn folder_row(&mut self, ui: &mut egui::Ui, folder: &Path) -> Option<RecordAction> {
         let mut action = None;
         ui.horizontal(|ui| {
-            ui.label(texts::FOLDER_LABEL);
+            ui.label(texts::folder_label());
             ui.monospace(folder.display().to_string());
-            if ui.button(texts::OPEN_FOLDER).clicked() {
+            if ui.button(texts::open_folder()).clicked() {
                 action = Some(RecordAction::OpenFolder(folder.to_path_buf()));
             }
             let change = ui.add_enabled(
                 !self.is_recording() && !self.picking_folder,
-                egui::Button::new(texts::FOLDER_CHANGE),
+                egui::Button::new(texts::folder_change()),
             );
             if change.clicked() {
                 self.notice = None;
@@ -223,7 +223,7 @@ impl RecordPanel {
 fn saved_line(ui: &mut egui::Ui, info: &RecordingInfo) -> Option<RecordAction> {
     let mut action = None;
     ui.horizontal(|ui| {
-        ui.label(RichText::new(texts::RECORD_SAVED).strong());
+        ui.label(RichText::new(texts::record_saved()).strong());
         let name = info
             .path
             .file_name()
@@ -233,12 +233,12 @@ fn saved_line(ui: &mut egui::Ui, info: &RecordingInfo) -> Option<RecordAction> {
             texts::duration(info.duration),
             texts::file_size(info.bytes)
         ));
-        let edit = egui::Button::new(RichText::new(texts::EDIT_VIDEO).strong());
+        let edit = egui::Button::new(RichText::new(texts::edit_video()).strong());
         if ui.add(edit).clicked() {
             action = Some(RecordAction::EditVideo(info.path.clone()));
         }
         if let Some(folder) = info.path.parent() {
-            if ui.button(texts::OPEN_FOLDER).clicked() {
+            if ui.button(texts::open_folder()).clicked() {
                 action = Some(RecordAction::OpenFolder(folder.to_path_buf()));
             }
         }
