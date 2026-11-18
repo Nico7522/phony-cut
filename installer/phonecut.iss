@@ -67,6 +67,7 @@ Source: "..\vendor\VERSIONS.md"; DestDir: "{app}\vendor"; Flags: ignoreversion
 Source: "..\vendor\licenses\*"; DestDir: "{app}\vendor\licenses"; Flags: ignoreversion
 Source: "..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\THIRD_PARTY_LICENSES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\assets\tutorial\*.jpg"; DestDir: "{app}\assets\tutorial"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\assets\tutorial\*.png"; DestDir: "{app}\assets\tutorial"; Flags: ignoreversion skipifsourcedoesntexist
 ; Optional English pictures (assets\tutorial\en\), used when the app is in English.

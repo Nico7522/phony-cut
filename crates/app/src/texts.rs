@@ -934,7 +934,7 @@ pub mod settings {
                 "OpenH264 (inclus dans FFmpeg, pour l'export précis) — licence BSD",
                 "Android SDK Platform-Tools (adb), par Google — voir la notice fournie",
                 "Bibliothèques Rust (egui, eframe…) — licences MIT ou Apache 2.0, liste complète \
-                 dans le dossier des licences",
+                 dans les licences tierces ci-dessous",
             ],
             Language::English => [
                 "scrcpy (Android server), by Genymobile — Apache 2.0 license",
@@ -943,9 +943,12 @@ pub mod settings {
                 "OpenH264 (included in FFmpeg, for precise export) — BSD license",
                 "Android SDK Platform-Tools (adb), by Google — see the included notice",
                 "Rust libraries (egui, eframe…) — MIT or Apache 2.0 licenses, full list in the \
-                 licenses folder",
+                 third-party licenses below",
             ],
         }
+    }
+    pub fn third_party_licenses() -> &'static str {
+        tr("Licences tierces", "Third-party licenses")
     }
     pub fn open_licenses() -> &'static str {
         tr("Ouvrir le dossier des licences", "Open the licenses folder")

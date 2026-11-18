@@ -10,7 +10,7 @@ export const links = {
   releases: `${REPO}/releases`,
   latestReleaseApi: "https://api.github.com/repos/Nico7522/phony-cut/releases/latest",
   issues: `${REPO}/issues`,
-  thirdPartyLicenses: `${REPO}/tree/main/vendor/licenses`,
+  thirdPartyLicenses: `${REPO}/blob/main/THIRD_PARTY_LICENSES.md`,
   sponsors: "https://github.com/sponsors/Nico7522",
   kofi: "https://ko-fi.com/F3B02AW0P6",
   scrcpy: "https://github.com/Genymobile/scrcpy",

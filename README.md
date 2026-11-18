@@ -26,5 +26,6 @@ at your option.
 
 PhoneCut uses the Android server of [scrcpy](https://github.com/Genymobile/scrcpy)
 (Apache 2.0), FFmpeg (LGPL, dynamically linked) and Android platform-tools (adb). Their
-licenses are in [vendor/licenses](vendor/licenses). PhoneCut is not affiliated with
-Genymobile or Google.
+versions and licenses are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md),
+and the license texts are in [vendor/licenses](vendor/licenses). PhoneCut is not
+affiliated with Genymobile or Google.

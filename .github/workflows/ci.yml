@@ -52,3 +52,11 @@ jobs:
 
       - name: Tests
         run: cargo test --workspace --locked
+
+      # The file is generated from Cargo.lock and the pinned vendor versions:
+      # after changing a dependency, rerun the script and commit the result.
+      - name: THIRD_PARTY_LICENSES.md up to date
+        run: |
+          ./scripts/third-party-licenses.ps1
+          git diff --exit-code -- THIRD_PARTY_LICENSES.md
+          if ($LASTEXITCODE -ne 0) { Write-Error 'THIRD_PARTY_LICENSES.md is outdated: run scripts/third-party-licenses.ps1 and commit it'; exit 1 }
