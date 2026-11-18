@@ -133,6 +133,11 @@ pub fn server_args(scid: u32, options: &ServerOptions) -> Vec<String> {
         // Control is on by default on the server. The phone clipboard is
         // not synchronized to the PC (not handled yet): no device messages.
         args.push("clipboard_autosync=false".into());
+        // Keep the screen on while plugged in: a sleeping phone sends no
+        // images, so a recording would wait forever for its first key frame.
+        // The server sets Settings.Global stay_on_while_plugged_in and a
+        // separate clean-up process restores it when the server dies.
+        args.push("stay_awake=true".into());
     } else {
         args.push("control=false".into());
     }
@@ -280,6 +285,7 @@ mod tests {
             "tunnel_forward=true",
             "audio=false",
             "clipboard_autosync=false",
+            "stay_awake=true",
             "video_codec=h264",
             "max_size=1920",
             "video_codec_options=i-frame-interval:int=1",
@@ -308,5 +314,6 @@ mod tests {
         let args = server_args(1, &options);
         assert!(args.iter().any(|a| a == "control=false"));
         assert!(!args.iter().any(|a| a.starts_with("clipboard_autosync")));
+        assert!(!args.iter().any(|a| a.starts_with("stay_awake")));
     }
 }

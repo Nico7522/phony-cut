@@ -2,7 +2,7 @@
 //! output folder.
 
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText};
 use phonecut_core::api::{RecordingEnd, RecordingInfo, RecordingState};
@@ -38,7 +38,13 @@ pub struct RecordPanel {
     last_cut: Option<Duration>,
     /// Message to show (folder could not be used…).
     notice: Option<&'static str>,
+    /// When the recording started waiting for its first key frame.
+    waiting_since: Option<Instant>,
 }
+
+/// After this, a recording still waiting for an image explains why (the
+/// phone screen is probably off: a sleeping phone sends no images).
+const WAITING_HINT_AFTER: Duration = Duration::from_secs(3);
 
 impl RecordPanel {
     pub fn apply(&mut self, state: RecordingState) {
@@ -46,6 +52,9 @@ impl RecordPanel {
         if matches!(state, RecordingState::WaitingKeyFrame { .. }) {
             self.cuts = 0;
             self.last_cut = None;
+            self.waiting_since = Some(Instant::now());
+        } else {
+            self.waiting_since = None;
         }
         self.state = Some(state);
     }
@@ -178,8 +187,17 @@ impl RecordPanel {
             _ => {
                 ui.spinner();
                 ui.label(texts::record_waiting());
+                if self.waiting_too_long(Instant::now()) {
+                    ui.label(RichText::new(texts::record_waiting_asleep()).color(RED));
+                }
             }
         }
+    }
+
+    /// Still no image long after the start: the phone is probably asleep.
+    fn waiting_too_long(&self, now: Instant) -> bool {
+        self.waiting_since
+            .is_some_and(|since| now.saturating_duration_since(since) >= WAITING_HINT_AFTER)
     }
 
     /// Result of the last recording.
@@ -257,6 +275,20 @@ mod tests {
             bytes: 10,
             duration: Duration::from_secs(1),
         }
+    }
+
+    #[test]
+    fn sleeping_phone_hint_after_a_few_seconds() {
+        let mut panel = RecordPanel::default();
+        panel.apply(RecordingState::WaitingKeyFrame {
+            path: PathBuf::from("a.mkv"),
+        });
+        let since = panel.waiting_since.expect("waiting");
+        assert!(!panel.waiting_too_long(since + Duration::from_secs(1)));
+        assert!(panel.waiting_too_long(since + WAITING_HINT_AFTER));
+        // Images arrive: no more hint.
+        panel.apply(RecordingState::Recording(info()));
+        assert!(!panel.waiting_too_long(since + Duration::from_secs(60)));
     }
 
     #[test]

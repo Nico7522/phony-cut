@@ -287,6 +287,14 @@ pub fn record_stop() -> &'static str {
 pub fn record_waiting() -> &'static str {
     tr("Démarrage de l'enregistrement…", "Starting the recording…")
 }
+pub fn record_waiting_asleep() -> &'static str {
+    tr(
+        "Le téléphone est peut-être en veille : rallumez son écran (bouton marche, ou clic \
+         droit sur l'aperçu). L'enregistrement démarre dès qu'une image arrive.",
+        "The phone may be asleep: turn its screen back on (power button, or right-click the \
+         preview). The recording starts as soon as an image arrives.",
+    )
+}
 pub fn record_live() -> &'static str {
     "● REC"
 }
