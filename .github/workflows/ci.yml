@@ -1,0 +1,54 @@
+# Format, lint and tests on every push to main and every pull request.
+# The tests use recorded streams (crates/core/tests/fixtures), never a phone.
+# A task is not finished until this workflow is green (CLAUDE.md §7).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["website/**", ".github/workflows/website.yml"]
+  pull_request:
+    paths-ignore: ["website/**", ".github/workflows/website.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      # eframe 0.37 needs Rust >= 1.95; the runner image may lag behind.
+      - name: Rust toolchain
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+          rustup component add rustfmt clippy
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      # LLVM (libclang for bindgen) is preinstalled on the windows-latest image;
+      # .cargo/config.toml points LIBCLANG_PATH to it.
+      - name: FFmpeg (LGPL shared)
+        run: ./scripts/fetch-ffmpeg.ps1
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace --locked
