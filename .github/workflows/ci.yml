@@ -8,8 +8,10 @@ on:
   push:
     branches: [main]
     paths-ignore: ["website/**", ".github/workflows/website.yml"]
+  # No paths-ignore on pull requests: `check` is a required status check in the
+  # main branch ruleset, so it must report on every PR (even website-only ones),
+  # otherwise the PR stays blocked waiting for it.
   pull_request:
-    paths-ignore: ["website/**", ".github/workflows/website.yml"]
   workflow_dispatch:
 
 permissions:
@@ -38,6 +40,16 @@ jobs:
           rustc --version
 
       - uses: Swatinem/rust-cache@v2
+
+      # Avoids downloading ~200 MB on every run. The key follows the script, so
+      # changing the pinned FFmpeg version in it refreshes the cache.
+      # fetch-ffmpeg.ps1 then skips the download: vendor/ffmpeg is already the
+      # pinned build (its BUILD.txt marker names the pinned archive).
+      - name: Cache FFmpeg
+        uses: actions/cache@v4
+        with:
+          path: vendor/ffmpeg
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/fetch-ffmpeg.ps1') }}
 
       # LLVM (libclang for bindgen) is preinstalled on the windows-latest image;
       # .cargo/config.toml points LIBCLANG_PATH to it.
