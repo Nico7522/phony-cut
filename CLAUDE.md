@@ -73,7 +73,14 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
   **paquet média** : `u64` (bit 62 _config_, bit 61 _keyframe_, 61 bits de PTS en µs) +
   taille `u32` + données. Le paquet _config_ (SPS/PPS) est à coller devant le suivant ;
 - options utilisées : `video_codec=h264`, `max_size`, `video_bit_rate`, `max_fps`,
-  `video_codec_options=i-frame-interval:int=1` (keyframe toutes les secondes, pour les cuts).
+  `video_codec_options=i-frame-interval:int=1` (keyframe toutes les secondes, pour les cuts),
+  `clipboard_autosync=false` ;
+- **contrôle (souris/clavier)** : 2ᵉ socket, ouvert juste après l'octet dummy (pas de
+  dummy dessus). ⚠️ Le serveur n'envoie le nom de l'appareil qu'après avoir accepté
+  **tous** les sockets : ouvrir le contrôle **avant** de lire quoi que ce soit sur la vidéo.
+  Messages dans `scrcpy/control.rs`, testés avec les vecteurs de
+  `app/tests/test_control_msg_serialize.c` ; le téléphone renvoie des « device messages »
+  sur ce socket, toujours le lire (même pour les jeter).
 
 ---
 
