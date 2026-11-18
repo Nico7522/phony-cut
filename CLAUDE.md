@@ -10,8 +10,9 @@ Lis-le en entier avant de commencer une tâche. Respecte l'ordre des phases.
 Logiciel de bureau, écrit en **Rust**, qui permet de :
 
 1. **Afficher en direct l'écran d'un téléphone Android** sur le PC (via USB).
-2. **Enregistrer** ce flux vidéo dans un fichier.
-3. **Poser des marqueurs de cut** pendant l'enregistrement, puis **ajuster et exporter des clips** après coup.
+2. **Contrôler le téléphone** à la souris et au clavier depuis le PC.
+3. **Enregistrer** ce flux vidéo dans un fichier.
+4. **Poser des marqueurs de cut** pendant l'enregistrement, puis **ajuster et exporter des clips** après coup.
 
 Public visé : grand public, **pas des développeurs**. L'utilisateur doit pouvoir :
 
@@ -51,7 +52,8 @@ Déroulement d'une session :
 2. `adb push scrcpy-server /data/local/tmp/scrcpy-server.jar`
 3. `adb forward tcp:0 localabstract:scrcpy_<scid>` (adb choisit le port local et l'affiche)
 4. Lancer le serveur :
-   `adb shell CLASSPATH=/data/local/tmp/scrcpy-server.jar app_process / com.genymobile.scrcpy.Server <VERSION> scid=<scid> tunnel_forward=true audio=false control=false ...`
+   `adb shell CLASSPATH=/data/local/tmp/scrcpy-server.jar app_process / com.genymobile.scrcpy.Server <VERSION> scid=<scid> tunnel_forward=true audio=false ...`
+   (le contrôle souris/clavier est **activé** : ne pas passer `control=false`, voir plus bas)
 5. Se connecter au port local, lire les métadonnées puis les paquets vidéo.
 
 ⚠️ **Le protocole scrcpy change d'une version à l'autre.** La version du `.jar` et celle
@@ -137,7 +139,7 @@ première release publique (scrcpy les redistribue dans ses versions Windows).
 
 - Windows 10/11 x64
 - Un câble USB qui transfère des données (pas seulement de la charge)
-- Android 5.0 ou plus pour la vidéo (Android 11 ou plus pour l'audio, en phase 7)
+- Android 5.0 ou plus pour la vidéo (Android 11 ou plus pour l'audio, en phase 8)
 - Certains téléphones ont besoin du pilote USB du fabricant : l'assistant doit le signaler
 
 ---
@@ -168,10 +170,20 @@ phonecut/
 │        └─ widgets/       # timeline, gros boutons, indicateur d'état
 ├─ installer/              # script Inno Setup, notes de version
 ├─ scripts/                # FFmpeg, licences tierces, build de l'installeur
-├─ .github/workflows/      # release.yml : installeur publié à chaque tag v*
+├─ .github/
+│  ├─ workflows/           # release.yml (installeur à chaque tag v*), ci.yml et
+│  │                       # website.yml (phase 7)
+│  └─ FUNDING.yml          # bouton « Sponsor » de GitHub (phase 7)
 ├─ vendor/                 # binaires tiers (voir §4)
 ├─ assets/                 # logo SVG + icônes générées (icon/), images du tutoriel (tutorial/, Xiaomi)
-└─ docs/                   # notes techniques, décisions (ADR)
+│                          # (partagées avec le site)
+├─ website/                # site de présentation et de téléchargement (phase 7, voir §11)
+│  └─ CLAUDE.md            # instructions propres au site
+├─ docs/                   # notes techniques, décisions (ADR)
+│  └─ BACKLOG.md           # idées de fonctionnalités : rien à implémenter avant la v1
+├─ LICENSE-MIT
+├─ LICENSE-APACHE
+└─ THIRD_PARTY_LICENSES.md
 ```
 
 Règle d'architecture : `core` ne connaît pas `egui`. L'UI communique avec `core` via des
@@ -245,19 +257,39 @@ remplis. À la fin de chaque phase : `cargo fmt`, `cargo clippy -- -D warnings`,
 
 ### Phase 6 — Packaging Windows
 
-- Installeur (MSI via `cargo-dist`, ou Inno Setup) contenant l'exe, `vendor/` et les licences
+✅ **Terminée.**
+
+- Installeur **Inno Setup 6** (`PhoneCut-Setup-x64.exe`, voir ADR 0007) contenant l'exe,
+  `vendor/` et les licences
 - Raccourci dans le menu Démarrer, icône, désinstallation propre
 - Build release via GitHub Actions, déclenchée par un tag
 - Écran « À propos » avec les licences tierces
 - Signature de code : pas pour la v1, mais documenter l'avertissement SmartScreen
 - **Fini quand :** installation et utilisation réussies sur un Windows vierge (VM).
 
-### Phase 7 — Plus tard
+### Phase 7 — CI, site web et dons
+- **CI** : `.github/workflows/ci.yml` (fmt, clippy, tests sur `windows-latest`), avec un
+  filtre `paths-ignore: ["website/**"]`. FFmpeg doit être récupéré dans le workflow
+  (`scripts\fetch-ffmpeg.ps1`), et les tests ne dépendent d'aucun téléphone.
+- Site statique dans `website/` (voir §11) : accueil, téléchargement, tutoriel de
+  connexion, FAQ et dépannage, page « Soutenir le projet »
+- Bouton de téléchargement qui pointe vers la dernière release (lien stable, voir §11)
+- Déploiement automatique sur GitHub Pages à chaque modification de `website/`
+- `.github/FUNDING.yml` et lien « Soutenir le projet » dans l'écran « À propos » de l'app
+- **Fini quand :** la CI est verte sur `main`, et depuis le site on télécharge la dernière
+  version et on suit le tutoriel jusqu'au premier clip.
+
+### Phase 8 — Plus tard
 
 - Audio (Android 11 et plus, flux séparé dans le protocole scrcpy)
 - Connexion sans fil (débogage sans fil, appairage par code)
 - Portage macOS (adb macOS, dylib FFmpeg, `.dmg`, notarisation)
 - Vérification des mises à jour
+
+### Backlog (après la v1)
+Les idées de nouvelles fonctionnalités sont dans `docs/BACKLOG.md`.
+**Ne rien implémenter du backlog avant la sortie de la v1** (fin de la phase 7), et
+jamais sans validation de l'utilisateur.
 
 ---
 
@@ -275,6 +307,8 @@ remplis. À la fin de chaque phase : `cargo fmt`, `cargo clippy -- -D warnings`,
 - Tests unitaires pour le parsing du protocole scrcpy (avec des paquets enregistrés),
   les marqueurs et le calcul des segments d'export.
 - Commits petits et ciblés, un sujet par commit.
+- **CI** (dès qu'elle existe, phase 7) : une tâche n'est **jamais** terminée tant que la CI
+  n'est pas verte. En cas d'échec : `gh run view --log-failed`.
 - Noter les décisions techniques importantes dans `docs/decisions/NNNN-titre.md`.
 
 ## 8. Commandes utiles
@@ -350,7 +384,8 @@ agent teams de Claude Code), **chacun dans son propre git worktree et sa propre 
 | **record**              | `phonecut-record` / `feat/record` | `core/src/record.rs`, `markers.rs`, `export.rs`, leurs tests         | `crates/app/`                                          |
 | **ui**                  | `phonecut-ui` / `feat/ui`         | `crates/app/**`, `assets/`                                           | `crates/core/` (sauf demande au lead)                  |
 | **qa**                  | `phonecut-qa` / `feat/qa`         | `crates/*/tests/` (tests d'intégration et fixtures), CI (`.github/`) | code de production : il **signale**, il ne corrige pas |
-| **packaging** (phase 6) | `phonecut-pkg` / `feat/packaging` | config d'installeur, `dist`, `.github/workflows/release.yml`         | `crates/`                                              |
+| **packaging** (phase 6) | `phonecut-pkg` / `feat/packaging` | `installer/`, `scripts/build-installer.ps1`, `.github/workflows/release.yml` | `crates/`                                      |
+| **site** (phase 7)      | `phonecut-site` / `feat/website`  | `website/**`, `.github/workflows/website.yml`                        | `crates/`, `assets/` (lecture seule)                   |
 
 Si un agent a besoin de modifier un fichier hors de sa zone (surtout `api.rs`), il
 **envoie un message au lead** au lieu de le modifier lui-même.
