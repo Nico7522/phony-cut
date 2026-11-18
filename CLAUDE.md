@@ -91,7 +91,8 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
 | Sérialisation           | `serde` + `serde_json`                                  | Marqueurs, réglages                         |
 | Chemins système         | `directories`                                           |                                             |
 | Sélecteur de dossier    | `rfd` (sans features par défaut)                        | Ouvert dans un thread, jamais sur le thread UI |
-| Packaging               | `cargo-dist` (installeur MSI) ou Inno Setup             | Décision à prendre en phase 6               |
+| Packaging               | **Inno Setup 6** (installeur par utilisateur, sans admin) | Choisi en phase 6, voir ADR 0007            |
+| Ressources de l'exe     | `embed-resource` (build-dependency)                     | Icône et infos de version de phonecut.exe   |
 
 **Règle : demander avant d'ajouter une dépendance importante** qui n'est pas dans ce tableau.
 
@@ -158,8 +159,11 @@ phonecut/
 │        ├─ main.rs
 │        ├─ screens/       # onboarding, live, clips, settings
 │        └─ widgets/       # timeline, gros boutons, indicateur d'état
+├─ installer/              # script Inno Setup, notes de version
+├─ scripts/                # FFmpeg, licences tierces, build de l'installeur
+├─ .github/workflows/      # release.yml : installeur publié à chaque tag v*
 ├─ vendor/                 # binaires tiers (voir §4)
-├─ assets/                 # icônes, images du tutoriel (tutorial/1..6.png, exemple Xiaomi)
+├─ assets/                 # logo SVG + icônes générées (icon/), images du tutoriel (tutorial/, Xiaomi)
 └─ docs/                   # notes techniques, décisions (ADR)
 ```
 
@@ -269,6 +273,12 @@ powershell -ExecutionPolicy Bypass -File scripts\fetch-ffmpeg.ps1   # une fois p
 cargo run -p app                 # lancer l'app
 cargo run -p phonecut-core --example capture_stream -- crates/core/tests/fixtures/<nom>.bin 3
                                  # enregistrer un flux réel pour les tests
+powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
+                                 # installeur : target\installer\PhoneCut-Setup-<version>.exe
+powershell -ExecutionPolicy Bypass -File scripts\make-icon.ps1
+                                 # régénérer l'icône depuis assets\icon\PhyCut_logo_software.svg
+git tag v0.1.0; git push origin v0.1.0
+                                 # release GitHub (le tag doit égaler la version du Cargo.toml)
 cargo test --workspace           # tests
 cargo clippy --workspace -- -D warnings
 cargo fmt --all
@@ -289,6 +299,12 @@ vendor\adb\adb.exe devices -l    # vérifier le téléphone à la main
   l'aperçu tombe à ~5 fps.
 - **Licences** : FFmpeg uniquement en build LGPL shared, jamais de build GPL. Pour
   réencoder en H.264, utiliser `libopenh264` (BSD) : x264 est GPL et absent.
+- **Installeur** : ne jamais changer l'`AppId` de `installer/phonecut.iss`. Le nom du
+  mutex (`AppMutex`) doit rester identique à `platform::SINGLE_INSTANCE_MUTEX`. Tout
+  nouveau fichier nécessaire à l'exécution (dans `vendor/` ou `assets/`) doit être ajouté
+  à la section `[Files]`.
+- **Scripts PowerShell** : enregistrer les `.ps1` contenant des accents en UTF-8 **avec
+  BOM**, sinon Windows PowerShell 5.1 les lit en ANSI.
 - **Durée des images en MKV** : les blocs MKV ne stockent pas de durée. Tout code qui
   réécrit des paquets (export, futur montage) doit donner au dernier paquet sa durée
   jusqu'à la fin voulue, sinon un écran figé en fin de clip disparaît.
