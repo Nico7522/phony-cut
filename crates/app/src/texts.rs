@@ -419,6 +419,8 @@ pub mod onboarding {
 }
 
 pub const TAB_SETTINGS: &str = "Réglages";
+pub const ALREADY_RUNNING: &str = "PhoneCut est déjà ouvert. Retrouvez sa fenêtre dans la \
+    barre des tâches.";
 pub const CONNECTION_HELP: &str = "Aide à la connexion";
 pub const OPEN_CLIPS: &str = "Mes clips";
 
@@ -434,6 +436,23 @@ pub mod settings {
     pub const ASSISTANT_BUTTON: &str = "Ouvrir l'assistant de connexion";
     pub const APPLIES_NOW: &str = "Les changements s'appliquent tout de suite à l'aperçu. \
         Pendant un enregistrement, ils s'appliqueront dès qu'il sera terminé.";
+
+    pub const ABOUT: &str = "À propos";
+    pub const ABOUT_USES: &str = "PhoneCut s'appuie sur ces logiciels libres :";
+    pub const ABOUT_CREDITS: [&str; 5] = [
+        "scrcpy (serveur Android), par Genymobile — licence Apache 2.0",
+        "FFmpeg 9.0 (lecture, enregistrement, export) — licence LGPL 2.1 ou ultérieure, \
+         utilisé sous forme de bibliothèques séparées. Code source : ffmpeg.org",
+        "OpenH264 (inclus dans FFmpeg, pour l'export précis) — licence BSD",
+        "Android SDK Platform-Tools (adb), par Google — voir la notice fournie",
+        "Bibliothèques Rust (egui, eframe…) — licences MIT ou Apache 2.0, liste complète \
+         dans le dossier des licences",
+    ];
+    pub const OPEN_LICENSES: &str = "Ouvrir le dossier des licences";
+
+    pub fn version(version: &str) -> String {
+        format!("PhoneCut version {version}")
+    }
 
     pub fn quality(preset: QualityPreset) -> (&'static str, &'static str) {
         match preset {

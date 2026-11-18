@@ -33,6 +33,77 @@ pub fn open_in_file_manager(folder: &Path) -> io::Result<()> {
     Command::new(program).arg(folder).spawn().map(|_| ())
 }
 
+/// Name of the mutex marking a running PhoneCut. The installer checks the same
+/// name (`AppMutex` in `installer/phonecut.iss`) before updating or removing
+/// the program.
+pub const SINGLE_INSTANCE_MUTEX: &str = "PhoneCutAppMutex";
+
+/// Held while the app runs; released when dropped.
+pub struct InstanceGuard {
+    #[cfg(windows)]
+    handle: *mut std::ffi::c_void,
+}
+
+#[cfg(windows)]
+mod win32 {
+    use std::ffi::c_void;
+
+    pub const ERROR_ALREADY_EXISTS: u32 = 183;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        pub fn CreateMutexW(
+            attributes: *mut c_void,
+            initial_owner: i32,
+            name: *const u16,
+        ) -> *mut c_void;
+        pub fn GetLastError() -> u32;
+        pub fn CloseHandle(handle: *mut c_void) -> i32;
+    }
+}
+
+/// Returns `None` when another PhoneCut is already running.
+pub fn single_instance() -> Option<InstanceGuard> {
+    single_instance_named(SINGLE_INSTANCE_MUTEX)
+}
+
+#[cfg(windows)]
+fn single_instance_named(mutex: &str) -> Option<InstanceGuard> {
+    let name: Vec<u16> = mutex.encode_utf16().chain(std::iter::once(0)).collect();
+    // SAFETY: `name` is a NUL-terminated UTF-16 string that outlives the call;
+    // null attributes are allowed. GetLastError is read right after the call.
+    let (handle, error) = unsafe {
+        let handle = win32::CreateMutexW(std::ptr::null_mut(), 0, name.as_ptr());
+        (handle, win32::GetLastError())
+    };
+    if handle.is_null() {
+        // Cannot tell: do not block the user.
+        return Some(InstanceGuard { handle });
+    }
+    if error == win32::ERROR_ALREADY_EXISTS {
+        // SAFETY: `handle` is a valid handle returned by CreateMutexW.
+        unsafe { win32::CloseHandle(handle) };
+        return None;
+    }
+    Some(InstanceGuard { handle })
+}
+
+/// Single instance is only enforced on Windows for now.
+#[cfg(not(windows))]
+fn single_instance_named(_mutex: &str) -> Option<InstanceGuard> {
+    Some(InstanceGuard {})
+}
+
+#[cfg(windows)]
+impl Drop for InstanceGuard {
+    fn drop(&mut self) {
+        if !self.handle.is_null() {
+            // SAFETY: the handle came from CreateMutexW and is closed once.
+            unsafe { win32::CloseHandle(self.handle) };
+        }
+    }
+}
+
 /// Local wall-clock date and time (for file names shown to the user).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LocalDateTime {
@@ -117,6 +188,19 @@ fn utc_from_unix(secs: u64) -> LocalDateTime {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn second_instance_is_detected() {
+        // Own name: must not clash with a PhoneCut open on this machine.
+        let name = format!("PhoneCutTestMutex-{}", std::process::id());
+        let first = single_instance_named(&name);
+        assert!(first.is_some());
+        if cfg!(windows) {
+            assert!(single_instance_named(&name).is_none(), "already running");
+            drop(first);
+            assert!(single_instance_named(&name).is_some(), "released on drop");
+        }
+    }
 
     #[test]
     fn local_now_is_plausible() {

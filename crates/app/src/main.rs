@@ -1,6 +1,7 @@
 // Hide the console window in release builds on Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod icon;
 mod logging;
 mod screens;
 mod settings;
@@ -37,9 +38,25 @@ fn main() -> anyhow::Result<()> {
         "{APP_NAME} starting"
     );
 
+    // Two PhoneCut at once would fight over the phone (two previews).
+    let Some(_instance) = platform::single_instance() else {
+        tracing::info!("{APP_NAME} is already running");
+        rfd::MessageDialog::new()
+            .set_title(APP_NAME)
+            .set_description(texts::ALREADY_RUNNING)
+            .set_level(rfd::MessageLevel::Info)
+            .show();
+        return Ok(());
+    };
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_NAME)
+            .with_icon(egui::IconData {
+                rgba: icon::window_icon(),
+                width: icon::WINDOW_ICON_SIZE,
+                height: icon::WINDOW_ICON_SIZE,
+            })
             .with_inner_size([1000.0, 700.0])
             .with_min_inner_size([480.0, 360.0]),
         ..Default::default()
@@ -152,6 +169,23 @@ impl PhoneCutApp {
                     self.handle_record(Some(RecordAction::OpenFolder(folder)), ctx);
                 }
                 SettingsAction::OpenAssistant => self.onboarding.open(ctx),
+                SettingsAction::OpenLicenses => {
+                    // Shipped as vendor/licenses next to the executable.
+                    let marker =
+                        std::path::Path::new("licenses").join("scrcpy-LICENSE-Apache-2.0.txt");
+                    let folder =
+                        phonecut_core::paths::find_vendor_file(&marker, "PHONECUT_LICENSES")
+                            .ok()
+                            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+                    match folder {
+                        Some(folder) => {
+                            if let Err(err) = platform::open_in_file_manager(&folder) {
+                                tracing::warn!(%err, "cannot open licenses folder");
+                            }
+                        }
+                        None => tracing::warn!("licenses folder not found"),
+                    }
+                }
             }
         }
     }

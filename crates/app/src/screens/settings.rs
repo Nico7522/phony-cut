@@ -14,6 +14,7 @@ pub enum SettingsAction {
     PickFolder,
     OpenFolder(PathBuf),
     OpenAssistant,
+    OpenLicenses,
 }
 
 /// Draws the settings; edits `settings` in place.
@@ -74,6 +75,19 @@ pub fn show(
                 .clicked()
             {
                 actions.push(SettingsAction::OpenAssistant);
+            }
+            ui.add_space(16.0);
+
+            section(ui, t::ABOUT);
+            ui.label(RichText::new(t::version(env!("CARGO_PKG_VERSION"))).strong());
+            ui.add_space(4.0);
+            ui.label(t::ABOUT_USES);
+            for credit in t::ABOUT_CREDITS {
+                ui.add(egui::Label::new(format!("•  {credit}")).wrap());
+            }
+            ui.add_space(4.0);
+            if ui.button(t::OPEN_LICENSES).clicked() {
+                actions.push(SettingsAction::OpenLicenses);
             }
         });
     });
