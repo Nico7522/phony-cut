@@ -395,7 +395,7 @@ Si un agent a besoin de modifier un fichier hors de sa zone (surtout `api.rs`), 
 - Le projet est **public sur GitHub**.
 - Licence du code : **MIT OR Apache-2.0** (double licence, la convention dans l'écosystème
   Rust). C'est compatible avec scrcpy-server (Apache 2.0) et avec FFmpeg LGPL lié
-  dynamiquement. _Décision à confirmer par le propriétaire avant la première release._
+  dynamiquement. Confirmée par le propriétaire (`LICENSE-MIT`, `LICENSE-APACHE`).
 - `THIRD_PARTY_LICENSES.md` liste chaque composant embarqué, avec sa licence et sa source.
   Il est fourni dans l'installeur et affiché dans l'écran « À propos ».
 - Pour respecter la LGPL : indiquer la version de FFmpeg utilisée et où récupérer ses
