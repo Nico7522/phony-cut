@@ -384,23 +384,17 @@ main {
   margin-bottom: 0.7rem;
 }
 
-.placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 14rem;
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--muted);
-  text-align: center;
-  padding: 1.5rem;
-  font-weight: 600;
+.demo {
+  margin: 0 auto;
+  max-width: 600px;
 }
 
-.placeholder.video {
-  aspect-ratio: 16 / 9;
-  min-height: 0;
+.demo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .notice {

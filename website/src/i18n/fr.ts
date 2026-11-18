@@ -50,7 +50,8 @@ export const fr: Dict = {
       },
     ],
     demoTitle: "PhoneCut en action",
-    demoPlaceholder: "Vidéo de démonstration bientôt disponible",
+    demoAlt:
+      "PhoneCut affiche en direct l'écran d'un téléphone Android : on l'utilise à la souris et au clavier, puis un enregistrement démarre et un cut est posé.",
     stepsTitle: "Prêt en trois étapes",
     steps: [
       {
@@ -101,7 +102,6 @@ export const fr: Dict = {
     ],
     smartscreenNote:
       "Cet avertissement signifie seulement que Windows ne connaît pas encore cet éditeur. Il n'a détecté aucun problème dans le fichier.",
-    smartscreenScreenshot: "Capture de l'avertissement SmartScreen bientôt disponible",
     updateTitle: "Mise à jour",
     updateText:
       "Téléchargez et lancez l'installeur de la nouvelle version : il remplace l'ancienne en gardant vos réglages. Si PhoneCut est ouvert, l'installeur propose de le fermer.",

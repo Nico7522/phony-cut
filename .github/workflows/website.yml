@@ -11,6 +11,7 @@ on:
       - "website/**"
       - "assets/tutorial/**"
       - "assets/icon/**"
+      - "assets/demo.gif"
       - ".github/workflows/website.yml"
   workflow_dispatch:
 
@@ -43,7 +44,7 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Copies ../assets/tutorial and the logo, builds, then checks every internal link.
+      # Copies ../assets/tutorial, the logo and the demo, builds, then checks every internal link.
       - name: Build
         run: npm run build
 

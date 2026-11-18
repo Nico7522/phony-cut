@@ -21,7 +21,7 @@ Site de présentation et de téléchargement de PhoneCut, publié sur GitHub Pag
 website/
 ├─ astro.config.mjs        # site, base '/phony-cut', i18n (en par défaut, fr sous /fr/)
 ├─ scripts/
-│  ├─ copy-shared-assets.mjs  # copie ../assets/tutorial et le logo dans public/shared/
+│  ├─ copy-shared-assets.mjs  # copie ../assets/tutorial, le logo et la démo dans public/shared/
 │  └─ check-links.mjs         # vérifie liens et images internes de dist/ (après build)
 ├─ public/shared/          # généré, ignoré par git (ne rien y mettre à la main)
 └─ src/
@@ -53,7 +53,7 @@ npm run preview    # servir dist/ en local
 - **Langues** : anglais à `/`, français sous `/fr/`, même slug dans les deux langues.
   Une nouvelle page = une entrée dans `pages` (`src/config.ts`), un composant dans
   `src/components/pages/`, et deux routes (`src/pages/x.astro`, `src/pages/fr/x.astro`).
-- **Images à source unique** : les captures du tutoriel (`assets/tutorial/`) et le logo
+- **Images à source unique** : les captures du tutoriel (`assets/tutorial/`), la démo (`assets/demo.gif`) et le logo
   (`assets/icon/PhyCut_logo_software.svg`) sont partagés avec l'application. **Ne jamais
   les copier dans `website/`** : `scripts/copy-shared-assets.mjs` les copie dans
   `public/shared/` (ignoré par git) avant `dev`, `build` et `preview`.
@@ -73,7 +73,7 @@ npm run preview    # servir dist/ en local
 ## Déploiement
 
 `.github/workflows/website.yml` construit et publie le site sur GitHub Pages à chaque push
-sur `main` qui touche `website/**`, `assets/tutorial/**`, `assets/icon/**` ou le workflow
+sur `main` qui touche `website/**`, `assets/tutorial/**`, `assets/icon/**`, `assets/demo.gif` ou le workflow
 lui-même (et à la main via « Run workflow »). Il est indépendant de `release.yml`.
 
 **Étape manuelle, une seule fois** : dans le dépôt GitHub, Settings → Pages → Source :
@@ -81,6 +81,6 @@ lui-même (et à la main via « Run workflow »). Il est indépendant de `releas
 
 ## À faire
 
-- Remplacer le bloc « Demo video coming soon » de l'accueil par un GIF ou une vidéo.
-- Remplacer le bloc de la page Téléchargement par une capture de l'avertissement SmartScreen.
-  (Les deux sont des `<Placeholder>` marqués `TODO` dans `src/components/pages/`.)
+- Ajouter une capture de l'avertissement SmartScreen sur la page Téléchargement, une fois
+  la première release publiée : il n'apparaît que pour un fichier **téléchargé** depuis
+  Internet (pas pour un installeur copié à la main).

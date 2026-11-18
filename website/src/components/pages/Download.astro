@@ -1,7 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import DownloadButton from "../DownloadButton.astro";
-import Placeholder from "../Placeholder.astro";
 import { installerName, links } from "../../config";
 import { fill, t, type Lang } from "../../i18n";
 
@@ -39,8 +38,6 @@ const f = (s: string) => fill(lang, s);
     <div class="notice">
       <p>{text.smartscreenNote}</p>
     </div>
-    {/* TODO: screenshot of the SmartScreen window ("More info" / "Run anyway"). */}
-    <Placeholder label={text.smartscreenScreenshot} />
     <p set:html={f(text.checksumsText)} />
     <pre><code>Get-FileHash .\{installerName} -Algorithm SHA256</code></pre>
 

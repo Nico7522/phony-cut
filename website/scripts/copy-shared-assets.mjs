@@ -1,6 +1,7 @@
 // Copies the images shared with the desktop app into `public/shared/`.
 //
-// The tutorial screenshots (`assets/tutorial/`) and the logo (`assets/icon/`)
+// The tutorial screenshots (`assets/tutorial/`), the logo (`assets/icon/`) and
+// the demo (`assets/demo.gif`)
 // live once in the repository and are used by both the app and the website.
 // They are never committed under `website/`: this script copies them before
 // `dev`, `build` and `preview` into `public/shared/`, which is git-ignored.
@@ -28,4 +29,12 @@ if (!existsSync(logo)) {
 }
 cpSync(logo, join(out, "logo.svg"));
 
-console.log(`Copied ${pictures.length} tutorial pictures and the logo into public/shared/`);
+const demo = join(repoAssets, "demo.gif");
+if (!existsSync(demo)) {
+  throw new Error(`Demo not found: ${demo}`);
+}
+cpSync(demo, join(out, "demo.gif"));
+
+console.log(
+  `Copied ${pictures.length} tutorial pictures, the logo and the demo into public/shared/`,
+);

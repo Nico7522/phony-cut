@@ -51,7 +51,8 @@ export const en = {
       },
     ],
     demoTitle: "See it in action",
-    demoPlaceholder: "Demo video coming soon",
+    demoAlt:
+      "PhoneCut showing an Android phone's screen live: the phone is used with the mouse and keyboard, then a recording starts and a cut is marked.",
     stepsTitle: "Up and running in three steps",
     steps: [
       {
@@ -102,7 +103,6 @@ export const en = {
     ],
     smartscreenNote:
       "This warning only means that Windows does not know this publisher yet. It has not found any problem in the file.",
-    smartscreenScreenshot: "Screenshot of the SmartScreen warning coming soon",
     updateTitle: "Update",
     updateText:
       "Download and run the installer of the new version: it replaces the old one and keeps your settings. If PhoneCut is open, the installer offers to close it.",

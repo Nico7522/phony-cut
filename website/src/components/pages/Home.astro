@@ -1,7 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import DownloadButton from "../DownloadButton.astro";
-import Placeholder from "../Placeholder.astro";
 import { links } from "../../config";
 import { assetUrl, pageUrl, t, type Lang } from "../../i18n";
 
@@ -45,8 +44,16 @@ const home = text.home;
 
     <section aria-labelledby="demo-title">
       <h2 id="demo-title">{home.demoTitle}</h2>
-      {/* TODO: replace with a demo GIF or video of PhoneCut (live preview, cut, export). */}
-      <Placeholder label={home.demoPlaceholder} video />
+      <figure class="demo">
+        <img
+          src={assetUrl("shared/demo.gif")}
+          alt={home.demoAlt}
+          width="600"
+          height="419"
+          loading="lazy"
+          decoding="async"
+        />
+      </figure>
     </section>
 
     <section aria-labelledby="steps-title">
