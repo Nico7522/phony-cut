@@ -256,7 +256,11 @@ remplis. À la fin de chaque phase : `cargo fmt`, `cargo clippy -- -D warnings`,
 
 ## 7. Conventions
 
-- Code, identifiants et commentaires **en anglais** ; textes de l'UI **en français**.
+- Code, identifiants et commentaires **en anglais** ; textes de l'UI **en français et en
+  anglais**. Tout texte visible passe par `crates/app/src/texts.rs` : une fonction par texte,
+  qui renvoie `tr("français", "english")` (ou un `match language()` pour les textes avec des
+  valeurs). Jamais de texte en dur dans les écrans. Langue choisie dans les Réglages
+  (Automatique = langue de Windows, sinon anglais).
 - `cargo fmt` et `cargo clippy -- -D warnings` doivent passer.
 - Pas de `unwrap()` ni `expect()` hors des tests et du démarrage (sauf invariant documenté).
 - Toute erreur visible par l'utilisateur doit avoir un message **compréhensible par un
