@@ -361,8 +361,9 @@ export const en = {
     intro:
       "PhoneCut is free and will stay free. <strong>No feature is reserved to donors</strong>, and you do not need to give anything to use it.",
     whyText:
-      "If PhoneCut is useful to you and you want to help it grow (more tested phones, sound recording, a Mac version…), you can make a donation through GitHub Sponsors, once or every month, of the amount you choose.",
+      "If PhoneCut is useful to you and you want to help it grow (more tested phones, sound recording, a Mac version…), you can make a donation of the amount you choose, once or every month: with GitHub Sponsors if you have a GitHub account, otherwise with Ko-fi.",
     sponsorButton: "Sponsor on GitHub",
+    kofiButton: "Buy me a coffee on Ko-fi",
     otherTitle: "Other ways to help, for free",
     other: [
       "Tell your friends about PhoneCut.",

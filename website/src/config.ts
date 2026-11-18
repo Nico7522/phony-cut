@@ -12,6 +12,7 @@ export const links = {
   issues: `${REPO}/issues`,
   thirdPartyLicenses: `${REPO}/tree/main/vendor/licenses`,
   sponsors: "https://github.com/sponsors/Nico7522",
+  kofi: "https://ko-fi.com/F3B02AW0P6",
   scrcpy: "https://github.com/Genymobile/scrcpy",
 } as const;
 

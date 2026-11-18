@@ -361,8 +361,9 @@ export const fr: Dict = {
     intro:
       "PhoneCut est gratuit et le restera. <strong>Aucune fonction n'est réservée aux donateurs</strong>, et vous n'avez rien à donner pour l'utiliser.",
     whyText:
-      "Si PhoneCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, l'enregistrement du son, une version Mac…), vous pouvez faire un don avec GitHub Sponsors, une fois ou chaque mois, du montant de votre choix.",
+      "Si PhoneCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, l'enregistrement du son, une version Mac…), vous pouvez faire un don du montant de votre choix, une fois ou chaque mois : avec GitHub Sponsors si vous avez un compte GitHub, sinon avec Ko-fi.",
     sponsorButton: "Soutenir sur GitHub",
+    kofiButton: "Offrir un café sur Ko-fi",
     otherTitle: "D'autres façons d'aider, gratuitement",
     other: [
       "Parlez de PhoneCut autour de vous.",

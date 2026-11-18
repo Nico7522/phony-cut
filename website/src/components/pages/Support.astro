@@ -16,12 +16,19 @@ const text = t(lang).support;
     <h1>{text.title}</h1>
     <p set:html={text.intro} />
     <p>{text.whyText}</p>
-    <p>
+    <p class="button-row">
       <a class="button secondary" href={links.sponsors}>
         <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
           <path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.1 5.3 3 1.7-1.9 3.2-3 5.3-3 3.7 0 5.8 3.8 4.3 7.2C19.5 16.4 12 21 12 21z"></path>
         </svg>
         {text.sponsorButton}
+      </a>
+      {/* Plain link (no Ko-fi widget or image): the site loads nothing from other servers. */}
+      <a class="button secondary" href={links.kofi}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+          <path d="M3 6h14v2h1.5a3.5 3.5 0 0 1 0 7H17a6 6 0 0 1-6 5H9a6 6 0 0 1-6-6V6zm14 4v3h1.5a1.5 1.5 0 0 0 0-3H17z"></path>
+        </svg>
+        {text.kofiButton}
       </a>
     </p>
 
