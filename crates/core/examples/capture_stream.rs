@@ -46,10 +46,11 @@ fn main() -> anyhow::Result<()> {
     let options = ServerOptions {
         max_size: 480,
         video_bit_rate: 1_000_000,
+        control: false, // video only: the fixture is the raw video socket
         ..ServerOptions::default()
     };
     let mut server = RunningServer::start(&adb, &serial, &options)?;
-    let mut socket = server.connect(&AtomicBool::new(false))?;
+    let mut socket = server.connect(&AtomicBool::new(false), false)?.video;
     socket.set_read_timeout(Some(Duration::from_millis(200)))?;
 
     let mut file = File::create(&out_path)?;

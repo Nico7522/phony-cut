@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, Color32, RichText};
-use phonecut_core::api::{Command, Event, FrameSlot, RecordingState};
+use phonecut_core::api::{Command, Event, FrameSlot, PhoneButton, PhoneInput, RecordingState};
 use phonecut_core::platform;
 use phonecut_core::service::Core;
 use phonecut_core::APP_NAME;
@@ -381,7 +381,9 @@ impl PhoneCutApp {
         }
     }
 
-    fn status_bar(&self, ui: &mut egui::Ui) {
+    /// Phone name, phone buttons, and how to control the phone.
+    fn status_bar(&self, ui: &mut egui::Ui) -> Option<PhoneButton> {
+        let mut pressed = None;
         ui.horizontal(|ui| {
             ui.label(RichText::new("●").color(Color32::from_rgb(46, 160, 67)));
             if let Some(device) = self.home.ready_device() {
@@ -391,6 +393,28 @@ impl PhoneCutApp {
                 ui.label(texts::live_badge());
             });
         });
+        ui.horizontal(|ui| {
+            let buttons = [
+                (texts::phone_back(), PhoneButton::Back),
+                (texts::phone_home(), PhoneButton::Home),
+                (texts::phone_recents(), PhoneButton::AppSwitch),
+                (texts::phone_volume_down(), PhoneButton::VolumeDown),
+                (texts::phone_volume_up(), PhoneButton::VolumeUp),
+            ];
+            for (label, button) in buttons {
+                if ui.button(label).clicked() {
+                    pressed = Some(button);
+                }
+            }
+            ui.add_space(8.0);
+            let hint = if self.live.keyboard_active() {
+                RichText::new(texts::keyboard_active()).color(Color32::from_rgb(77, 145, 230))
+            } else {
+                RichText::new(texts::control_hint()).weak()
+            };
+            ui.add(egui::Label::new(hint).truncate());
+        });
+        pressed
     }
 }
 
@@ -486,10 +510,18 @@ impl eframe::App for PhoneCutApp {
         }
 
         if self.live.has_video() {
-            egui::Panel::top("status").show(ui, |ui| self.status_bar(ui));
+            let mut button = None;
+            egui::Panel::top("status").show(ui, |ui| button = self.status_bar(ui));
+            if let Some(button) = button {
+                self.command(Command::PhoneInput(PhoneInput::Button(button)));
+            }
+            let mut inputs = Vec::new();
             egui::CentralPanel::default()
                 .frame(egui::Frame::NONE.fill(Color32::from_gray(24)))
-                .show(ui, |ui| self.live.show_video(ui));
+                .show(ui, |ui| inputs = self.live.show_video(ui));
+            for input in inputs {
+                self.command(Command::PhoneInput(input));
+            }
         } else {
             let mut retry = None;
             let mut help = false;

@@ -1,5 +1,6 @@
 //! scrcpy server launch, protocol and mirror session.
 
+pub mod control;
 pub mod protocol;
 pub mod server;
 pub mod session;

@@ -4,9 +4,10 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, RichText, TextureHandle};
-use phonecut_core::api::{DeviceInfo, MirrorEnd, MirrorState, VideoFrame};
+use phonecut_core::api::{DeviceInfo, MirrorEnd, MirrorState, PhoneInput, VideoFrame};
 
 use crate::texts;
+use crate::widgets::phone_input::PhoneControl;
 use crate::widgets::video;
 
 /// What the UI should ask the core to do.
@@ -24,6 +25,9 @@ pub struct LiveScreen {
     /// failing mirror is not restarted in a loop.
     auto_started: HashSet<String>,
     stats: DisplayStats,
+    /// Mouse / keyboard → phone.
+    control: PhoneControl,
+    keyboard_active: bool,
 }
 
 /// How long it takes to hand frames to the GPU, logged periodically.
@@ -107,11 +111,33 @@ impl LiveScreen {
         self.is_running() && self.texture.is_some()
     }
 
-    /// Draws the phone screen, as large as possible with the right ratio.
-    pub fn show_video(&self, ui: &mut egui::Ui) {
-        if let Some(texture) = &self.texture {
-            video::fit(ui, texture);
+    /// Draws the phone screen, as large as possible with the right ratio, and
+    /// returns the mouse / keyboard input to send to the phone.
+    pub fn show_video(&mut self, ui: &mut egui::Ui) -> Vec<PhoneInput> {
+        let Some(texture) = &self.texture else {
+            return Vec::new();
+        };
+        let rect = video::fit(ui, texture);
+        let [w, h] = texture.size();
+        let frame = (u32::try_from(w).unwrap_or(0), u32::try_from(h).unwrap_or(0));
+        let id = egui::Id::unique("phone-screen");
+        let inputs = self.control.handle(ui, id, rect, frame);
+        self.keyboard_active = ui.memory(|m| m.has_focus(id));
+        if self.keyboard_active {
+            // Shows that typing goes to the phone.
+            ui.painter().rect_stroke(
+                rect.expand(2.0),
+                4.0,
+                egui::Stroke::new(3.0, egui::Color32::from_rgb(77, 145, 230)),
+                egui::StrokeKind::Outside,
+            );
         }
+        inputs
+    }
+
+    /// The phone picture has the keyboard (typing goes to the phone).
+    pub fn keyboard_active(&self) -> bool {
+        self.keyboard_active && self.has_video()
     }
 
     /// Status below the connection message when no video is shown.

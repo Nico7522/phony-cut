@@ -15,7 +15,7 @@ pub use crate::markers::{CutFile, Marker, Segment};
 pub type Notifier = Arc<dyn Fn() + Send + Sync>;
 
 /// Requests sent by the UI to the core service.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     /// Re-read the device list now instead of waiting for the next poll.
     RefreshDevices,
@@ -35,6 +35,8 @@ pub enum Command {
     StopRecording,
     /// Put a cut marker at the current position of the recording.
     MarkCut,
+    /// Mouse / keyboard input to forward to the phone (while mirroring).
+    PhoneInput(PhoneInput),
 
     // --- "Mes clips" ---
     /// List the recordings (`.mkv`) of a folder → [`Event::Recordings`].
@@ -62,6 +64,82 @@ pub enum Command {
     CancelExport,
     /// Stop the service: background threads end and adb is cleaned up.
     Shutdown,
+}
+
+/// Input sent to the phone. Positions are in pixels of the current video
+/// frame (`frame_width` × `frame_height`, i.e. the size of the frames the UI
+/// shows); the phone ignores positions made for an outdated size (rotation).
+#[derive(Debug, Clone, PartialEq)]
+pub enum PhoneInput {
+    /// One finger (the mouse): press, drag, release.
+    Touch {
+        phase: TouchPhase,
+        x: u32,
+        y: u32,
+        frame_width: u32,
+        frame_height: u32,
+    },
+    /// Mouse wheel, in wheel ticks (positive = left / up).
+    Scroll {
+        x: u32,
+        y: u32,
+        frame_width: u32,
+        frame_height: u32,
+        horizontal: f32,
+        vertical: f32,
+    },
+    /// Typed text (layout and accents already applied by the PC).
+    Text(String),
+    /// A non-text key (navigation, editing) or a Ctrl/Alt shortcut.
+    Key {
+        key: PhoneKey,
+        down: bool,
+        /// Auto-repeat count while held.
+        repeat: u32,
+        shift: bool,
+        ctrl: bool,
+        alt: bool,
+    },
+    /// A phone button, pressed and released.
+    Button(PhoneButton),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TouchPhase {
+    Down,
+    Move,
+    Up,
+}
+
+/// Keys forwarded as key presses (everything else is sent as text).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhoneKey {
+    Enter,
+    Backspace,
+    Delete,
+    Tab,
+    Escape,
+    Up,
+    Down,
+    Left,
+    Right,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+    Space,
+    /// A–Z, for Ctrl/Alt shortcuts (Ctrl+A…).
+    Letter(char),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhoneButton {
+    Back,
+    Home,
+    AppSwitch,
+    VolumeUp,
+    VolumeDown,
+    Power,
 }
 
 /// Video stream settings requested from the phone (also what gets recorded).

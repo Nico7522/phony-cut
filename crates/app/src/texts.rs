@@ -220,6 +220,38 @@ pub fn live_badge() -> &'static str {
     tr("Aperçu en direct", "Live preview")
 }
 
+// --- Phone control (mouse and keyboard) ----------------------------------------
+
+pub fn phone_back() -> &'static str {
+    tr("Retour", "Back")
+}
+pub fn phone_home() -> &'static str {
+    tr("Accueil", "Home")
+}
+pub fn phone_recents() -> &'static str {
+    tr("Applis récentes", "Recent apps")
+}
+pub fn phone_volume_down() -> &'static str {
+    "Volume −"
+}
+pub fn phone_volume_up() -> &'static str {
+    "Volume +"
+}
+pub fn control_hint() -> &'static str {
+    tr(
+        "Cliquez sur l'écran pour utiliser le téléphone. Clic droit : retour, molette : défiler.",
+        "Click the screen to use the phone. Right click: back, wheel: scroll.",
+    )
+}
+pub fn keyboard_active() -> &'static str {
+    tr(
+        "⌨ Le clavier écrit sur le téléphone (Ctrl+V colle le texte du PC). Cliquez à côté \
+         de l'écran pour arrêter.",
+        "⌨ The keyboard types on the phone (Ctrl+V pastes the PC text). Click outside the \
+         screen to stop.",
+    )
+}
+
 // --- Tabs and main buttons ------------------------------------------------------
 
 pub fn tab_live() -> &'static str {

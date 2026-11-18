@@ -183,6 +183,11 @@ impl Worker {
                         mirror.stop_recording();
                     }
                 }
+                Ok(Command::PhoneInput(input)) => {
+                    if let Some(mirror) = &self.mirror {
+                        mirror.send_input(&input);
+                    }
+                }
                 Ok(Command::MarkCut) => {
                     if !self.mirror.as_ref().is_some_and(MirrorSession::mark_cut) {
                         tracing::info!("cut ignored: not recording");

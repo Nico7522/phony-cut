@@ -1,7 +1,7 @@
 //! A running screen mirror: starts the server, reads and decodes the stream on
 //! its own thread, publishes frames to a [`FrameSlot`].
 
-use std::io::BufReader;
+use std::io::{BufReader, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,11 +12,13 @@ use std::time::{Duration, Instant};
 use crossbeam_channel::Sender;
 
 use crate::adb::Adb;
+use crate::api::PhoneInput;
 use crate::api::{
     Event, FrameSlot, MirrorEnd, MirrorState, Notifier, RecordingEnd, RecordingProblem,
 };
 use crate::decode::{DecodeError, H264Decoder};
 use crate::record::{Recorder, RecorderSetup};
+use crate::scrcpy::control::{self, ControlMessage};
 use crate::scrcpy::protocol::{self, ProtocolError, StreamItem, VideoCodec};
 use crate::scrcpy::server::{RunningServer, ServerError, ServerOptions};
 
@@ -49,6 +51,10 @@ struct Shared {
     stream: Mutex<StreamInfo>,
     /// Active recording, fed by the session thread.
     recorder: Mutex<Option<Recorder>>,
+    /// Queue of the control writer thread (mouse / keyboard).
+    control: Mutex<Option<crossbeam_channel::Sender<ControlMessage>>>,
+    /// Clone of the control socket, closed by `request_stop()`.
+    control_socket: Mutex<Option<TcpStream>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -136,6 +142,16 @@ impl MirrorSession {
     }
 
     /// Puts a cut marker in the running recording, if any.
+    /// Forwards mouse / keyboard input to the phone. Ignored until the
+    /// control socket is open.
+    pub fn send_input(&self, input: &PhoneInput) {
+        if let Some(control) = lock(&self.shared.control).as_ref() {
+            for message in control::translate(input) {
+                let _ = control.send(message);
+            }
+        }
+    }
+
     pub fn mark_cut(&self) -> bool {
         match lock(&self.shared.recorder).as_ref() {
             Some(recorder) => {
@@ -169,6 +185,11 @@ impl MirrorSession {
         if let Some(socket) = socket {
             let _ = socket.shutdown(Shutdown::Both);
         }
+        let control = lock(&self.shared.control_socket).take();
+        if let Some(socket) = control {
+            let _ = socket.shutdown(Shutdown::Both);
+        }
+        lock(&self.shared.control).take();
     }
 
     /// Stops the session and waits for its thread.
@@ -218,7 +239,11 @@ fn run(ctx: SessionContext, shared: &Shared) {
 
 fn stream(ctx: &SessionContext, shared: &Shared) -> Result<(), SessionError> {
     let mut server = RunningServer::start(&ctx.adb, &ctx.serial, &ctx.options)?;
-    let socket = server.connect(&shared.stop)?;
+    let connection = server.connect(&shared.stop, ctx.options.control)?;
+    if let Some(control) = connection.control {
+        start_control(control, shared);
+    }
+    let socket = connection.video;
     socket.set_nodelay(true).map_err(ProtocolError::from)?;
     socket.set_read_timeout(None).map_err(ProtocolError::from)?;
 
@@ -292,6 +317,47 @@ fn stream(ctx: &SessionContext, shared: &Shared) -> Result<(), SessionError> {
             }
         }
     }
+}
+
+/// Starts the control threads: a writer sending queued messages to the phone
+/// and a reader draining what the phone sends back (device messages: none are
+/// used yet, but an unread socket could block the server).
+fn start_control(socket: TcpStream, shared: &Shared) {
+    let (tx, rx) = crossbeam_channel::unbounded::<ControlMessage>();
+    let (Ok(mut writer), Ok(mut reader), Ok(closer)) =
+        (socket.try_clone(), socket.try_clone(), socket.try_clone())
+    else {
+        tracing::warn!("cannot clone the control socket: phone control disabled");
+        return;
+    };
+    *lock(&shared.control_socket) = Some(closer);
+    *lock(&shared.control) = Some(tx);
+
+    let spawned = thread::Builder::new()
+        .name("control-writer".into())
+        .spawn(move || {
+            // Ends when the session drops the sender or the socket closes.
+            for message in rx {
+                if let Err(err) = writer.write_all(&message.serialize()) {
+                    tracing::debug!(%err, "control socket closed");
+                    break;
+                }
+            }
+        });
+    if let Err(err) = spawned {
+        tracing::warn!(%err, "cannot start control writer");
+    }
+    let spawned = thread::Builder::new()
+        .name("control-reader".into())
+        .spawn(move || {
+            let mut buf = [0u8; 4096];
+            while matches!(reader.read(&mut buf), Ok(n) if n > 0) {}
+        });
+    if let Err(err) = spawned {
+        tracing::warn!(%err, "cannot start control reader");
+    }
+    drop(socket);
+    tracing::info!("phone control enabled");
 }
 
 /// Polls adb a few times: an unplugged phone can still be listed briefly.

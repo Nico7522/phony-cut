@@ -35,6 +35,8 @@ pub struct ServerOptions {
     pub max_fps: u32,
     /// Requested key frame interval in seconds (cuts are aligned on key frames).
     pub key_frame_interval_s: u32,
+    /// Open the control socket (mouse and keyboard).
+    pub control: bool,
 }
 
 impl Default for ServerOptions {
@@ -44,8 +46,17 @@ impl Default for ServerOptions {
             video_bit_rate: 8_000_000,
             max_fps: 60,
             key_frame_interval_s: 1,
+            control: true,
         }
     }
+}
+
+/// Sockets of a connected server.
+pub struct Connection {
+    /// Device meta, codec, session and media packets.
+    pub video: TcpStream,
+    /// Control messages (PC → phone) and device messages (phone → PC).
+    pub control: Option<TcpStream>,
 }
 
 impl From<VideoQuality> for ServerOptions {
@@ -107,7 +118,6 @@ pub fn server_args(scid: u32, options: &ServerOptions) -> Vec<String> {
         "log_level=info".into(),
         "tunnel_forward=true".into(),
         "audio=false".into(),
-        "control=false".into(),
         "video_codec=h264".into(),
         format!("video_bit_rate={}", options.video_bit_rate),
         format!("max_fps={}", options.max_fps),
@@ -118,6 +128,13 @@ pub fn server_args(scid: u32, options: &ServerOptions) -> Vec<String> {
     ];
     if options.max_size > 0 {
         args.push(format!("max_size={}", options.max_size));
+    }
+    if options.control {
+        // Control is on by default on the server. The phone clipboard is
+        // not synchronized to the PC (not handled yet): no device messages.
+        args.push("clipboard_autosync=false".into());
+    } else {
+        args.push("control=false".into());
     }
     args
 }
@@ -161,9 +178,14 @@ impl RunningServer {
         })
     }
 
-    /// Connects to the server, retrying while it starts up, and consumes the
-    /// dummy byte. `stop` aborts the wait.
-    pub fn connect(&mut self, stop: &AtomicBool) -> Result<TcpStream, ServerError> {
+    /// Connects to the server, retrying while it starts up, consumes the
+    /// dummy byte, then opens the control socket if enabled. `stop` aborts
+    /// the wait.
+    ///
+    /// Order matters (scrcpy `DesktopConnection.open`): the server accepts
+    /// the video socket, then the control socket, and only then sends the
+    /// device name on the video socket.
+    pub fn connect(&mut self, stop: &AtomicBool, control: bool) -> Result<Connection, ServerError> {
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, self.port));
         for _ in 0..CONNECT_ATTEMPTS {
             if stop.load(Ordering::Relaxed) {
@@ -175,10 +197,18 @@ impl RunningServer {
             }
             // With a forward tunnel, connect() succeeds as soon as adb listens;
             // only the dummy byte proves the server is there.
-            if let Ok(mut stream) = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT) {
-                stream.set_read_timeout(Some(HANDSHAKE_TIMEOUT))?;
-                if protocol::read_dummy_byte(&mut stream).is_ok() {
-                    return Ok(stream);
+            if let Ok(mut video) = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT) {
+                video.set_read_timeout(Some(HANDSHAKE_TIMEOUT))?;
+                if protocol::read_dummy_byte(&mut video).is_ok() {
+                    let control = if control {
+                        // No dummy byte on the following sockets.
+                        let socket = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT)?;
+                        socket.set_nodelay(true)?;
+                        Some(socket)
+                    } else {
+                        None
+                    };
+                    return Ok(Connection { video, control });
                 }
             }
             thread::sleep(CONNECT_DELAY);
@@ -249,7 +279,7 @@ mod tests {
             "scid=00000abc",
             "tunnel_forward=true",
             "audio=false",
-            "control=false",
+            "clipboard_autosync=false",
             "video_codec=h264",
             "max_size=1920",
             "video_codec_options=i-frame-interval:int=1",
@@ -267,5 +297,16 @@ mod tests {
         assert!(!server_args(1, &options)
             .iter()
             .any(|a| a.starts_with("max_size")));
+    }
+
+    #[test]
+    fn control_can_be_disabled() {
+        let options = ServerOptions {
+            control: false,
+            ..ServerOptions::default()
+        };
+        let args = server_args(1, &options);
+        assert!(args.iter().any(|a| a == "control=false"));
+        assert!(!args.iter().any(|a| a.starts_with("clipboard_autosync")));
     }
 }

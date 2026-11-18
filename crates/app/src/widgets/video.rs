@@ -20,13 +20,21 @@ pub fn upload(
     }
 }
 
-/// Draws the texture as large as possible in the available space, centered,
-/// keeping its aspect ratio.
-pub fn fit(ui: &mut egui::Ui, texture: &TextureHandle) {
-    let area = ui.available_rect_before_wrap();
+/// Largest rectangle with the texture's aspect ratio that fits in `area`,
+/// centered.
+pub fn fit_rect(area: Rect, texture: &TextureHandle) -> Rect {
     let [w, h] = texture.size().map(|v| v as f32);
-    let scale = (area.width() / w).min(area.height() / h).max(0.0);
-    let rect = Rect::from_center_size(area.center(), egui::vec2(w * scale, h * scale));
+    let scale = (area.width() / w.max(1.0))
+        .min(area.height() / h.max(1.0))
+        .max(0.0);
+    Rect::from_center_size(area.center(), egui::vec2(w * scale, h * scale))
+}
+
+/// Draws the texture as large as possible in the available space, centered,
+/// keeping its aspect ratio. Returns where it was drawn.
+pub fn fit(ui: &mut egui::Ui, texture: &TextureHandle) -> Rect {
+    let area = ui.available_rect_before_wrap();
+    let rect = fit_rect(area, texture);
     ui.allocate_rect(area, Sense::hover());
     ui.painter().image(
         texture.id(),
@@ -34,4 +42,5 @@ pub fn fit(ui: &mut egui::Ui, texture: &TextureHandle) {
         Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
         Color32::WHITE,
     );
+    rect
 }
