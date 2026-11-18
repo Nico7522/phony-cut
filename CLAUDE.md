@@ -86,20 +86,20 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
 
 ## 3. Stack technique
 
-| Besoin                  | Choix                                                   | Remarques                                   |
-| ----------------------- | ------------------------------------------------------- | ------------------------------------------- |
-| Langage                 | Rust stable (édition 2021)                              | `rustup` + toolchain MSVC sous Windows      |
-| Interface               | `eframe` / `egui`                                       | Affichage vidéo via texture GPU, 100 % Rust |
-| Communication téléphone | `adb.exe` embarqué, appelé avec `std::process::Command` | Ne **pas** réimplémenter le protocole ADB   |
-| Décodage, mux, export   | `ffmpeg-next` + DLL FFmpeg **shared, LGPL**             | Pas de build GPL                            |
-| Concurrence             | threads std + `crossbeam-channel`                       | Pas de runtime async sauf besoin réel       |
-| Erreurs                 | `thiserror` (bibliothèque), `anyhow` (app)              |                                             |
-| Logs                    | `tracing` + `tracing-subscriber`                        | Fichier de log dans `%APPDATA%`             |
-| Sérialisation           | `serde` + `serde_json`                                  | Marqueurs, réglages                         |
-| Chemins système         | `directories`                                           |                                             |
-| Sélecteur de dossier    | `rfd` (sans features par défaut)                        | Ouvert dans un thread, jamais sur le thread UI |
-| Packaging               | **Inno Setup 6** (installeur par utilisateur, sans admin) | Choisi en phase 6, voir ADR 0007            |
-| Ressources de l'exe     | `embed-resource` (build-dependency)                     | Icône et infos de version de phonecut.exe   |
+| Besoin                  | Choix                                                     | Remarques                                      |
+| ----------------------- | --------------------------------------------------------- | ---------------------------------------------- |
+| Langage                 | Rust stable (édition 2021)                                | `rustup` + toolchain MSVC sous Windows         |
+| Interface               | `eframe` / `egui`                                         | Affichage vidéo via texture GPU, 100 % Rust    |
+| Communication téléphone | `adb.exe` embarqué, appelé avec `std::process::Command`   | Ne **pas** réimplémenter le protocole ADB      |
+| Décodage, mux, export   | `ffmpeg-next` + DLL FFmpeg **shared, LGPL**               | Pas de build GPL                               |
+| Concurrence             | threads std + `crossbeam-channel`                         | Pas de runtime async sauf besoin réel          |
+| Erreurs                 | `thiserror` (bibliothèque), `anyhow` (app)                |                                                |
+| Logs                    | `tracing` + `tracing-subscriber`                          | Fichier de log dans `%APPDATA%`                |
+| Sérialisation           | `serde` + `serde_json`                                    | Marqueurs, réglages                            |
+| Chemins système         | `directories`                                             |                                                |
+| Sélecteur de dossier    | `rfd` (sans features par défaut)                          | Ouvert dans un thread, jamais sur le thread UI |
+| Packaging               | **Inno Setup 6** (installeur par utilisateur, sans admin) | Choisi en phase 6, voir ADR 0007               |
+| Ressources de l'exe     | `embed-resource` (build-dependency)                       | Icône et infos de version de phonecut.exe      |
 
 **Règle : demander avant d'ajouter une dépendance importante** qui n'est pas dans ce tableau.
 
@@ -285,7 +285,7 @@ cargo run -p app                 # lancer l'app
 cargo run -p phonecut-core --example capture_stream -- crates/core/tests/fixtures/<nom>.bin 3
                                  # enregistrer un flux réel pour les tests
 powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
-                                 # installeur : target\installer\PhoneCut-Setup-<version>.exe
+                                 # installeur : target\installer\PhoneCut-Setup-x64.exe
 powershell -ExecutionPolicy Bypass -File scripts\make-icon.ps1
                                  # régénérer l'icône depuis assets\icon\PhyCut_logo_software.svg
 git tag v0.1.0; git push origin v0.1.0
@@ -344,13 +344,13 @@ agent teams de Claude Code), **chacun dans son propre git worktree et sa propre 
 
 ### Rôles et zones de fichiers
 
-| Agent                   | Worktree / branche                | Fichiers qu'il peut modifier                                 | Ne touche pas à                                        |
-| ----------------------- | --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------ |
-| **lead**                | dépôt principal / `main`          | `api.rs`, `Cargo.toml` du workspace, `docs/`, merges         | code des autres, sauf pour résoudre un conflit         |
-| **record**              | `phonecut-record` / `feat/record` | `core/src/record.rs`, `markers.rs`, `export.rs`, leurs tests | `crates/app/`                                          |
-| **ui**                  | `phonecut-ui` / `feat/ui`         | `crates/app/**`, `assets/`                                   | `crates/core/` (sauf demande au lead)                  |
+| Agent                   | Worktree / branche                | Fichiers qu'il peut modifier                                         | Ne touche pas à                                        |
+| ----------------------- | --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
+| **lead**                | dépôt principal / `main`          | `api.rs`, `Cargo.toml` du workspace, `docs/`, merges                 | code des autres, sauf pour résoudre un conflit         |
+| **record**              | `phonecut-record` / `feat/record` | `core/src/record.rs`, `markers.rs`, `export.rs`, leurs tests         | `crates/app/`                                          |
+| **ui**                  | `phonecut-ui` / `feat/ui`         | `crates/app/**`, `assets/`                                           | `crates/core/` (sauf demande au lead)                  |
 | **qa**                  | `phonecut-qa` / `feat/qa`         | `crates/*/tests/` (tests d'intégration et fixtures), CI (`.github/`) | code de production : il **signale**, il ne corrige pas |
-| **packaging** (phase 6) | `phonecut-pkg` / `feat/packaging` | config d'installeur, `dist`, `.github/workflows/release.yml` | `crates/`                                              |
+| **packaging** (phase 6) | `phonecut-pkg` / `feat/packaging` | config d'installeur, `dist`, `.github/workflows/release.yml`         | `crates/`                                              |
 
 Si un agent a besoin de modifier un fichier hors de sa zone (surtout `api.rs`), il
 **envoie un message au lead** au lieu de le modifier lui-même.
@@ -387,3 +387,52 @@ Si un agent a besoin de modifier un fichier hors de sa zone (surtout `api.rs`), 
   avec le téléphone branché vont entrer en conflit. Les tests automatiques ne doivent
   **pas** dépendre d'un vrai téléphone (utiliser des flux enregistrés dans les fixtures).
   Les tests manuels avec un vrai téléphone se font un par un, coordonnés par le lead.
+
+## 11. Open source, site web et dons
+
+### Licence
+
+- Le projet est **public sur GitHub**.
+- Licence du code : **MIT OR Apache-2.0** (double licence, la convention dans l'écosystème
+  Rust). C'est compatible avec scrcpy-server (Apache 2.0) et avec FFmpeg LGPL lié
+  dynamiquement. _Décision à confirmer par le propriétaire avant la première release._
+- `THIRD_PARTY_LICENSES.md` liste chaque composant embarqué, avec sa licence et sa source.
+  Il est fourni dans l'installeur et affiché dans l'écran « À propos ».
+- Pour respecter la LGPL : indiquer la version de FFmpeg utilisée et où récupérer ses
+  sources, et garder les DLL remplaçables (pas de lien statique).
+- **Ne jamais committer de secrets** (tokens, certificats). Ils vont dans les secrets
+  GitHub Actions.
+
+### Site web (`website/`)
+
+- Site **statique** (Astro, ou HTML/CSS simple), sans backend ni compte utilisateur.
+- Hébergement : **GitHub Pages**, déployé par `.github/workflows/website.yml`, qui ne se
+  déclenche que sur les changements dans `website/**` et `assets/tutorial/**`.
+- Les workflows Rust utilisent des filtres `paths` pour **ne pas** se déclencher sur
+  `website/**`.
+- Pages : accueil (démo en GIF ou vidéo, 3 arguments), téléchargement, tutoriel de
+  connexion, FAQ et dépannage, soutenir le projet.
+- **Le tutoriel du site réutilise les images de `assets/tutorial/`.** Il n'y a qu'une
+  source, à ne pas dupliquer.
+- **Lien de téléchargement stable** :
+  `https://github.com/<owner>/<repo>/releases/latest/download/PhoneCut-Setup-x64.exe`.
+  Le nom du fichier de l'installeur **ne doit pas contenir de numéro de version**, sinon
+  ce lien casse. La version affichée sur le site peut être lue via l'API GitHub Releases.
+- Mentionner sur la page de téléchargement l'avertissement SmartScreen (app non signée)
+  et comment passer outre, avec une capture d'écran.
+- Pas de traceurs publicitaires. Si on veut des statistiques, utiliser une solution sans
+  cookies et respectueuse du RGPD.
+- `website/CLAUDE.md` décrit la stack et les commandes propres au site.
+
+### Dons
+
+- **GitHub Sponsors** en solution principale : aucun frais sur les dons des comptes
+  personnels, et la Belgique fait partie des régions supportées. Il faut configurer le
+  profil, les paliers, les infos bancaires et fiscales, et activer la 2FA.
+- Optionnel : **Ko-fi** ou **Liberapay**, pour les gens qui n'ont pas de compte GitHub.
+- `.github/FUNDING.yml` : affiche le bouton « Sponsor » sur le dépôt.
+- Dans l'app, un lien « Soutenir le projet » **discret** dans l'écran « À propos » et après
+  un export réussi (au maximum une fois par semaine). **Jamais de pop-up bloquant, et
+  aucune fonctionnalité réservée aux donateurs.**
+- Les dons sont des revenus : le propriétaire vérifie leur traitement fiscal en Belgique
+  (hors du périmètre du code).
