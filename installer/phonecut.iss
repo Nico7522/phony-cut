@@ -32,7 +32,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir=..\target\installer
-OutputBaseFilename=PhoneCut-Setup-{#AppVersion}
+; No version in the name: the website links to releases/latest/download/PhoneCut-Setup-x64.exe
+OutputBaseFilename=PhoneCut-Setup-x64
 SetupIconFile=..\assets\icon\phonecut.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}

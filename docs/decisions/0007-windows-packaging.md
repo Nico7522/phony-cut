@@ -46,7 +46,7 @@ assets\tutorial\, assets\icon\    (found by paths::find_asset_file)
 
 `.github/workflows/release.yml`, on `v*` tags: fmt, clippy, tests, then
 `scripts/build-installer.ps1` (also usable locally), which refuses a tag that does not
-match `Cargo.toml`, and publishes `PhoneCut-Setup-<version>.exe` + `SHA256SUMS.txt`.
+match `Cargo.toml`, and publishes `PhoneCut-Setup-x64.exe` + `SHA256SUMS.txt` (no version in the name since the website links to `releases/latest/download/PhoneCut-Setup-x64.exe`; the version is in the release title and the installer itself).
 (The hash was first written to `PhoneCut-Setup-<version>.exe.sha256`: with file
 extensions hidden, Windows shows it as "PhoneCut-Setup-<version>.exe", and a tester
 opened it instead of the installer.)

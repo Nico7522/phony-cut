@@ -8,7 +8,7 @@
 
 ## Installation
 
-1. Téléchargez `PhoneCut-Setup-<version>.exe` depuis la page
+1. Téléchargez `PhoneCut-Setup-x64.exe` depuis la page
    [Releases](https://github.com/Nico7522/phony-cut/releases).
 2. Lancez le fichier. L'installation se fait pour votre compte uniquement :
    **aucun droit administrateur n'est demandé**.
@@ -24,7 +24,7 @@ payant et n'est pas prévu pour la première version). Windows SmartScreen affic
 un avertissement au premier lancement de l'installeur :
 
 1. Cliquez sur **« Informations complémentaires »**.
-2. Vérifiez que l'application est bien `PhoneCut-Setup-<version>.exe`.
+2. Vérifiez que l'application est bien `PhoneCut-Setup-x64.exe`.
 3. Cliquez sur **« Exécuter quand même »**.
 
 Cet avertissement signifie seulement que Windows ne connaît pas encore cet éditeur ;
@@ -33,7 +33,7 @@ est intact, comparez son empreinte avec celle du fichier `SHA256SUMS.txt` publi�
 côté :
 
 ```powershell
-Get-FileHash .\PhoneCut-Setup-<version>.exe -Algorithm SHA256
+Get-FileHash .\PhoneCut-Setup-x64.exe -Algorithm SHA256
 ```
 
 ## Mise à jour

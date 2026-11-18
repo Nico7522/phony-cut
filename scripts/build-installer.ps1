@@ -1,4 +1,4 @@
-# Builds the Windows installer: target\installer\PhoneCut-Setup-<version>.exe
+# Builds the Windows installer: target\installer\PhoneCut-Setup-x64.exe
 #   powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
 #
 # Steps: FFmpeg DLLs, third-party license list, release build, Inno Setup.
@@ -41,13 +41,13 @@ try {
     & $iscc "/DAppVersion=$Version" (Join-Path $Root 'installer\phonecut.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
 
-    $setup = Join-Path $Root "target\installer\PhoneCut-Setup-$Version.exe"
+    $setup = Join-Path $Root "target\installer\PhoneCut-Setup-x64.exe"
     $hash = (Get-FileHash -Algorithm SHA256 $setup).Hash.ToLower()
-    # A separate .txt name: "PhoneCut-Setup-x.exe.sha256" looked like the
+    # A separate .txt name: "PhoneCut-Setup-x64.exe.sha256" looked like the
     # installer itself when Windows hides file extensions.
     Get-ChildItem (Join-Path $Root 'target\installer') -Filter '*.sha256' | Remove-Item
     Set-Content -Path (Join-Path $Root 'target\installer\SHA256SUMS.txt') `
-        -Value "$hash  PhoneCut-Setup-$Version.exe" -Encoding ascii
+        -Value "$hash  PhoneCut-Setup-x64.exe" -Encoding ascii
     Write-Host "Installer: $setup"
     Write-Host "SHA-256:   $hash"
 }
