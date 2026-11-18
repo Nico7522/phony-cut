@@ -1,0 +1,26 @@
+---
+import { links } from "../config";
+import { t, type Lang } from "../i18n";
+
+interface Props {
+  lang: Lang;
+  center?: boolean;
+}
+
+const { lang, center = false } = Astro.props;
+const text = t(lang).common;
+---
+
+<div class:list={["download-box", { center }]}>
+  <a class="button" href={links.download}>
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"></path>
+    </svg>
+    {text.downloadButton}
+  </a>
+  <p class="facts">{text.downloadFacts}</p>
+  <p class="version" data-latest-version hidden>
+    {text.latestVersion} <strong data-version></strong> ·
+    <a href={links.releases}>{text.allVersions}</a>
+  </p>
+</div>

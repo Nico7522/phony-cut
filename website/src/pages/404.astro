@@ -1,0 +1,22 @@
+---
+// GitHub Pages serves this page for unknown URLs. The language is unknown, so
+// it shows both.
+import Layout from "../layouts/Layout.astro";
+import { langs, pageUrl, t } from "../i18n";
+---
+
+<Layout lang="en" page={null} title={`${t("en").notFound.title} · ${t("fr").notFound.title}`}>
+  <div class="container narrow">
+    {
+      langs.map((lang) => (
+        <section lang={t(lang).htmlLang}>
+          <h1>{t(lang).notFound.title}</h1>
+          <p>{t(lang).notFound.text}</p>
+          <p>
+            <a href={pageUrl(lang, "")}>{t(lang).notFound.back}</a>
+          </p>
+        </section>
+      ))
+    }
+  </div>
+</Layout>

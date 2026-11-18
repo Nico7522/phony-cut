@@ -1,0 +1,135 @@
+---
+import "../styles/global.css";
+import { links, type Page } from "../config";
+import { assetUrl, fill, langs, otherLang, pageUrl, t, type Lang } from "../i18n";
+
+interface Props {
+  lang: Lang;
+  /** Current page, or `null` for pages outside the menu (404). */
+  page: Page | null;
+  title: string;
+}
+
+const { lang, page, title } = Astro.props;
+const text = t(lang);
+const other = otherLang(lang);
+const fullTitle = page === "" ? title : `${title} · PhoneCut`;
+const logo = assetUrl("shared/logo.svg");
+
+const menu: { page: Page; label: string }[] = [
+  { page: "", label: text.nav.home },
+  { page: "download", label: text.nav.download },
+  { page: "tutorial", label: text.nav.tutorial },
+  { page: "faq", label: text.nav.faq },
+  { page: "support", label: text.nav.support },
+];
+
+const site = Astro.site?.origin ?? "";
+const switchHref = pageUrl(other, page ?? "");
+---
+
+<!doctype html>
+<html lang={text.htmlLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={text.meta.description} />
+    <link rel="icon" type="image/svg+xml" href={logo} />
+    {
+      page !== null &&
+        langs.map((l) => (
+          <link rel="alternate" hreflang={l} href={`${site}${pageUrl(l, page)}`} />
+        ))
+    }
+    {page !== null && <link rel="canonical" href={`${site}${pageUrl(lang, page)}`} />}
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={text.meta.description} />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">{text.nav.skip}</a>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href={pageUrl(lang, "")}>
+          <img src={logo} alt="" width="21" height="33" />
+          <span>PhoneCut</span>
+        </a>
+        <nav class="site-nav" aria-label={text.nav.mainLabel}>
+          <ul>
+            {
+              menu.map((item) => (
+                <li>
+                  <a
+                    href={pageUrl(lang, item.page)}
+                    aria-current={item.page === page ? "page" : undefined}
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+        <a
+          class="lang-switch"
+          href={switchHref}
+          hreflang={other}
+          lang={other}
+          aria-label={text.nav.switchToLabel}
+        >
+          {text.nav.switchTo}
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <ul>
+          <li><a href={links.repo}>{text.footer.repo}</a></li>
+          <li><a href={`${links.repo}#license`}>{text.footer.license}</a></li>
+          <li><a href={links.thirdPartyLicenses}>{text.footer.thirdParty}</a></li>
+          <li><a href={pageUrl(lang, "support")}>{text.nav.support}</a></li>
+        </ul>
+        <p set:html={fill(lang, text.footer.credits)} />
+      </div>
+    </footer>
+
+    <script is:inline define:vars={{ api: links.latestReleaseApi }}>
+      // Shows the latest version number next to the download buttons. Any failure
+      // (no release yet, offline, rate limit) leaves the line hidden, silently.
+      (function () {
+        var targets = document.querySelectorAll("[data-latest-version]");
+        if (targets.length === 0 || !window.fetch) return;
+        function show(version) {
+          targets.forEach(function (el) {
+            var slot = el.querySelector("[data-version]");
+            if (slot) slot.textContent = version;
+            el.hidden = false;
+          });
+        }
+        try {
+          var cached = sessionStorage.getItem("phonecut-latest-version");
+          if (cached) return show(cached);
+        } catch (e) {}
+        fetch(api, { headers: { Accept: "application/vnd.github+json" } })
+          .then(function (r) {
+            return r.ok ? r.json() : null;
+          })
+          .then(function (data) {
+            if (!data || typeof data.tag_name !== "string") return;
+            var version = data.tag_name.replace(/^v/, "");
+            try {
+              sessionStorage.setItem("phonecut-latest-version", version);
+            } catch (e) {}
+            show(version);
+          })
+          .catch(function () {});
+      })();
+    </script>
+  </body>
+</html>

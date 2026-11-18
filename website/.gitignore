@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.astro/
+# Copied from ../assets/ by scripts/copy-shared-assets.mjs (single source, never committed)
+public/shared/

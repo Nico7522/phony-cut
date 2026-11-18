@@ -1,0 +1,79 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import DownloadButton from "../DownloadButton.astro";
+import Placeholder from "../Placeholder.astro";
+import { links } from "../../config";
+import { assetUrl, pageUrl, t, type Lang } from "../../i18n";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const text = t(lang);
+const home = text.home;
+---
+
+<Layout lang={lang} page="" title={home.title}>
+  <div class="container">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <h1 id="hero-title" set:html={home.heroTitle} />
+        <p class="lead">{home.heroText}</p>
+        <DownloadButton lang={lang} />
+        <p><a href={pageUrl(lang, "tutorial")}>{home.tutorialLink} →</a></p>
+      </div>
+      <div class="hero-logo">
+        <img src={assetUrl("shared/logo.svg")} alt={text.common.logoAlt} width="203" height="317" />
+      </div>
+    </section>
+
+    <section aria-labelledby="features-title">
+      <h2 id="features-title">{home.featuresTitle}</h2>
+      <div class="grid">
+        {
+          home.features.map((feature, i) => (
+            <article class="card">
+              <span class="feature-number" aria-hidden="true">{i + 1}</span>
+              <h3>{feature.title}</h3>
+              <p set:html={feature.text} />
+            </article>
+          ))
+        }
+      </div>
+    </section>
+
+    <section aria-labelledby="demo-title">
+      <h2 id="demo-title">{home.demoTitle}</h2>
+      {/* TODO: replace with a demo GIF or video of PhoneCut (live preview, cut, export). */}
+      <Placeholder label={home.demoPlaceholder} video />
+    </section>
+
+    <section aria-labelledby="steps-title">
+      <h2 id="steps-title">{home.stepsTitle}</h2>
+      <ol class="grid plain-list">
+        {
+          home.steps.map((step, i) => (
+            <li class="card">
+              <span class="feature-number" aria-hidden="true">{i + 1}</span>
+              <h3>{step.title}</h3>
+              <p>{step.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section aria-labelledby="open-title">
+      <h2 id="open-title">{home.openTitle}</h2>
+      <p>
+        {home.openText} <a href={links.repo}>github.com/Nico7522/phony-cut</a>
+      </p>
+    </section>
+
+    <section class="cta" aria-labelledby="cta-title">
+      <h2 id="cta-title">{home.ctaTitle}</h2>
+      <DownloadButton lang={lang} center />
+    </section>
+  </div>
+</Layout>

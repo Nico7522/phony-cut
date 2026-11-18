@@ -1,0 +1,22 @@
+{
+  "name": "phonecut-website",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "copy-assets": "node scripts/copy-shared-assets.mjs",
+    "predev": "npm run copy-assets",
+    "dev": "astro dev",
+    "prebuild": "npm run copy-assets",
+    "build": "astro build",
+    "postbuild": "node scripts/check-links.mjs",
+    "prepreview": "npm run copy-assets",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "7.3.8"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

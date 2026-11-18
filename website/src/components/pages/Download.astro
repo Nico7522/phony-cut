@@ -1,0 +1,73 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import DownloadButton from "../DownloadButton.astro";
+import Placeholder from "../Placeholder.astro";
+import { installerName, links } from "../../config";
+import { fill, t, type Lang } from "../../i18n";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const text = t(lang).download;
+const f = (s: string) => fill(lang, s);
+---
+
+<Layout lang={lang} page="download" title={text.title}>
+  <div class="container narrow">
+    <h1>{text.title}</h1>
+    <p>{text.intro}</p>
+    <DownloadButton lang={lang} />
+    <p><a href={links.releases}>{t(lang).common.allVersions}</a></p>
+
+    <h2>{text.requirementsTitle}</h2>
+    <ul>
+      {text.requirements.map((item) => <li set:html={item} />)}
+    </ul>
+
+    <h2>{text.installTitle}</h2>
+    <ol>
+      {text.install.map((item) => <li set:html={f(item)} />)}
+    </ol>
+
+    <h2 id="smartscreen">{text.smartscreenTitle}</h2>
+    <p>{text.smartscreenText}</p>
+    <ol>
+      {text.smartscreenSteps.map((item) => <li set:html={f(item)} />)}
+    </ol>
+    <div class="notice">
+      <p>{text.smartscreenNote}</p>
+    </div>
+    {/* TODO: screenshot of the SmartScreen window ("More info" / "Run anyway"). */}
+    <Placeholder label={text.smartscreenScreenshot} />
+    <p set:html={f(text.checksumsText)} />
+    <pre><code>Get-FileHash .\{installerName} -Algorithm SHA256</code></pre>
+
+    <h2>{text.updateTitle}</h2>
+    <p>{text.updateText}</p>
+
+    <h2>{text.uninstallTitle}</h2>
+    <p set:html={text.uninstallText} />
+
+    <h2>{text.filesTitle}</h2>
+    <table>
+      <thead>
+        <tr><th scope="col">{text.filesWhat}</th><th scope="col">{text.filesWhere}</th></tr>
+      </thead>
+      <tbody>
+        {
+          text.files.map(([what, where]) => (
+            <tr>
+              <th scope="row">{what}</th>
+              <td set:html={where} />
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+
+    <h2>{text.otherSystemsTitle}</h2>
+    <p>{text.otherSystemsText}</p>
+  </div>
+</Layout>

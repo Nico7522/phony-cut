@@ -1,0 +1,40 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { fill, pageUrl, t, type Lang } from "../../i18n";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const all = t(lang);
+const text = all.faq;
+---
+
+<Layout lang={lang} page="faq" title={text.title}>
+  <div class="container narrow">
+    <h1>{text.title}</h1>
+    <p>{text.intro}</p>
+    <p>
+      <a href={pageUrl(lang, "tutorial")}>{all.nav.tutorial} →</a>
+    </p>
+
+    {
+      text.groups.map((group) => (
+        <section class="faq-group">
+          <h2>{group.title}</h2>
+          {group.items.map((item) => (
+            <details>
+              <summary>{item.q}</summary>
+              <Fragment set:html={fill(lang, item.a)} />
+            </details>
+          ))}
+        </section>
+      ))
+    }
+
+    <div class="notice">
+      <p set:html={fill(lang, text.stillStuck)} />
+    </div>
+  </div>
+</Layout>

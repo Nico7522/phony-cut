@@ -1,0 +1,14 @@
+---
+// TODO block for media that does not exist yet (demo video, screenshots).
+// Replace each use with the real picture or video once it is available.
+interface Props {
+  label: string;
+  video?: boolean;
+}
+
+const { label, video = false } = Astro.props;
+---
+
+<div class:list={["placeholder", { video }]} data-todo>
+  <p>{label}</p>
+</div>
