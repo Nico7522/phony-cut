@@ -38,7 +38,7 @@ export const fr: Dict = {
     features: [
       {
         title: "L'écran du téléphone en direct",
-        text: "Branchez votre téléphone avec un câble USB : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier.",
+        text: "Branchez votre téléphone avec un câble USB, ou connectez-le en Wi-Fi (Android 11 ou plus) : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier.",
       },
       {
         title: "Un enregistrement sans perte de qualité",
@@ -69,7 +69,7 @@ export const fr: Dict = {
     ],
     openTitle: "Gratuit et libre",
     openText:
-      "PhonyCut est gratuit, sans publicité, sans compte et sans pistage. Son code source est public sur GitHub. Il fonctionne sous Windows pour l'instant ; la connexion sans fil et une version Mac sont prévues.",
+      "PhonyCut est gratuit, sans publicité, sans compte et sans pistage. Son code source est public sur GitHub. Il fonctionne sous Windows pour l'instant ; une version Mac est prévue.",
     ctaTitle: "Envie d'essayer ?",
   },
   download: {
@@ -323,6 +323,10 @@ export const fr: Dict = {
             a: "<p>Dans les Réglages : <strong>Légère</strong> (1280 pixels, fichiers légers, pour les ordinateurs modestes ou les longs enregistrements), <strong>Standard</strong> (1920 pixels, recommandée) ou <strong>Haute</strong> (résolution maximale du téléphone, fichiers environ deux fois plus gros). Vous pouvez aussi choisir 30 ou 60 images par seconde (60 est plus fluide, idéal pour les jeux).</p>",
           },
           {
+            q: "Peut-on l'utiliser sans câble (en Wi-Fi) ?",
+            a: "<p>Oui, avec Android 11 ou plus. On associe le téléphone une seule fois : dans PhonyCut, cliquez sur <strong>Se connecter en Wi-Fi</strong> (sur l'écran d'accueil ou dans les Réglages), puis sur le téléphone ouvrez <em>Options pour les développeurs → Débogage sans fil</em> et touchez <strong>Associer l'appareil avec un code QR</strong> pour scanner le code affiché par PhonyCut (ou utilisez le code d'association à 6 chiffres). Ensuite, PhonyCut se reconnecte tout seul dès que le téléphone et le PC sont sur le même Wi-Fi et que le débogage sans fil est activé. Tout fonctionne comme avec un câble (aperçu, son, souris et clavier, enregistrement), avec un peu plus de délai selon votre Wi-Fi.</p>",
+          },
+          {
             q: "Le son est-il enregistré ?",
             a: "<p>Oui, avec Android 11 ou plus : le son est enregistré avec l'image et gardé dans les clips. Pendant que PhonyCut le capture, le téléphone devient muet et son son sort sur le PC (vous pouvez couper l'écoute ou la capture dans les Réglages). Certaines applis interdisent la capture de leur son. Quand PhonyCut s'arrête, certains lecteurs (YouTube…) se mettent en pause, comme quand on débranche un casque.</p>",
           },
@@ -354,7 +358,7 @@ export const fr: Dict = {
           },
           {
             q: "Ça marche sur Mac, sur iPhone ou sans câble ?",
-            a: "<p>Pas pour l'instant : PhonyCut fonctionne sous Windows 10 et 11, avec un téléphone Android branché en USB. Une version Mac et la connexion sans fil sont prévues. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.</p>",
+            a: "<p>Pas pour l'instant : PhonyCut fonctionne sous Windows 10 et 11, avec un téléphone Android en USB ou en Wi-Fi (Android 11 ou plus). Une version Mac est prévue. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.</p>",
           },
           {
             q: "« PhonyCut est déjà ouvert »",
@@ -373,7 +377,7 @@ export const fr: Dict = {
     intro:
       "PhonyCut est gratuit et le restera. <strong>Aucune fonction n'est réservée aux donateurs</strong>, et vous n'avez rien à donner pour l'utiliser.",
     whyText:
-      "Si PhonyCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, la connexion sans fil, une version Mac…), vous pouvez faire un don du montant de votre choix, une fois ou chaque mois : avec GitHub Sponsors si vous avez un compte GitHub, sinon avec Ko-fi.",
+      "Si PhonyCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, une version Mac…), vous pouvez faire un don du montant de votre choix, une fois ou chaque mois : avec GitHub Sponsors si vous avez un compte GitHub, sinon avec Ko-fi.",
     sponsorButton: "Soutenir sur GitHub",
     kofiButton: "Offrir un café sur Ko-fi",
     otherTitle: "D'autres façons d'aider, gratuitement",

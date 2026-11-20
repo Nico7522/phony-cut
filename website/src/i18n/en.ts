@@ -39,7 +39,7 @@ export const en = {
     features: [
       {
         title: "Mirror your phone live",
-        text: "Plug your phone in with a USB cable and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard.",
+        text: "Plug your phone in with a USB cable, or connect it over Wi-Fi (Android 11 or later), and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard.",
       },
       {
         title: "Record without quality loss",
@@ -70,7 +70,7 @@ export const en = {
     ],
     openTitle: "Free and open source",
     openText:
-      "PhonyCut is free, without ads, accounts or tracking. Its source code is public on GitHub. It works on Windows for now; a wireless connection and a Mac version are planned.",
+      "PhonyCut is free, without ads, accounts or tracking. Its source code is public on GitHub. It works on Windows for now; a Mac version is planned.",
     ctaTitle: "Ready to try?",
   },
   download: {
@@ -323,6 +323,10 @@ export const en = {
             a: "<p>In the Settings: <strong>Light</strong> (1280 pixels, light files, for modest computers or long recordings), <strong>Standard</strong> (1920 pixels, recommended) or <strong>High</strong> (the phone's full resolution, files about twice as large). You can also choose 30 or 60 frames per second (60 is smoother, ideal for games).</p>",
           },
           {
+            q: "Can I use it without a cable (over Wi-Fi)?",
+            a: "<p>Yes, with Android 11 or later. You pair the phone once: in PhonyCut, click <strong>Connect over Wi-Fi</strong> (on the home screen or in the Settings), then on the phone open <em>Developer options → Wireless debugging</em> and tap <strong>Pair device with QR code</strong> to scan the code PhonyCut shows (or use the 6-digit pairing code). Then PhonyCut reconnects by itself whenever the phone and the PC are on the same Wi-Fi and wireless debugging is on. Everything works the same as with a cable (preview, sound, mouse and keyboard, recording), with a little more delay depending on your Wi-Fi.</p>",
+          },
+          {
             q: "Is the sound recorded?",
             a: "<p>Yes, with Android 11 or later: the sound is recorded with the picture and kept in the clips. While PhonyCut captures it, the phone goes silent and its sound comes out of the PC (you can turn listening or capture off in the Settings). Some apps do not allow their sound to be captured. When PhonyCut stops, some players (YouTube…) pause, as when headphones are unplugged.</p>",
           },
@@ -354,7 +358,7 @@ export const en = {
           },
           {
             q: "Does it work on Mac, on iPhone or without a cable?",
-            a: "<p>Not for now: PhonyCut works on Windows 10 and 11 with an Android phone plugged in by USB. A Mac version and a wireless connection are planned. iPhones are not supported: Apple does not allow this kind of connection simply.</p>",
+            a: "<p>Not for now: PhonyCut works on Windows 10 and 11 with an Android phone, by USB or over Wi-Fi (Android 11 or later). A Mac version is planned. iPhones are not supported: Apple does not allow this kind of connection simply.</p>",
           },
           {
             q: "“PhonyCut is already open”",
@@ -373,7 +377,7 @@ export const en = {
     intro:
       "PhonyCut is free and will stay free. <strong>No feature is reserved to donors</strong>, and you do not need to give anything to use it.",
     whyText:
-      "If PhonyCut is useful to you and you want to help it grow (more tested phones, a wireless connection, a Mac version…), you can make a donation of the amount you choose, once or every month: with GitHub Sponsors if you have a GitHub account, otherwise with Ko-fi.",
+      "If PhonyCut is useful to you and you want to help it grow (more tested phones, a Mac version…), you can make a donation of the amount you choose, once or every month: with GitHub Sponsors if you have a GitHub account, otherwise with Ko-fi.",
     sponsorButton: "Sponsor on GitHub",
     kofiButton: "Buy me a coffee on Ko-fi",
     otherTitle: "Other ways to help, for free",
