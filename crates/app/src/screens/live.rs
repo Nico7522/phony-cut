@@ -135,7 +135,17 @@ impl LiveScreen {
         };
         let rect = video::fit(ui, texture);
         let [w, h] = texture.size();
-        let frame = (u32::try_from(w).unwrap_or(0), u32::try_from(h).unwrap_or(0));
+        let picture = (u32::try_from(w).unwrap_or(0), u32::try_from(h).unwrap_or(0));
+        // The preview may be scaled down: touches use the real video size,
+        // or the phone ignores them (scrcpy checks the size).
+        let frame = match self.state {
+            Some(MirrorState::Running { width, height, .. })
+                if (width > height) == (picture.0 > picture.1) =>
+            {
+                (width, height)
+            }
+            _ => picture,
+        };
         let id = egui::Id::unique("phone-screen");
         let inputs = self.control.handle(ui, id, rect, frame);
         self.keyboard_active = ui.memory(|m| m.has_focus(id));

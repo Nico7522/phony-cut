@@ -19,6 +19,7 @@ use crate::api::{PhoneInput, SoundOptions, SoundState};
 use crate::audio::AacDecoder;
 use crate::audio_out::AudioOutput;
 use crate::decode::{DecodeError, H264Decoder};
+use crate::preview::{LagGuard, PreviewConverter};
 use crate::record::{Recorder, RecorderSetup};
 use crate::scrcpy::control::{self, ControlMessage};
 use crate::scrcpy::protocol::{self, AudioCodec, ProtocolError, StreamItem, VideoCodec};
@@ -312,6 +313,11 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
 
     let mut decoder = H264Decoder::new()?;
     let mut stats = Stats::new();
+    // RGBA conversion of the newest picture only, on its own thread.
+    let preview = PreviewConverter::start(Arc::clone(&ctx.frames), Arc::clone(&ctx.notify))
+        .map_err(ProtocolError::from)?;
+    let mut lag = LagGuard::default();
+    let clock = Instant::now();
     loop {
         match protocol::read_item(&mut reader)? {
             StreamItem::Session(session) => {
@@ -323,6 +329,7 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
                     "video size changed"
                 );
                 decoder = H264Decoder::new()?;
+                lag.reset();
                 ctx.send(running(session.width, session.height));
                 *lock(&shared.stream) = StreamInfo {
                     size: Some((session.width, session.height)),
@@ -339,12 +346,20 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
                 if let Some(recorder) = lock(&shared.recorder).as_ref() {
                     recorder.push(&packet);
                 }
+                // Behind on a slow PC: skip to the next key frame (the
+                // recording above still got the packet).
+                if let Some(pts) = packet.pts_us {
+                    let arrival = i64::try_from(clock.elapsed().as_micros()).unwrap_or(i64::MAX);
+                    if !lag.decode(pts, arrival, packet.key_frame) {
+                        stats.skipped();
+                        continue;
+                    }
+                }
                 let started = Instant::now();
-                match decoder.decode(&packet) {
+                match decoder.decode_raw(&packet) {
                     Ok(Some(frame)) => {
                         let decode_time = started.elapsed();
-                        let dropped = ctx.frames.put(frame);
-                        (ctx.notify)();
+                        let dropped = preview.push(frame);
                         stats.record(decode_time, dropped);
                     }
                     Ok(None) => {}
@@ -543,8 +558,10 @@ struct Stats {
     frames: u32,
     decode_time: Duration,
     errors: u32,
-    /// Frames replaced before the UI displayed them (UI too slow).
+    /// Pictures replaced before being converted for the screen.
     dropped: u32,
+    /// Packets not decoded to catch up with live (slow PC).
+    skipped: u32,
 }
 
 impl Stats {
@@ -555,6 +572,7 @@ impl Stats {
             decode_time: Duration::ZERO,
             errors: 0,
             dropped: 0,
+            skipped: 0,
         }
     }
 
@@ -562,6 +580,11 @@ impl Stats {
         self.frames += 1;
         self.decode_time += decode;
         self.dropped += u32::from(dropped);
+        self.maybe_log();
+    }
+
+    fn skipped(&mut self) {
+        self.skipped += 1;
         self.maybe_log();
     }
 
@@ -589,6 +612,7 @@ impl Stats {
             avg_decode_ms = format!("{avg_ms:.2}"),
             errors = self.errors,
             dropped_before_display = self.dropped,
+            skipped_to_catch_up = self.skipped,
             "mirror stats"
         );
         *self = Self::new();

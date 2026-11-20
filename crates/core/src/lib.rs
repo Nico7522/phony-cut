@@ -16,6 +16,7 @@ pub mod pairing;
 pub mod paths;
 pub mod platform;
 pub mod player;
+pub mod preview;
 pub mod record;
 pub mod scrcpy;
 pub mod service;

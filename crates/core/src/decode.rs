@@ -40,6 +40,20 @@ struct ScalerKey {
     format: Pixel,
     width: u32,
     height: u32,
+    out_width: u32,
+    out_height: u32,
+}
+
+/// Output size fitting `width`×`height` with its long side at most
+/// `max_side`, keeping the aspect ratio (even sizes, never upscaled).
+pub fn fit_size(width: u32, height: u32, max_side: u32) -> (u32, u32) {
+    let long = width.max(height);
+    if long <= max_side || long == 0 {
+        return (width, height);
+    }
+    let scale =
+        |v: u32| ((u64::from(v) * u64::from(max_side) / u64::from(long)) as u32 & !1).max(2);
+    (scale(width), scale(height))
 }
 
 /// Converts decoded frames (any pixel format and size) to packed RGBA,
@@ -57,10 +71,24 @@ impl RgbaConverter {
         decoded: &frame::Video,
         pts_us: Option<u64>,
     ) -> Result<VideoFrame, DecodeError> {
+        self.convert_fit(decoded, pts_us, u32::MAX)
+    }
+
+    /// Like [`Self::convert`], scaled down so the long side is at most
+    /// `max_side` (a preview never needs more pixels than the screen).
+    pub fn convert_fit(
+        &mut self,
+        decoded: &frame::Video,
+        pts_us: Option<u64>,
+        max_side: u32,
+    ) -> Result<VideoFrame, DecodeError> {
+        let (out_width, out_height) = fit_size(decoded.width(), decoded.height(), max_side);
         let key = ScalerKey {
             format: decoded.format(),
             width: decoded.width(),
             height: decoded.height(),
+            out_width,
+            out_height,
         };
         let scaler = match &mut self.scaler {
             Some((current, scaler)) if *current == key => scaler,
@@ -70,17 +98,19 @@ impl RgbaConverter {
                     key.width,
                     key.height,
                     Pixel::RGBA,
-                    key.width,
-                    key.height,
+                    key.out_width,
+                    key.out_height,
                     scaling::Flags::BILINEAR,
                 )?;
+                // A new size needs a new output picture.
+                self.converted = None;
                 &mut slot.insert((key, scaler)).1
             }
         };
         let converted = self.converted.get_or_insert_with(frame::Video::empty);
         scaler.run(decoded, converted)?;
 
-        let (width, height) = (key.width as usize, key.height as usize);
+        let (width, height) = (key.out_width as usize, key.out_height as usize);
         let row_len = width * 4;
         let stride = converted.stride(0);
         let data = converted.data(0);
@@ -90,12 +120,30 @@ impl RgbaConverter {
         }
 
         Ok(VideoFrame {
-            width: key.width,
-            height: key.height,
+            width: key.out_width,
+            height: key.out_height,
             rgba,
             pts_us,
         })
     }
+}
+
+/// A decoded picture and its device time (µs).
+pub struct DecodedFrame {
+    pub frame: frame::Video,
+    pub pts_us: Option<u64>,
+}
+
+/// New reference to the same picture buffers (no pixel copy).
+fn frame_ref(source: &frame::Video) -> Result<frame::Video, DecodeError> {
+    let mut frame = frame::Video::empty();
+    // SAFETY: both frames are valid; av_frame_ref adds references to the
+    // source's buffers, released when `frame` is dropped.
+    let ret = unsafe { ffmpeg::ffi::av_frame_ref(frame.as_mut_ptr(), source.as_ptr()) };
+    if ret < 0 {
+        return Err(ffmpeg::Error::from(ret).into());
+    }
+    Ok(frame)
 }
 
 /// Receives every available frame from `decoder`, calling `on_frame` for
@@ -143,6 +191,20 @@ impl H264Decoder {
 
     /// Feeds one packet; returns the newest decoded frame, if one came out.
     pub fn decode(&mut self, packet: &MediaPacket) -> Result<Option<VideoFrame>, DecodeError> {
+        match self.decode_raw(packet)? {
+            Some(decoded) => Ok(Some(
+                self.converter.convert(&decoded.frame, decoded.pts_us)?,
+            )),
+            None => Ok(None),
+        }
+    }
+
+    /// Feeds one packet; returns the newest decoded picture without converting
+    /// it (it shares the decoder's buffers: no copy).
+    pub fn decode_raw(
+        &mut self,
+        packet: &MediaPacket,
+    ) -> Result<Option<DecodedFrame>, DecodeError> {
         if packet.config {
             self.pending_config = Some(packet.data.clone());
             return Ok(None);
@@ -165,10 +227,11 @@ impl H264Decoder {
         self.decoder.send_packet(&av_packet)?;
 
         let mut latest = None;
-        let converter = &mut self.converter;
         drain_frames(&mut self.decoder, &mut self.decoded, |decoded| {
-            let pts = decoded.pts().and_then(|p| u64::try_from(p).ok());
-            latest = Some(converter.convert(decoded, pts)?);
+            latest = Some(DecodedFrame {
+                frame: frame_ref(decoded)?,
+                pts_us: decoded.pts().and_then(|p| u64::try_from(p).ok()),
+            });
             Ok(())
         })?;
         Ok(latest)
