@@ -21,7 +21,7 @@ use ffmpeg::{codec, format, media, Dictionary, Rational};
 use ffmpeg_next as ffmpeg;
 
 use crate::decode::{drain_frames, init_ffmpeg, DecodeError};
-use crate::export::{EncodeSink, ExportError, SinkError};
+use crate::export::{AudioCopy, EncodeSink, ExportError, SinkError};
 
 const MILLIS: Rational = Rational(1, 1000);
 /// Bit rate when the recording does not tell its own.
@@ -69,10 +69,8 @@ fn rewrite(
             .ok_or(ExportError::Read(ffmpeg::Error::StreamNotFound))?;
         (stream.index(), stream.time_base(), stream.parameters())
     };
-    let audio = input
-        .streams()
-        .best(media::Type::Audio)
-        .map(|s| (s.index(), s.time_base(), s.parameters()));
+    // The sound is copied whole: origin 0, no end.
+    let audio = AudioCopy::find(&input, i64::MAX);
     let mut decoder = codec::Context::from_parameters(video_params)
         .and_then(|c| c.decoder().video())
         .map_err(ExportError::Read)?;
@@ -85,15 +83,9 @@ fn rewrite(
     let mut out = format::output_as(output, "matroska").map_err(ExportError::Write)?;
     let mut job = Rewrite {
         video_tb,
-        audio: audio.map(|(index, tb, params)| AudioCopy {
-            input_index: index,
-            input_tb: tb,
-            params,
-            output_index: None,
-        }),
+        audio,
         bit_rate,
         sink: None,
-        waiting_audio: Vec::new(),
         duration_us,
     };
     let mut decoded = ffmpeg::util::frame::Video::empty();
@@ -101,12 +93,10 @@ fn rewrite(
     loop {
         match packet.read(&mut input) {
             Ok(()) => {
-                if job
-                    .audio
-                    .as_ref()
-                    .is_some_and(|a| a.input_index == packet.stream())
-                {
-                    job.on_audio(&packet, &mut out)?;
+                if let Some(audio) = job.audio.as_mut().filter(|a| a.is_audio(&packet)) {
+                    audio
+                        .on_packet(&packet, &mut out)
+                        .map_err(ExportError::Write)?;
                     continue;
                 }
                 if packet.stream() != video_index {
@@ -145,22 +135,12 @@ fn rewrite(
     Ok(())
 }
 
-struct AudioCopy {
-    input_index: usize,
-    input_tb: Rational,
-    params: codec::Parameters,
-    /// Set once the output streams exist (first decoded picture).
-    output_index: Option<usize>,
-}
-
 struct Rewrite {
     video_tb: Rational,
     audio: Option<AudioCopy>,
     bit_rate: usize,
     /// Created on the first picture: a square frame from its size.
     sink: Option<EncodeSink>,
-    /// Sound read before the file header could be written.
-    waiting_audio: Vec<ffmpeg::Packet>,
     duration_us: i64,
 }
 
@@ -196,58 +176,15 @@ impl Rewrite {
             self.bit_rate,
         )?);
         if let Some(audio) = &mut self.audio {
-            let mut stream = out.add_stream(Option::<ffmpeg::Codec>::None)?;
-            stream.set_parameters(audio.params.clone());
-            // SAFETY: the stream was just created; a zero tag lets the
-            // Matroska muxer pick its own for AAC.
-            unsafe {
-                (*(*stream.as_mut_ptr()).codecpar).codec_tag = 0;
-            }
-            audio.output_index = Some(stream.index());
+            audio.add_stream(out)?;
         }
         let mut options = Dictionary::new();
         options.set("max_interleave_delta", "1000000");
         out.write_header_with(options)?;
-        for packet in std::mem::take(&mut self.waiting_audio) {
-            self.write_audio(packet, out)?;
+        if let Some(audio) = &mut self.audio {
+            audio.set_origin(0, out)?;
+            audio.header_written(out)?;
         }
-        Ok(())
-    }
-
-    fn on_audio(
-        &mut self,
-        packet: &ffmpeg::Packet,
-        out: &mut format::context::Output,
-    ) -> Result<(), ExportError> {
-        if self.sink.is_none() {
-            self.waiting_audio.push(packet.clone());
-            return Ok(());
-        }
-        self.write_audio(packet.clone(), out).map_err(|e| match e {
-            SinkError::NoEncoder => ExportError::NoEncoder,
-            SinkError::Ffmpeg(e) => ExportError::Write(e),
-        })
-    }
-
-    fn write_audio(
-        &self,
-        mut packet: ffmpeg::Packet,
-        out: &mut format::context::Output,
-    ) -> Result<(), SinkError> {
-        let Some(audio) = &self.audio else {
-            return Ok(());
-        };
-        let Some(index) = audio.output_index else {
-            return Ok(());
-        };
-        let out_tb = out
-            .stream(index)
-            .map(|s| s.time_base())
-            .ok_or(ffmpeg::Error::StreamNotFound)?;
-        packet.set_stream(index);
-        packet.rescale_ts(audio.input_tb, out_tb);
-        packet.set_position(-1);
-        packet.write_interleaved(out)?;
         Ok(())
     }
 }

@@ -259,3 +259,87 @@ fn player_loads_and_seeks_frame_accurately() {
     drop(player);
     fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Sound in a clip: AAC copied, starting with the picture (fast: on the key
+/// frame before the in point; precise: on the in point) and lasting as long.
+fn check_sound(path: &Path, clip_ms: i64) {
+    let first = sound_span(path, clip_ms).0;
+    assert!(first <= 25, "sound starts with the clip, at {first} ms");
+}
+
+/// First and last sound packet times (ms); checks it decodes and lasts
+/// until `clip_ms`.
+fn sound_span(path: &Path, clip_ms: i64) -> (i64, i64) {
+    let mut input = ffmpeg::format::input(path).unwrap();
+    let stream = input
+        .streams()
+        .best(ffmpeg::media::Type::Audio)
+        .expect("the clip has sound");
+    let index = stream.index();
+    let tb = stream.time_base();
+    let mut decoder = ffmpeg::codec::Context::from_parameters(stream.parameters())
+        .unwrap()
+        .decoder()
+        .audio()
+        .unwrap();
+    assert_eq!(decoder.id(), ffmpeg::codec::Id::AAC);
+    let to_ms = |pts: i64| pts * 1000 * i64::from(tb.0) / i64::from(tb.1);
+    let (mut first, mut last, mut samples) = (None, 0, 0);
+    let mut frame = ffmpeg::util::frame::Audio::empty();
+    for (s, packet) in input.packets() {
+        if s.index() != index {
+            continue;
+        }
+        let ms = to_ms(packet.pts().unwrap());
+        first.get_or_insert(ms);
+        last = ms;
+        decoder.send_packet(&packet).unwrap();
+        while decoder.receive_frame(&mut frame).is_ok() {
+            samples += frame.samples();
+        }
+    }
+    let first = first.unwrap();
+    assert!(
+        (last + 21 - clip_ms).abs() <= 40,
+        "sound ends with the clip: last at {last} ms, clip {clip_ms} ms"
+    );
+    assert!(samples > 0, "sound decodes");
+    (first, last)
+}
+
+#[test]
+fn clips_keep_the_sound() {
+    let dir = workdir("sound");
+    let video = dir.join("rec.mkv");
+    common::write_recording_with_sound(&video);
+
+    let fast = dir.join("fast.mp4");
+    export_fast(&video, &segment(2_500, 5_000), &fast, &mut |_| true).unwrap();
+    check_sound(&fast, inspect(&fast).duration_ms);
+
+    let precise = dir.join("precise.mp4");
+    export_precise(&video, &segment(2_500, 5_000), &precise, &mut |_| true).unwrap();
+    let clip = inspect(&precise);
+    assert!(
+        (clip.duration_ms - 2_500).abs() <= 40,
+        "precise clip {} ms",
+        clip.duration_ms
+    );
+    check_sound(&precise, clip.duration_ms);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn rotation_fix_keeps_the_sound() {
+    let dir = workdir("fix-sound");
+    let video = dir.join("rec.mkv");
+    let duration_ms = i64::try_from(common::write_recording_with_sound(&video)).unwrap();
+    let before = sound_span(&video, duration_ms);
+    phonecut_core::normalize::fix_rotation(&video, &mut |_| {}).unwrap();
+    assert_eq!(
+        sound_span(&video, duration_ms),
+        before,
+        "sound copied at the same times"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}

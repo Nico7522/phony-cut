@@ -143,3 +143,82 @@ pub fn rotating_stream() -> Vec<u8> {
     scrcpy_session(&mut bytes, 128, 64);
     bytes
 }
+
+/// Packets of a recorded scrcpy socket (`capture_stream`), after its header.
+pub fn capture_packets(
+    bytes: Vec<u8>,
+    audio: bool,
+) -> Vec<phonecut_core::scrcpy::protocol::MediaPacket> {
+    use phonecut_core::scrcpy::protocol::{self, ProtocolError, StreamItem};
+    let mut r = std::io::Cursor::new(bytes);
+    if audio {
+        protocol::read_audio_codec(&mut r).unwrap();
+    } else {
+        protocol::read_device_name(&mut r).unwrap();
+        protocol::read_codec(&mut r).unwrap();
+    }
+    let mut packets = Vec::new();
+    loop {
+        match protocol::read_item(&mut r) {
+            Ok(StreamItem::Packet(p)) => packets.push(p),
+            Ok(StreamItem::Session(_)) => {}
+            Err(ProtocolError::Closed) => return packets,
+            Err(err) => panic!("{err}"),
+        }
+    }
+}
+
+/// Writes a recording with sound from the real capture
+/// `xiaomi-poco-android16-sound` (about 7.7 s, 214x480, AAC). File time 0 is
+/// its first key frame. Returns the duration in ms.
+pub fn write_recording_with_sound(path: &std::path::Path) -> u64 {
+    use phonecut_core::record::MkvWriter;
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let video = capture_packets(
+        std::fs::read(dir.join("xiaomi-poco-android16-sound.bin")).unwrap(),
+        false,
+    );
+    let audio = capture_packets(
+        std::fs::read(dir.join("xiaomi-poco-android16-sound.audio.bin")).unwrap(),
+        true,
+    );
+    let config = video.iter().find(|p| p.config).unwrap().data.clone();
+    let first_key = video.iter().find(|p| p.key_frame).unwrap().pts_us.unwrap();
+    let mut writer = MkvWriter::create(path, 214, 480, &config, Some(&audio[0].data)).unwrap();
+    let time = |pts: u64| pts as i64 - first_key as i64;
+    let mut frames = video
+        .iter()
+        .filter(|p| !p.config && p.pts_us.unwrap() >= first_key)
+        .peekable();
+    let mut sound = audio
+        .iter()
+        .skip(1)
+        .filter(|p| p.pts_us.unwrap() >= first_key)
+        .peekable();
+    let mut end = 0;
+    loop {
+        match (frames.peek(), sound.peek()) {
+            (Some(v), Some(a)) if a.pts_us < v.pts_us => {
+                let a = sound.next().unwrap();
+                writer
+                    .write_audio(&a.data, time(a.pts_us.unwrap()))
+                    .unwrap();
+            }
+            (Some(_), _) => {
+                let v = frames.next().unwrap();
+                end = time(v.pts_us.unwrap());
+                writer.write(v.data.clone(), end, v.key_frame).unwrap();
+            }
+            (None, Some(_)) => {
+                let a = sound.next().unwrap();
+                writer
+                    .write_audio(&a.data, time(a.pts_us.unwrap()))
+                    .unwrap();
+            }
+            (None, None) => break,
+        }
+    }
+    let end_us = end + 33_333;
+    writer.finish(end_us).unwrap();
+    (end_us / 1000) as u64
+}

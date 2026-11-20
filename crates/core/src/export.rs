@@ -76,6 +76,129 @@ pub fn clip_file_name(index: usize, segment: &Segment) -> String {
 /// Reports progress (0..=1) and returns `false` to cancel.
 pub type Progress<'a> = &'a mut dyn FnMut(f32) -> bool;
 
+/// Copies the sound track (AAC from the phone) of a recording into a clip,
+/// unchanged: the packets between the clip origin and its end, with their
+/// times shifted so the clip starts at 0. Packets read before the output is
+/// ready (origin unknown, header not written) wait in memory.
+pub(crate) struct AudioCopy {
+    input_index: usize,
+    input_tb: Rational,
+    params: codec::Parameters,
+    end_us: i64,
+    output_index: Option<usize>,
+    header_written: bool,
+    /// Recording time (µs) that becomes time 0 in the clip.
+    origin_us: Option<i64>,
+    waiting: Vec<ffmpeg::Packet>,
+}
+
+impl AudioCopy {
+    /// The sound track of `input`, if it has one; packets from `end_us` on
+    /// are dropped.
+    pub(crate) fn find(input: &format::context::Input, end_us: i64) -> Option<Self> {
+        let stream = input.streams().best(media::Type::Audio)?;
+        Some(Self {
+            input_index: stream.index(),
+            input_tb: stream.time_base(),
+            params: stream.parameters(),
+            end_us,
+            output_index: None,
+            header_written: false,
+            origin_us: None,
+            waiting: Vec::new(),
+        })
+    }
+
+    pub(crate) fn is_audio(&self, packet: &ffmpeg::Packet) -> bool {
+        packet.stream() == self.input_index
+    }
+
+    /// Adds the sound stream to `out` (before its header is written).
+    pub(crate) fn add_stream(
+        &mut self,
+        out: &mut format::context::Output,
+    ) -> Result<(), ffmpeg::Error> {
+        let mut stream = out.add_stream(Option::<ffmpeg::Codec>::None)?;
+        stream.set_parameters(self.params.clone());
+        // SAFETY: `stream` was just created and is owned by `out`; codecpar is
+        // valid. Let the muxer pick its own tag for AAC.
+        unsafe {
+            (*(*stream.as_mut_ptr()).codecpar).codec_tag = 0;
+        }
+        self.output_index = Some(stream.index());
+        Ok(())
+    }
+
+    pub(crate) fn header_written(
+        &mut self,
+        out: &mut format::context::Output,
+    ) -> Result<(), ffmpeg::Error> {
+        self.header_written = true;
+        self.flush(out)
+    }
+
+    pub(crate) fn set_origin(
+        &mut self,
+        origin_us: i64,
+        out: &mut format::context::Output,
+    ) -> Result<(), ffmpeg::Error> {
+        self.origin_us = Some(origin_us);
+        self.flush(out)
+    }
+
+    /// Writes a sound packet now, or keeps it until the output is ready.
+    pub(crate) fn on_packet(
+        &mut self,
+        packet: &ffmpeg::Packet,
+        out: &mut format::context::Output,
+    ) -> Result<(), ffmpeg::Error> {
+        if self.header_written && self.origin_us.is_some() {
+            self.write(packet.clone(), out)
+        } else {
+            self.waiting.push(packet.clone());
+            Ok(())
+        }
+    }
+
+    fn flush(&mut self, out: &mut format::context::Output) -> Result<(), ffmpeg::Error> {
+        if !self.header_written || self.origin_us.is_none() {
+            return Ok(());
+        }
+        for packet in std::mem::take(&mut self.waiting) {
+            self.write(packet, out)?;
+        }
+        Ok(())
+    }
+
+    fn write(
+        &self,
+        mut packet: ffmpeg::Packet,
+        out: &mut format::context::Output,
+    ) -> Result<(), ffmpeg::Error> {
+        let (Some(index), Some(origin_us), Some(pts)) =
+            (self.output_index, self.origin_us, packet.pts())
+        else {
+            return Ok(());
+        };
+        let time_us = pts.rescale(self.input_tb, MICROS);
+        if time_us < origin_us || time_us >= self.end_us {
+            return Ok(());
+        }
+        let out_tb = out
+            .stream(index)
+            .map(|s| s.time_base())
+            .ok_or(ffmpeg::Error::StreamNotFound)?;
+        let shifted = (time_us - origin_us).rescale(MICROS, out_tb);
+        let duration = packet.duration().rescale(self.input_tb, out_tb);
+        packet.set_pts(Some(shifted));
+        packet.set_dts(Some(shifted));
+        packet.set_duration(duration);
+        packet.set_position(-1);
+        packet.set_stream(index);
+        packet.write_interleaved(out)
+    }
+}
+
 /// Exports one segment with stream copy.
 pub fn export_fast(
     video: &Path,
@@ -106,13 +229,20 @@ pub fn export_fast(
             (*(*stream.as_mut_ptr()).codecpar).codec_tag = 0;
         }
     }
+    let (start_us, end_us) = segment_us(segment);
+    let mut audio = AudioCopy::find(&input, end_us);
+    if let Some(audio) = &mut audio {
+        audio.add_stream(&mut out).map_err(ExportError::Write)?;
+    }
     write_mp4_header(&mut out)?;
+    if let Some(audio) = &mut audio {
+        audio.header_written(&mut out).map_err(ExportError::Write)?;
+    }
     let out_tb = out
         .stream(0)
         .map(|s| s.time_base())
         .ok_or(ExportError::Write(ffmpeg::Error::StreamNotFound))?;
 
-    let (start_us, end_us) = segment_us(segment);
     // The last frame of the clip lasts until the out point (or the end of
     // the video): MKV blocks carry no duration, so it must be set here.
     let clip_end_us = end_us.min(input.duration().max(0));
@@ -138,6 +268,12 @@ pub fn export_fast(
             Err(ffmpeg::Error::Eof) => break,
             Err(err) => return Err(ExportError::Read(err)),
         }
+        if let Some(audio) = audio.as_mut().filter(|a| a.is_audio(&packet)) {
+            audio
+                .on_packet(&packet, &mut out)
+                .map_err(ExportError::Write)?;
+            continue;
+        }
         if packet.stream() != index {
             continue;
         }
@@ -147,10 +283,17 @@ pub fn export_fast(
             break;
         }
         // A clip must start on a key frame (the seek lands on one; skip
-        // anything before it, just in case).
+        // anything before it, just in case). The sound starts there too.
         let origin_pts = match origin {
             Some(o) => o,
-            None if packet.is_key() => *origin.insert(pts),
+            None if packet.is_key() => {
+                if let Some(audio) = &mut audio {
+                    audio
+                        .set_origin(time_us, &mut out)
+                        .map_err(ExportError::Write)?;
+                }
+                *origin.insert(pts)
+            }
             None => continue,
         };
         let span = (end_us - start_us).max(1) as f32;
@@ -207,12 +350,20 @@ pub fn export_precise(
         .map_err(ExportError::Read)?;
 
     let mut out = format::output_as(output, "mp4").map_err(ExportError::Write)?;
+    // The sound starts exactly at the in point, like the re-encoded picture.
+    let mut audio = AudioCopy::find(&input, end_us);
+    if let Some(audio) = &mut audio {
+        audio
+            .set_origin(start_us, &mut out)
+            .map_err(ExportError::Write)?;
+    }
     let mut clip = PreciseClip {
         in_tb,
         start_us,
         end_us,
         bit_rate,
         sink: None,
+        audio,
         finished: false,
         cancelled: false,
     };
@@ -221,6 +372,12 @@ pub fn export_precise(
     while !clip.finished {
         match packet.read(&mut input) {
             Ok(()) => {
+                if let Some(audio) = clip.audio.as_mut().filter(|a| a.is_audio(&packet)) {
+                    audio
+                        .on_packet(&packet, &mut out)
+                        .map_err(ExportError::Write)?;
+                    continue;
+                }
                 if packet.stream() != index {
                     continue;
                 }
@@ -263,6 +420,8 @@ struct PreciseClip {
     bit_rate: usize,
     /// Created on the first frame of the clip (its size).
     sink: Option<EncodeSink>,
+    /// The recording's sound, copied.
+    audio: Option<AudioCopy>,
     finished: bool,
     cancelled: bool,
 }
@@ -295,10 +454,16 @@ impl PreciseClip {
         if self.sink.is_none() {
             let size = (frame.width(), frame.height());
             self.sink = Some(EncodeSink::new(out, size, self.bit_rate).map_err(sink_error)?);
+            if let Some(audio) = &mut self.audio {
+                audio.add_stream(out)?;
+            }
             write_mp4_header(out).map_err(|e| match e {
                 ExportError::Write(e) => DecodeError::Ffmpeg(e),
                 _ => DecodeError::Ffmpeg(ffmpeg::Error::Bug),
             })?;
+            if let Some(audio) = &mut self.audio {
+                audio.header_written(out)?;
+            }
         }
         if let Some(sink) = &mut self.sink {
             sink.encode(out, frame, (time_us - self.start_us) / 1000)
