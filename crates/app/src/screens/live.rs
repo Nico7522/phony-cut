@@ -181,8 +181,10 @@ impl LiveScreen {
                         .strong(),
                 );
                 ui.add(
-                    egui::Label::new(RichText::new(texts::mirror_interrupted_hint()).size(14.0))
-                        .wrap(),
+                    egui::Label::new(
+                        RichText::new(texts::mirror_interrupted_hint_for(serial)).size(14.0),
+                    )
+                    .wrap(),
                 );
                 ui.add_space(8.0);
                 let button = egui::Button::new(RichText::new(texts::mirror_retry()).size(18.0))

@@ -238,6 +238,10 @@ pub fn device(device: &DeviceInfo) -> Message {
             tr("Autorisation en cours…", "Authorizing…"),
             starting_hint(),
         ),
+        DeviceState::Offline if phonycut_core::adb::is_wireless(&device.serial) => Message::new(
+            tr("Le téléphone ne répond pas", "The phone is not responding"),
+            wifi_trouble_hint(),
+        ),
         DeviceState::Offline => Message::new(
             tr("Le téléphone ne répond pas", "The phone is not responding"),
             tr(
@@ -292,6 +296,27 @@ pub fn mirror_starting() -> &'static str {
 }
 pub fn mirror_interrupted() -> &'static str {
     tr("L'aperçu s'est interrompu", "The preview stopped")
+}
+/// What to check when a phone connected over Wi-Fi stops answering.
+pub fn wifi_trouble_hint() -> &'static str {
+    tr(
+        "Vérifiez que le téléphone est allumé, sur le même Wi-Fi que le PC, et que le \
+         « Débogage sans fil » est toujours activé. Sinon, branchez le câble USB.",
+        "Check that the phone is on, on the same Wi-Fi as the PC, and that \"Wireless \
+         debugging\" is still on. Otherwise, plug in the USB cable.",
+    )
+}
+pub fn mirror_interrupted_hint_for(serial: &str) -> &'static str {
+    if phonycut_core::adb::is_wireless(serial) {
+        tr(
+            "Appuyez sur « Relancer l'aperçu ». Si le problème continue, vérifiez le Wi-Fi \
+             ou branchez le câble USB.",
+            "Click \"Restart preview\". If the problem continues, check the Wi-Fi or plug in \
+             the USB cable.",
+        )
+    } else {
+        mirror_interrupted_hint()
+    }
 }
 pub fn mirror_interrupted_hint() -> &'static str {
     tr(
