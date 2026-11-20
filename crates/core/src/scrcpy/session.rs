@@ -15,7 +15,7 @@ use crate::adb::Adb;
 use crate::api::{
     Event, FrameSlot, MirrorEnd, MirrorState, Notifier, RecordingEnd, RecordingProblem,
 };
-use crate::api::{PhoneInput, SoundOptions};
+use crate::api::{PhoneInput, SoundOptions, SoundState};
 use crate::audio::AacDecoder;
 use crate::audio_out::AudioOutput;
 use crate::decode::{DecodeError, H264Decoder};
@@ -252,17 +252,22 @@ fn run(ctx: SessionContext, shared: &Arc<Shared>) {
 
 fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError> {
     let mut options = ctx.options.clone();
+    let mut sound_problem = None;
     if ctx.sound.capture {
-        match ctx
-            .adb
-            .sdk_version(&ctx.serial)
-            .and_then(AudioSource::for_sdk)
-        {
+        let sdk = ctx.adb.sdk_version(&ctx.serial);
+        match sdk.and_then(AudioSource::for_sdk) {
             Some(source) => {
                 options.audio = true;
                 options.audio_source = source;
             }
-            None => tracing::info!("sound not captured: needs Android 11 or later"),
+            None => {
+                tracing::info!(?sdk, "sound not captured: needs Android 11 or later");
+                sound_problem = Some(if sdk.is_some() {
+                    SoundState::NeedsAndroid11
+                } else {
+                    SoundState::Unavailable
+                });
+            }
         }
     }
     let mut server = RunningServer::start(&ctx.adb, &ctx.serial, &options)?;
@@ -271,7 +276,7 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
         start_control(control, shared);
     }
     if let Some(audio) = connection.audio {
-        start_audio(audio, shared, ctx.sound.listen);
+        start_audio(audio, shared, ctx.sound.listen, sound_reporter(ctx));
     }
     let socket = connection.video;
     socket.set_nodelay(true).map_err(ProtocolError::from)?;
@@ -300,6 +305,9 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
         height,
     };
     ctx.send(running(session.width, session.height));
+    if let Some(problem) = sound_problem {
+        sound_reporter(ctx)(problem);
+    }
     lock(&shared.stream).size = Some((session.width, session.height));
 
     let mut decoder = H264Decoder::new()?;
@@ -351,7 +359,20 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
 
 /// Starts the thread reading the audio socket. It must keep reading even when
 /// the sound is not played: an unread socket could block the server.
-fn start_audio(socket: TcpStream, shared: &Arc<Shared>, listen: bool) {
+/// Sends [`SoundState`] events to the UI.
+type SoundReporter = Box<dyn Fn(SoundState) + Send>;
+
+fn sound_reporter(ctx: &SessionContext) -> SoundReporter {
+    let events = ctx.events.clone();
+    let notify = Arc::clone(&ctx.notify);
+    Box::new(move |state| {
+        if events.send(Event::Sound(state)).is_ok() {
+            notify();
+        }
+    })
+}
+
+fn start_audio(socket: TcpStream, shared: &Arc<Shared>, listen: bool, report: SoundReporter) {
     match socket.try_clone() {
         Ok(clone) => *lock(&shared.audio_socket) = Some(clone),
         Err(err) => {
@@ -363,7 +384,7 @@ fn start_audio(socket: TcpStream, shared: &Arc<Shared>, listen: bool) {
     let spawned = thread::Builder::new()
         .name("audio-reader".into())
         .spawn(move || {
-            let result = read_audio(socket, &shared, listen);
+            let result = read_audio(socket, &shared, listen, &report);
             lock(&shared.audio_config).take();
             if let Err(err) = result {
                 tracing::info!(%err, "sound stream ended");
@@ -374,20 +395,28 @@ fn start_audio(socket: TcpStream, shared: &Arc<Shared>, listen: bool) {
     }
 }
 
-fn read_audio(socket: TcpStream, shared: &Shared, listen: bool) -> Result<(), SessionError> {
+fn read_audio(
+    socket: TcpStream,
+    shared: &Shared,
+    listen: bool,
+    report: &SoundReporter,
+) -> Result<(), SessionError> {
     socket.set_nodelay(true).map_err(ProtocolError::from)?;
     let mut reader = BufReader::with_capacity(1 << 14, socket);
     let Some(codec) = protocol::read_audio_codec(&mut reader)? else {
         tracing::info!("the phone cannot share its sound (capture refused or not supported)");
+        report(SoundState::Unavailable);
         return Ok(());
     };
     if codec != AudioCodec::Aac {
         tracing::warn!(?codec, "unexpected audio codec: sound disabled");
+        report(SoundState::Unavailable);
         return drain_audio(&mut reader);
     }
     let config = protocol::read_audio_packet(&mut reader)?;
     if !config.config {
         tracing::warn!("audio stream without configuration: sound disabled");
+        report(SoundState::Unavailable);
         return drain_audio(&mut reader);
     }
     tracing::info!(config = ?config.data, "sound stream open");
@@ -417,6 +446,10 @@ fn read_audio(socket: TcpStream, shared: &Shared, listen: bool) -> Result<(), Se
         }
         None => None,
     };
+    report(match (listen, player.is_some()) {
+        (true, false) => SoundState::NoOutput,
+        (_, on_pc) => SoundState::Captured { on_pc },
+    });
     let mut samples = Vec::new();
     let mut errors = 0u32;
     loop {

@@ -13,7 +13,8 @@ const THIRD_PARTY_LICENSES: &str = include_str!("../../../../THIRD_PARTY_LICENSE
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SettingsAction {
-    /// Quality or smoothness changed (already written into the settings).
+    /// Quality, smoothness or sound changed (already written into the
+    /// settings): the preview restarts with them.
     VideoChanged,
     PickFolder,
     OpenFolder(PathBuf),
@@ -72,6 +73,29 @@ pub fn show(
                 }
             }
             ui.label(RichText::new(t::applies_now()).small());
+            ui.add_space(16.0);
+
+            section(ui, t::sound());
+            let record = RichText::new(t::record_sound()).size(16.0);
+            if ui.checkbox(&mut settings.record_sound, record).changed() {
+                actions.push(SettingsAction::VideoChanged);
+            }
+            ui.indent("record-sound", |ui| {
+                ui.label(RichText::new(t::record_sound_hint()).weak());
+            });
+            let listen = RichText::new(t::listen_sound()).size(16.0);
+            if ui
+                .add_enabled(
+                    settings.record_sound,
+                    egui::Checkbox::new(&mut settings.listen_sound, listen),
+                )
+                .changed()
+            {
+                actions.push(SettingsAction::VideoChanged);
+            }
+            ui.indent("listen-sound", |ui| {
+                ui.label(RichText::new(t::listen_sound_hint()).weak());
+            });
             ui.add_space(16.0);
 
             section(ui, t::folder());

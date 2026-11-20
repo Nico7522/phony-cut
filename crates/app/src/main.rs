@@ -15,7 +15,7 @@ use std::time::Duration;
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, Color32, RichText};
 use phonecut_core::api::{
-    Command, Event, ExportState, FrameSlot, PhoneButton, PhoneInput, RecordingState,
+    Command, Event, ExportState, FrameSlot, PhoneButton, PhoneInput, RecordingState, SoundState,
 };
 use phonecut_core::platform;
 use phonecut_core::service::Core;
@@ -365,8 +365,7 @@ impl PhoneCutApp {
             Some(MirrorRequest::Start(serial)) => self.command(Command::StartMirror {
                 serial,
                 quality: self.settings.video_quality(),
-                // Sound settings come with the "Sound" section of the settings.
-                sound: phonecut_core::api::SoundOptions::default(),
+                sound: self.settings.sound_options(),
             }),
             None => {}
         }
@@ -411,6 +410,27 @@ impl PhoneCutApp {
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(texts::live_badge());
+                let sound = texts::sound_status(self.live.sound(), self.settings.record_sound);
+                if !sound.is_empty() {
+                    ui.add_space(12.0);
+                    let problem = matches!(
+                        self.live.sound(),
+                        Some(
+                            SoundState::NoOutput
+                                | SoundState::NeedsAndroid11
+                                | SoundState::Unavailable
+                        )
+                    );
+                    let text = RichText::new(sound);
+                    ui.add(
+                        egui::Label::new(if problem {
+                            text.color(Color32::from_rgb(214, 120, 0))
+                        } else {
+                            text.weak()
+                        })
+                        .truncate(),
+                    );
+                }
             });
         });
         ui.horizontal(|ui| {
@@ -444,6 +464,7 @@ impl eframe::App for PhoneCutApp {
         for event in events {
             match event {
                 Event::Mirror(state) => self.live.apply(state),
+                Event::Sound(state) => self.live.set_sound(state),
                 Event::Recording(state) => {
                     if matches!(state, RecordingState::Finished { .. }) {
                         self.clips.invalidate(); // a new video exists

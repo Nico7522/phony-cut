@@ -1,7 +1,6 @@
 # 0010 — Capturing the phone's sound
 
-Date: 2026-11-20 — Status: accepted (steps 1–3 done; export, "My clips" playback and the
-Sound setting follow)
+Date: 2026-11-20 — Status: accepted, done
 
 ## Choices (product owner)
 
@@ -64,3 +63,14 @@ Sound setting follow)
 - Recordings without rotation are not touched (instant stop, no quality loss).
 - Same session: the shared encoder now resets its intermediate picture when the input size
   changes ("Output changed" broke a precise export spanning a rotation).
+
+## Clips, "My clips" and settings
+
+- Exports copy the AAC unchanged (`AudioCopy`): fast export starts the sound on the key
+  frame the picture starts on, precise export on the in point.
+- "My clips" decodes the sound as packets are read and hands it to the output about 100 ms
+  ahead of its time on the picture clock (static screens do not make it run ahead). Pause
+  keeps what was read; seeking drops it.
+- Settings: "Capture the phone's sound" (recorded + clips) and "Listen on the PC during the
+  preview"; both on by default. The status line above the preview explains when there is no
+  sound (Android 10 or older, phone not sharing it, no sound output on the PC).

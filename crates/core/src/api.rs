@@ -143,6 +143,20 @@ pub enum PhoneButton {
     Power,
 }
 
+/// What happens to the phone's sound during the current mirror.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SoundState {
+    /// Captured (and recorded); `on_pc`: also played on the PC.
+    Captured { on_pc: bool },
+    /// Captured, but the PC has no sound output to play it (still recorded).
+    NoOutput,
+    /// The phone runs Android 10 or older: it cannot share its sound.
+    NeedsAndroid11,
+    /// The phone did not share its sound (refused, or Android 11 started
+    /// while locked).
+    Unavailable,
+}
+
 /// What to do with the phone's sound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SoundOptions {
@@ -192,6 +206,9 @@ pub enum Event {
     /// Another program on this PC runs a different adb version and keeps
     /// restarting the shared adb server, which can drop the connection.
     AdbConflict,
+    /// What happens to the phone's sound in the running mirror (sent after
+    /// `Mirror(Running)` when the sound setting is on).
+    Sound(SoundState),
     /// The screen mirror changed state. Frames themselves go through
     /// [`FrameSlot`], not through events.
     Mirror(MirrorState),

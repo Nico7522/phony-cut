@@ -297,7 +297,7 @@ sur un autre PC, ce qui valide aussi la phase 6).
 
 ### Phase 8 — Plus tard
 
-- Audio (Android 11 et plus, flux séparé dans le protocole scrcpy)
+- ✅ Audio (Android 11 et plus, flux séparé dans le protocole scrcpy) : écoute en direct sur le PC, son dans les enregistrements, les clips et « Mes clips », réglage « Son » (ADR 0010)
 - Connexion sans fil (débogage sans fil, appairage par code)
 - Portage macOS (adb macOS, dylib FFmpeg, `.dmg`, notarisation)
 - Vérification des mises à jour

@@ -220,6 +220,37 @@ pub fn live_badge() -> &'static str {
     tr("Aperçu en direct", "Live preview")
 }
 
+/// Short status of the phone's sound, above the preview.
+pub fn sound_status(state: Option<phonecut_core::api::SoundState>, capture: bool) -> &'static str {
+    use phonecut_core::api::SoundState;
+    match (capture, state) {
+        (false, _) => tr(
+            "Son : désactivé (Réglages)",
+            "Sound: off (Settings)",
+        ),
+        (true, None) => "",
+        (true, Some(SoundState::Captured { on_pc: true })) => tr("Son : sur le PC", "Sound: on the PC"),
+        (true, Some(SoundState::Captured { on_pc: false })) => tr(
+            "Son : enregistré, écoute coupée",
+            "Sound: recorded, not played",
+        ),
+        (true, Some(SoundState::NoOutput)) => tr(
+            "Son : enregistré, mais ce PC n'a pas de sortie audio (branchez un casque ou des \
+             haut-parleurs)",
+            "Sound: recorded, but this PC has no sound output (plug in headphones or speakers)",
+        ),
+        (true, Some(SoundState::NeedsAndroid11)) => tr(
+            "Son : non disponible, il faut Android 11 ou plus",
+            "Sound: not available, Android 11 or later is needed",
+        ),
+        (true, Some(SoundState::Unavailable)) => tr(
+            "Son : le téléphone ne le partage pas. Déverrouillez-le, puis débranchez et \
+             rebranchez le câble.",
+            "Sound: the phone does not share it. Unlock it, then unplug and plug the cable back in.",
+        ),
+    }
+}
+
 // --- Phone control (mouse and keyboard) ----------------------------------------
 
 pub fn phone_back() -> &'static str {
@@ -932,6 +963,32 @@ pub mod settings {
     }
     pub fn folder() -> &'static str {
         tr("Dossier des vidéos", "Videos folder")
+    }
+    pub fn sound() -> &'static str {
+        tr("Son", "Sound")
+    }
+    pub fn record_sound() -> &'static str {
+        tr("Capturer le son du téléphone", "Capture the phone's sound")
+    }
+    pub fn record_sound_hint() -> &'static str {
+        tr(
+            "Le son est enregistré avec la vidéo et gardé dans les clips. Android 11 ou plus. \
+             Pendant la capture, le téléphone devient muet : son son sort sur le PC.",
+            "The sound is recorded with the video and kept in the clips. Android 11 or later. \
+             While it is captured, the phone goes silent: its sound comes out of the PC.",
+        )
+    }
+    pub fn listen_sound() -> &'static str {
+        tr(
+            "Écouter le son sur le PC pendant l'aperçu",
+            "Listen on the PC during the preview",
+        )
+    }
+    pub fn listen_sound_hint() -> &'static str {
+        tr(
+            "Décochez pour enregistrer le son sans l'entendre.",
+            "Untick to record the sound without hearing it.",
+        )
     }
     pub fn language_title() -> &'static str {
         "Langue / Language"

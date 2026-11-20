@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use phonecut_core::api::VideoQuality;
+use phonecut_core::api::{SoundOptions, VideoQuality};
 
 use crate::texts::Language;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,10 @@ pub struct Settings {
     pub onboarding_done: bool,
     /// Interface language.
     pub language: LanguageChoice,
+    /// Capture the phone's sound (recorded with the video).
+    pub record_sound: bool,
+    /// Play it on the PC during the live preview.
+    pub listen_sound: bool,
     /// When the "Support the project" link was last shown after an export
     /// (Unix seconds), to show it at most once a week.
     pub support_shown_at: Option<u64>,
@@ -55,6 +59,8 @@ impl Default for Settings {
             fps: Fps::default(),
             onboarding_done: false,
             language: LanguageChoice::default(),
+            record_sound: true,
+            listen_sound: true,
             support_shown_at: None,
         }
     }
@@ -88,6 +94,14 @@ pub fn support_due(last_shown: Option<u64>, now: u64) -> bool {
 }
 
 impl Settings {
+    /// What to do with the phone's sound.
+    pub fn sound_options(&self) -> SoundOptions {
+        SoundOptions {
+            capture: self.record_sound,
+            listen: self.record_sound && self.listen_sound,
+        }
+    }
+
     /// What to ask the phone for.
     pub fn video_quality(&self) -> VideoQuality {
         let (max_size, bit_rate) = match self.quality {
@@ -200,6 +214,21 @@ mod tests {
         assert_eq!(s.output_dir, PathBuf::from(r"D:\Clips"));
         assert_eq!(s.quality, QualityPreset::Standard);
         assert!(!s.onboarding_done);
+        assert!(s.record_sound && s.listen_sound, "sound on for older files");
+    }
+
+    #[test]
+    fn no_listening_without_capture() {
+        let mut s = Settings::default();
+        assert_eq!(s.sound_options(), SoundOptions::default());
+        s.record_sound = false;
+        assert_eq!(
+            s.sound_options(),
+            SoundOptions {
+                capture: false,
+                listen: false
+            }
+        );
     }
 
     #[test]
@@ -210,6 +239,8 @@ mod tests {
             fps: Fps::Thirty,
             onboarding_done: true,
             language: LanguageChoice::English,
+            record_sound: false,
+            listen_sound: false,
             support_shown_at: Some(1_700_000_000),
         };
         let text = serde_json::to_string(&settings).unwrap();

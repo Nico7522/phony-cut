@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, RichText, TextureHandle};
-use phonecut_core::api::{DeviceInfo, MirrorEnd, MirrorState, PhoneInput, VideoFrame};
+use phonecut_core::api::{DeviceInfo, MirrorEnd, MirrorState, PhoneInput, SoundState, VideoFrame};
 
 use crate::texts;
 use crate::widgets::phone_input::PhoneControl;
@@ -28,6 +28,8 @@ pub struct LiveScreen {
     /// Mouse / keyboard → phone.
     control: PhoneControl,
     keyboard_active: bool,
+    /// What happens to the phone's sound in this mirror.
+    sound: Option<SoundState>,
 }
 
 /// How long it takes to hand frames to the GPU, logged periodically.
@@ -69,6 +71,12 @@ impl DisplayStats {
 
 impl LiveScreen {
     pub fn apply(&mut self, state: MirrorState) {
+        if matches!(
+            state,
+            MirrorState::Starting { .. } | MirrorState::Stopped { .. }
+        ) {
+            self.sound = None;
+        }
         if matches!(state, MirrorState::Stopped { .. }) {
             self.texture = None;
         }
@@ -104,6 +112,14 @@ impl LiveScreen {
 
     pub fn is_running(&self) -> bool {
         matches!(self.state, Some(MirrorState::Running { .. }))
+    }
+
+    pub fn set_sound(&mut self, state: SoundState) {
+        self.sound = Some(state);
+    }
+
+    pub fn sound(&self) -> Option<SoundState> {
+        self.sound
     }
 
     /// True once there is an image to show.
