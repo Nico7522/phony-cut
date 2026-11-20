@@ -268,6 +268,10 @@ remplis. À la fin de chaque phase : `cargo fmt`, `cargo clippy -- -D warnings`,
 - **Fini quand :** installation et utilisation réussies sur un Windows vierge (VM).
 
 ### Phase 7 — CI, site web et dons
+
+✅ **Terminée** (v0.1.1 : téléchargée depuis le site, tutoriel suivi jusqu'au premier clip
+sur un autre PC, ce qui valide aussi la phase 6).
+
 - **CI** : `.github/workflows/ci.yml` (fmt, clippy, tests sur `windows-latest`), avec un
   filtre `paths-ignore: ["website/**"]`. FFmpeg doit être récupéré dans le workflow
   (`scripts\fetch-ffmpeg.ps1`), et les tests ne dépendent d'aucun téléphone.
