@@ -1,12 +1,18 @@
-## Nouveautés de la 0.1.1 / What's new in 0.1.1
+## Nouveautés de la 0.2.0 / What's new in 0.2.0
 
-- Le téléphone reste allumé pendant l'utilisation : un enregistrement ne reste plus bloqué
-  quand l'écran se met en veille. / The phone stays awake while in use: a recording no
-  longer gets stuck when the screen goes to sleep.
-- Utilisation du téléphone à la souris et au clavier. / Use the phone with the mouse and
-  keyboard.
-- Interface en français et en anglais. / Interface in French and English.
-- Licences tierces dans « À propos ». / Third-party licenses in "About".
+- **Le son du téléphone** (Android 11 ou plus) : écouté sur le PC pendant l'aperçu,
+  enregistré avec la vidéo, gardé dans les clips et joué dans « Mes clips ». Réglable dans
+  Réglages > Son. / **The phone's sound** (Android 11 or later): heard on the PC during the
+  preview, recorded with the video, kept in the clips and played in "My clips". Settings >
+  Sound.
+- Les enregistrements où le téléphone a tourné se lisent maintenant dans tous les lecteurs
+  (cadre carré, finalisés en quelques secondes à l'arrêt). / Recordings where the phone
+  rotated now play in every player (square frame, finished in a few seconds after the
+  stop).
+- L'export précis d'un clip contenant une rotation ne plante plus. / Precise export of a
+  clip with a rotation no longer fails.
+- L'installeur met à jour l'icône des raccourcis existants. / The installer refreshes the
+  icon of existing shortcuts.
 
 ## Installer PhoneCut
 
