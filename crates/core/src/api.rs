@@ -37,6 +37,9 @@ pub enum Command {
     },
     /// Stop looking for a phone to pair.
     CancelPairing,
+    /// Ask GitHub whether a newer version is published (answered with
+    /// `Event::UpdateAvailable` only when there is one).
+    CheckForUpdate,
     /// Start recording the running mirror into a new file in `folder`
     /// (created if needed).
     StartRecording {
@@ -244,6 +247,10 @@ pub enum Event {
     AdbConflict,
     /// Progress of a Wi-Fi pairing.
     Pairing(PairingState),
+    /// A newer version than this one is published (e.g. `0.4.0`).
+    UpdateAvailable {
+        version: String,
+    },
     /// What happens to the phone's sound in the running mirror (sent after
     /// `Mirror(Running)` when the sound setting is on).
     Sound(SoundState),

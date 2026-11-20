@@ -135,6 +135,10 @@ struct PhonyCutApp {
     wireless: WirelessDialog,
     /// The first-launch check for the assistant was done.
     onboarding_checked: bool,
+    /// The daily update check was considered for this launch.
+    update_checked: bool,
+    /// A newer published version, until the user says « later ».
+    update_available: Option<String>,
     /// Video settings changed during a recording: restart the mirror after it.
     restart_after_recording: bool,
     /// Answer of the open folder dialog (runs on its own thread).
@@ -157,6 +161,8 @@ impl PhonyCutApp {
             onboarding: Onboarding::default(),
             wireless: WirelessDialog::default(),
             onboarding_checked: false,
+            update_checked: false,
+            update_available: None,
             restart_after_recording: false,
             folder_picker: None,
         }
@@ -199,6 +205,11 @@ impl PhonyCutApp {
                     self.handle_record(Some(RecordAction::OpenFolder(folder)), ctx);
                 }
                 SettingsAction::OpenAssistant => self.onboarding.open(ctx),
+                SettingsAction::Save => {
+                    if let Err(err) = self.settings.save() {
+                        tracing::warn!(%err, "cannot save settings");
+                    }
+                }
                 SettingsAction::OpenWireless => {
                     let action = self.wireless.open();
                     self.handle_wireless(vec![action]);
@@ -371,6 +382,42 @@ impl PhonyCutApp {
 
     /// After a successful export: show the support link at most once a week
     /// (remembered in the settings).
+    /// At launch, at most once a day, unless turned off in the settings.
+    fn check_for_update_once(&mut self) {
+        if std::mem::replace(&mut self.update_checked, true) || !self.settings.check_updates {
+            return;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        let pretend = std::env::var_os(phonycut_core::update::PRETEND_VERSION_ENV).is_some();
+        if !pretend && !settings::update_check_due(self.settings.update_checked_at, now) {
+            tracing::info!("update check skipped: already done in the last 24 h");
+            return;
+        }
+        self.settings.update_checked_at = Some(now);
+        if let Err(err) = self.settings.save() {
+            tracing::warn!(%err, "cannot save settings");
+        }
+        self.command(Command::CheckForUpdate);
+    }
+
+    /// Discreet banner when a newer version is published.
+    fn update_banner(&mut self, ui: &mut egui::Ui) {
+        let Some(version) = self.update_available.clone() else {
+            return;
+        };
+        egui::Panel::top("update").show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(texts::update_available(&version)).strong());
+                ui.hyperlink_to(texts::update_download(), texts::download_url());
+                if ui.small_button(texts::update_later()).clicked() {
+                    self.update_available = None;
+                }
+            });
+        });
+    }
+
     fn support_link_due(&mut self) -> bool {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -494,6 +541,7 @@ impl eframe::App for PhonyCutApp {
                 Event::Mirror(state) => self.live.apply(state),
                 Event::Sound(state) => self.live.set_sound(state),
                 Event::Pairing(state) => self.wireless.apply(state),
+                Event::UpdateAvailable { version } => self.update_available = Some(version),
                 Event::Recording(state) => {
                     if matches!(state, RecordingState::Finished { .. }) {
                         self.clips.invalidate(); // a new video exists
@@ -571,6 +619,8 @@ impl eframe::App for PhonyCutApp {
             return;
         }
 
+        self.check_for_update_once();
+        self.update_banner(ui);
         egui::Panel::top("tabs").show(ui, |ui| self.tab_bar(ui));
         match self.tab {
             Tab::Clips => {

@@ -26,6 +26,10 @@ pub struct Settings {
     pub record_sound: bool,
     /// Play it on the PC during the live preview.
     pub listen_sound: bool,
+    /// Ask GitHub, at most once a day, whether a newer version exists.
+    pub check_updates: bool,
+    /// Last time it was asked (Unix seconds).
+    pub update_checked_at: Option<u64>,
     /// When the "Support the project" link was last shown after an export
     /// (Unix seconds), to show it at most once a week.
     pub support_shown_at: Option<u64>,
@@ -61,6 +65,8 @@ impl Default for Settings {
             language: LanguageChoice::default(),
             record_sound: true,
             listen_sound: true,
+            check_updates: true,
+            update_checked_at: None,
             support_shown_at: None,
         }
     }
@@ -83,6 +89,14 @@ pub enum Fps {
     Thirty,
     #[default]
     Sixty,
+}
+
+/// Update checks: at most once a day.
+pub const UPDATE_INTERVAL_SECS: u64 = 24 * 60 * 60;
+
+/// An update check is due at `now` (Unix seconds).
+pub fn update_check_due(last: Option<u64>, now: u64) -> bool {
+    last.is_none_or(|last| now.saturating_sub(last) >= UPDATE_INTERVAL_SECS)
 }
 
 /// The support link is shown at most once a week after a successful export.
@@ -229,6 +243,15 @@ mod tests {
     }
 
     #[test]
+    fn update_check_at_most_once_a_day() {
+        let now = 1_800_000_000;
+        assert!(update_check_due(None, now));
+        assert!(!update_check_due(Some(now - 3600), now));
+        assert!(update_check_due(Some(now - UPDATE_INTERVAL_SECS), now));
+        assert!(Settings::default().check_updates, "on by default");
+    }
+
+    #[test]
     fn support_link_at_most_once_a_week() {
         let now = 1_800_000_000;
         assert!(support_due(None, now));
@@ -273,6 +296,8 @@ mod tests {
             language: LanguageChoice::English,
             record_sound: false,
             listen_sound: false,
+            check_updates: false,
+            update_checked_at: Some(1_700_000_000),
             support_shown_at: Some(1_700_000_000),
         };
         let text = serde_json::to_string(&settings).unwrap();

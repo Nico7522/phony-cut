@@ -672,6 +672,26 @@ pub fn export_button(count: usize) -> String {
 }
 
 /// Website page with the ways to support the project, in the UI language.
+/// Website page to download the latest version, in the UI language.
+pub fn download_url() -> &'static str {
+    tr(
+        "https://nico7522.github.io/phony-cut/fr/download/",
+        "https://nico7522.github.io/phony-cut/download/",
+    )
+}
+pub fn update_available(version: &str) -> String {
+    match language() {
+        Language::French => format!("PhonyCut {version} est disponible."),
+        Language::English => format!("PhonyCut {version} is available."),
+    }
+}
+pub fn update_download() -> &'static str {
+    tr("Télécharger", "Download")
+}
+pub fn update_later() -> &'static str {
+    tr("Plus tard", "Later")
+}
+
 pub fn support_url() -> &'static str {
     tr(
         "https://nico7522.github.io/phony-cut/fr/support/",
@@ -1095,6 +1115,23 @@ pub mod settings {
         tr(
             "Écouter le son sur le PC pendant l'aperçu",
             "Listen on the PC during the preview",
+        )
+    }
+    pub fn updates() -> &'static str {
+        tr("Mises à jour", "Updates")
+    }
+    pub fn check_updates() -> &'static str {
+        tr(
+            "Me prévenir quand une nouvelle version sort",
+            "Tell me when a new version is out",
+        )
+    }
+    pub fn check_updates_hint() -> &'static str {
+        tr(
+            "Une fois par jour au plus, PhonyCut consulte la page des versions sur GitHub. \
+             Rien d'autre n'est envoyé.",
+            "At most once a day, PhonyCut looks at the releases page on GitHub. Nothing else is \
+             sent.",
         )
     }
     pub fn listen_sound_hint() -> &'static str {

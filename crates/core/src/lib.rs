@@ -19,6 +19,7 @@ pub mod player;
 pub mod record;
 pub mod scrcpy;
 pub mod service;
+pub mod update;
 
 /// Application name, used for folders and window titles.
 pub const APP_NAME: &str = "PhonyCut";

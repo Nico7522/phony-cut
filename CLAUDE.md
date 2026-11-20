@@ -300,8 +300,8 @@ sur un autre PC, ce qui valide aussi la phase 6).
 
 - ✅ Audio (Android 11 et plus, flux séparé dans le protocole scrcpy) : écoute en direct sur le PC, son dans les enregistrements, les clips et « Mes clips », réglage « Son » (ADR 0010)
 - ✅ Connexion sans fil (débogage sans fil Android 11+, appairage par QR code ou code, reconnexion automatique, ADR 0011)
-- Portage macOS (adb macOS, dylib FFmpeg, `.dmg`, notarisation)
-- Vérification des mises à jour
+- ⏸️ Portage macOS (adb macOS, dylib FFmpeg, `.dmg`, notarisation) : reporté (pas de Mac pour tester)
+- ✅ Vérification des mises à jour (bandeau discret, 1×/jour, `curl` du système, réglable, ADR 0012)
 
 ### Backlog (après la v1)
 Les idées de nouvelles fonctionnalités sont dans `docs/BACKLOG.md`.

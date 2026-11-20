@@ -189,6 +189,7 @@ impl Worker {
                 Ok(Command::StartPairing) => self.start_pairing(None),
                 Ok(Command::PairWithCode { code }) => self.start_pairing(Some(code)),
                 Ok(Command::CancelPairing) => self.pairing = None,
+                Ok(Command::CheckForUpdate) => self.check_for_update(),
                 Ok(Command::StartRecording { folder }) => self.start_recording(&folder),
                 Ok(Command::StopRecording) => {
                     if let Some(mirror) = &self.mirror {
@@ -405,6 +406,37 @@ impl Worker {
                     device.model.clone_from(&info.model);
                 }
             }
+        }
+    }
+
+    /// Asks GitHub on its own thread (up to 15 s); only a newer version is
+    /// reported, failures (offline…) just go to the log.
+    fn check_for_update(&self) {
+        let (events, notify) = (self.events.clone(), Arc::clone(&self.notify));
+        let spawned = thread::Builder::new()
+            .name("update-check".into())
+            .spawn(move || match crate::update::latest_release() {
+                Ok(release)
+                    if crate::update::is_newer(
+                        &release.version,
+                        &crate::update::current_version(),
+                    ) =>
+                {
+                    tracing::info!(version = %release.version, "a newer version is published");
+                    if events
+                        .send(Event::UpdateAvailable {
+                            version: release.version,
+                        })
+                        .is_ok()
+                    {
+                        notify();
+                    }
+                }
+                Ok(release) => tracing::info!(latest = %release.version, "up to date"),
+                Err(err) => tracing::info!(%err, "update check failed"),
+            });
+        if let Err(err) = spawned {
+            tracing::warn!(%err, "cannot start the update check");
         }
     }
 

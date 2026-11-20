@@ -21,6 +21,8 @@ pub enum SettingsAction {
     OpenAssistant,
     /// Pair a phone over Wi-Fi.
     OpenWireless,
+    /// A setting without other effect changed: just save.
+    Save,
     OpenLicenses,
     /// The interface language changed (already written into the settings).
     LanguageChanged,
@@ -124,6 +126,16 @@ pub fn show(
             {
                 actions.push(SettingsAction::OpenAssistant);
             }
+            ui.add_space(16.0);
+
+            section(ui, t::updates());
+            let label = RichText::new(t::check_updates()).size(16.0);
+            if ui.checkbox(&mut settings.check_updates, label).changed() {
+                actions.push(SettingsAction::Save);
+            }
+            ui.indent("check-updates", |ui| {
+                ui.label(RichText::new(t::check_updates_hint()).weak());
+            });
             ui.add_space(16.0);
 
             section(ui, texts::wireless::title());
