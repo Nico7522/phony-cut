@@ -1,15 +1,16 @@
-## Nouveautés de la 0.2.1 / What's new in 0.2.1
+## Nouveautés de la 0.3.0 / What's new in 0.3.0
 
-- **PhoneCut s'appelle maintenant PhonyCut.** Vos réglages sont repris automatiquement et
-  vos enregistrements restent dans « Mes clips ». L'ancien programme et ses raccourcis
-  sont remplacés. / **PhoneCut is now called PhonyCut.** Your settings are taken over
-  automatically and your recordings stay in "My clips". The old program and its
-  shortcuts are replaced.
+- **Connexion en Wi-Fi** (Android 11 ou plus) : associez le téléphone une seule fois avec
+  un QR code (ou un code à 6 chiffres) via « Se connecter en Wi-Fi », puis PhonyCut s'y
+  reconnecte tout seul sur le même Wi-Fi. Aperçu, son, souris et clavier, enregistrement :
+  tout fonctionne sans câble. / **Wi-Fi connection** (Android 11 or later): pair the phone
+  once with a QR code (or a 6-digit code) from "Connect over Wi-Fi", then PhonyCut
+  reconnects by itself on the same Wi-Fi. Preview, sound, mouse and keyboard, recording:
+  everything works without a cable.
 
-Rappel de la 0.2.0 / Reminder from 0.2.0: le son du téléphone (Android 11 ou plus) en
-direct, dans les enregistrements et les clips ; les enregistrements où le téléphone a
-tourné se lisent partout. / the phone's sound (Android 11 or later) live, in recordings
-and clips; recordings where the phone rotated play everywhere.
+Depuis la 0.2 / Since 0.2: le son du téléphone ; le nouveau nom PhonyCut (réglages et
+enregistrements repris). / the phone's sound; the new name PhonyCut (settings and
+recordings taken over).
 
 ## Installer PhonyCut
 
