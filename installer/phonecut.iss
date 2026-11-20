@@ -36,6 +36,9 @@ OutputDir=..\target\installer
 OutputBaseFilename=PhoneCut-Setup-x64
 SetupIconFile=..\assets\icon\phonecut.ico
 UninstallDisplayIcon={app}\{#AppExe}
+; Tells Windows to refresh its icon cache at the end of the install: otherwise a
+; shortcut made by an older version keeps showing the old icon after an update.
+ChangesAssociations=yes
 UninstallDisplayName={#AppName}
 Compression=lzma2/max
 SolidCompression=yes
