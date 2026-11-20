@@ -327,6 +327,10 @@ export const fr: Dict = {
             a: "<p>Oui, avec Android 11 ou plus. On associe le téléphone une seule fois : dans PhonyCut, cliquez sur <strong>Se connecter en Wi-Fi</strong> (sur l'écran d'accueil ou dans les Réglages), puis sur le téléphone ouvrez <em>Options pour les développeurs → Débogage sans fil</em> et touchez <strong>Associer l'appareil avec un code QR</strong> pour scanner le code affiché par PhonyCut (ou utilisez le code d'association à 6 chiffres). Ensuite, PhonyCut se reconnecte tout seul dès que le téléphone et le PC sont sur le même Wi-Fi et que le débogage sans fil est activé. Tout fonctionne comme avec un câble (aperçu, son, souris et clavier, enregistrement), avec un peu plus de délai selon votre Wi-Fi.</p>",
           },
           {
+            q: "PhonyCut se connecte-t-il à Internet ?",
+            a: "<p>Seulement pour vous prévenir quand une nouvelle version sort : une fois par jour au plus, il consulte la page des versions de PhonyCut sur GitHub. Rien sur vous, votre téléphone ou vos vidéos n'est envoyé. Vous pouvez le désactiver dans <em>Réglages → Mises à jour</em>. L'écran, le son et les vidéos de votre téléphone ne quittent jamais votre ordinateur.</p>",
+          },
+          {
             q: "Le son est-il enregistré ?",
             a: "<p>Oui, avec Android 11 ou plus : le son est enregistré avec l'image et gardé dans les clips. Pendant que PhonyCut le capture, le téléphone devient muet et son son sort sur le PC (vous pouvez couper l'écoute ou la capture dans les Réglages). Certaines applis interdisent la capture de leur son. Quand PhonyCut s'arrête, certains lecteurs (YouTube…) se mettent en pause, comme quand on débranche un casque.</p>",
           },

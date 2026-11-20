@@ -327,6 +327,10 @@ export const en = {
             a: "<p>Yes, with Android 11 or later. You pair the phone once: in PhonyCut, click <strong>Connect over Wi-Fi</strong> (on the home screen or in the Settings), then on the phone open <em>Developer options → Wireless debugging</em> and tap <strong>Pair device with QR code</strong> to scan the code PhonyCut shows (or use the 6-digit pairing code). Then PhonyCut reconnects by itself whenever the phone and the PC are on the same Wi-Fi and wireless debugging is on. Everything works the same as with a cable (preview, sound, mouse and keyboard, recording), with a little more delay depending on your Wi-Fi.</p>",
           },
           {
+            q: "Does PhonyCut connect to the internet?",
+            a: "<p>Only to tell you when a new version is out: at most once a day, it looks at the releases page of PhonyCut on GitHub. Nothing about you, your phone or your videos is sent. You can turn it off in <em>Settings → Updates</em>. Your phone's screen, sound and videos never leave your computer.</p>",
+          },
+          {
             q: "Is the sound recorded?",
             a: "<p>Yes, with Android 11 or later: the sound is recorded with the picture and kept in the clips. While PhonyCut captures it, the phone goes silent and its sound comes out of the PC (you can turn listening or capture off in the Settings). Some apps do not allow their sound to be captured. When PhonyCut stops, some players (YouTube…) pause, as when headphones are unplugged.</p>",
           },
