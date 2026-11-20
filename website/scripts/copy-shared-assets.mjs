@@ -1,6 +1,7 @@
 // Copies the images shared with the desktop app into `public/shared/`.
 //
-// The tutorial screenshots (`assets/tutorial/`), the logo (`assets/icon/`) and
+// The tutorial screenshots (`assets/tutorial/`), the SmartScreen screenshots
+// (`assets/smartscreen/`), the logo (`assets/icon/`) and
 // the demo (`assets/demo.gif`)
 // live once in the repository and are used by both the app and the website.
 // They are never committed under `website/`: this script copies them before
@@ -29,6 +30,13 @@ if (!existsSync(logo)) {
 }
 cpSync(logo, join(out, "logo.svg"));
 
+const smartscreen = join(repoAssets, "smartscreen");
+mkdirSync(join(out, "smartscreen"), { recursive: true });
+const warnings = readdirSync(smartscreen).filter((name) => /\.png$/i.test(name));
+for (const name of warnings) {
+  cpSync(join(smartscreen, name), join(out, "smartscreen", name));
+}
+
 const demo = join(repoAssets, "demo.gif");
 if (!existsSync(demo)) {
   throw new Error(`Demo not found: ${demo}`);
@@ -36,5 +44,5 @@ if (!existsSync(demo)) {
 cpSync(demo, join(out, "demo.gif"));
 
 console.log(
-  `Copied ${pictures.length} tutorial pictures, the logo and the demo into public/shared/`,
+  `Copied ${pictures.length} tutorial pictures, the SmartScreen screenshots, the logo and the demo into public/shared/`,
 );

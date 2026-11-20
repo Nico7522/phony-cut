@@ -53,7 +53,7 @@ npm run preview    # servir dist/ en local
 - **Langues** : anglais à `/`, français sous `/fr/`, même slug dans les deux langues.
   Une nouvelle page = une entrée dans `pages` (`src/config.ts`), un composant dans
   `src/components/pages/`, et deux routes (`src/pages/x.astro`, `src/pages/fr/x.astro`).
-- **Images à source unique** : les captures du tutoriel (`assets/tutorial/`), la démo (`assets/demo.gif`) et le logo
+- **Images à source unique** : les captures du tutoriel (`assets/tutorial/`), celles de SmartScreen (`assets/smartscreen/`), la démo (`assets/demo.gif`) et le logo
   (`assets/icon/PhyCut_logo_software.svg`) sont partagés avec l'application. **Ne jamais
   les copier dans `website/`** : `scripts/copy-shared-assets.mjs` les copie dans
   `public/shared/` (ignoré par git) avant `dev`, `build` et `preview`.
@@ -73,7 +73,7 @@ npm run preview    # servir dist/ en local
 ## Déploiement
 
 `.github/workflows/website.yml` construit et publie le site sur GitHub Pages à chaque push
-sur `main` qui touche `website/**`, `assets/tutorial/**`, `assets/icon/**`, `assets/demo.gif` ou le workflow
+sur `main` qui touche `website/**`, `assets/tutorial/**`, `assets/icon/**`, `assets/demo.gif`, `assets/smartscreen/**` ou le workflow
 lui-même (et à la main via « Run workflow »). Il est indépendant de `release.yml`.
 
 **Étape manuelle, une seule fois** : dans le dépôt GitHub, Settings → Pages → Source :
@@ -81,6 +81,5 @@ lui-même (et à la main via « Run workflow »). Il est indépendant de `releas
 
 ## À faire
 
-- Ajouter une capture de l'avertissement SmartScreen sur la page Téléchargement, une fois
-  la première release publiée : il n'apparaît que pour un fichier **téléchargé** depuis
-  Internet (pas pour un installeur copié à la main).
+- Rien pour le moment. Les captures SmartScreen (ssets/smartscreen/) viennent d'un
+  Windows en français : elles servent aussi à la page anglaise, la légende le précise.

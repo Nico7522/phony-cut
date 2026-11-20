@@ -12,6 +12,7 @@ on:
       - "assets/tutorial/**"
       - "assets/icon/**"
       - "assets/demo.gif"
+      - "assets/smartscreen/**"
       - ".github/workflows/website.yml"
   workflow_dispatch:
 

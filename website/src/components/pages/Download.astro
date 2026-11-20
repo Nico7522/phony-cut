@@ -2,7 +2,7 @@
 import Layout from "../../layouts/Layout.astro";
 import DownloadButton from "../DownloadButton.astro";
 import { installerName, links } from "../../config";
-import { fill, t, type Lang } from "../../i18n";
+import { assetUrl, fill, t, type Lang } from "../../i18n";
 
 interface Props {
   lang: Lang;
@@ -35,6 +35,23 @@ const f = (s: string) => fill(lang, s);
     <ol>
       {text.smartscreenSteps.map((item) => <li set:html={f(item)} />)}
     </ol>
+    <div class="shots wide">
+      {
+        text.smartscreenShots.map((shot) => (
+          <figure>
+            <img
+              src={assetUrl(`shared/smartscreen/${shot.file}`)}
+              alt={shot.alt}
+              width="411"
+              height="385"
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption>{shot.caption}</figcaption>
+          </figure>
+        ))
+      }
+    </div>
     <div class="notice">
       <p>{text.smartscreenNote}</p>
     </div>

@@ -101,6 +101,18 @@ export const en = {
       "Check that the app is <code>{installer}</code>.",
       "Click <strong>“Run anyway”</strong>.",
     ],
+    smartscreenShots: [
+      {
+        file: "step1.png",
+        alt: "The blue SmartScreen window “Windows protected your PC”, with the “More info” link under the message.",
+        caption: "1. Click “More info” (here on Windows in French).",
+      },
+      {
+        file: "step2.png",
+        alt: "The same window after clicking “More info”: it shows the app PhoneCut-Setup-x64.exe and the “Run anyway” button.",
+        caption: "2. Check the app name, then click “Run anyway”.",
+      },
+    ],
     smartscreenNote:
       "This warning only means that Windows does not know this publisher yet. It has not found any problem in the file.",
     updateTitle: "Update",

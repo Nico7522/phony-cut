@@ -100,6 +100,18 @@ export const fr: Dict = {
       "Vérifiez que l'application est bien <code>{installer}</code>.",
       "Cliquez sur <strong>« Exécuter quand même »</strong>.",
     ],
+    smartscreenShots: [
+      {
+        file: "step1.png",
+        alt: "La fenêtre bleue SmartScreen « Windows a protégé votre ordinateur », avec le lien « Informations complémentaires » sous le message.",
+        caption: "1. Cliquez sur « Informations complémentaires ».",
+      },
+      {
+        file: "step2.png",
+        alt: "La même fenêtre après le clic : elle affiche l'application PhoneCut-Setup-x64.exe et le bouton « Exécuter quand même ».",
+        caption: "2. Vérifiez le nom de l'application, puis cliquez sur « Exécuter quand même ».",
+      },
+    ],
     smartscreenNote:
       "Cet avertissement signifie seulement que Windows ne connaît pas encore cet éditeur. Il n'a détecté aucun problème dans le fichier.",
     updateTitle: "Mise à jour",
