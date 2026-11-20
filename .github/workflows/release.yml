@@ -48,14 +48,25 @@ jobs:
       - name: Installer
         run: ./scripts/build-installer.ps1 -ExpectedVersion "${{ github.ref_name }}"
 
+      # Creates the release, or updates it when the tag was moved to another
+      # commit (the release already exists): files are replaced, notes and
+      # title refreshed, so re-pushing a tag never fails.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $tag = "${{ github.ref_name }}"
           $files = Get-ChildItem target/installer -File |
-            Where-Object { $_.Name -like 'PhoneCut-Setup-x64.exe' -or $_.Name -eq 'SHA256SUMS.txt' } |
+            Where-Object { $_.Name -eq 'PhoneCut-Setup-x64.exe' -or $_.Name -eq 'SHA256SUMS.txt' } |
             ForEach-Object { $_.FullName }
-          gh release create "${{ github.ref_name }}" @files `
-            --title "PhoneCut ${{ github.ref_name }}" `
-            --notes-file installer/release-notes.md
+          if ($files.Count -ne 2) { Write-Error "Expected the installer and SHA256SUMS.txt, found: $files"; exit 1 }
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists: replacing its files"
+            gh release upload $tag @files --clobber
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            gh release edit $tag --title "PhoneCut $tag" --notes-file installer/release-notes.md
+          } else {
+            gh release create $tag @files --title "PhoneCut $tag" --notes-file installer/release-notes.md
+          }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
