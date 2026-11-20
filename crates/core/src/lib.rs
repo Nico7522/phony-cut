@@ -11,6 +11,7 @@ pub mod decode;
 pub mod export;
 pub mod image;
 pub mod markers;
+pub mod normalize;
 pub mod paths;
 pub mod platform;
 pub mod player;

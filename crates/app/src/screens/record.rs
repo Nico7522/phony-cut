@@ -83,7 +83,11 @@ impl RecordPanel {
         self.notice.is_some()
             || matches!(
                 self.state,
-                Some(RecordingState::Finished { .. } | RecordingState::Failed { .. })
+                Some(
+                    RecordingState::Finished { .. }
+                        | RecordingState::Failed { .. }
+                        | RecordingState::Finalizing { .. }
+                )
             )
     }
 
@@ -211,6 +215,13 @@ impl RecordPanel {
             }
             Some(RecordingState::Failed { problem, .. }) => {
                 ui.colored_label(RED, texts::recording_problem(*problem));
+                None
+            }
+            Some(RecordingState::Finalizing { percent, .. }) => {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label(texts::record_finalizing(*percent));
+                });
                 None
             }
             _ => None,

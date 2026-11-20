@@ -319,3 +319,77 @@ fn recording_with_sound() {
     );
     let _ = fs::remove_file(&path);
 }
+
+/// After a rotation, the fixed file has one (square) picture size from start to end
+/// (players ignore size changes), the same frames and the same duration.
+#[test]
+fn rotation_fix_keeps_one_frame_size() {
+    let path = temp_file("rotation-fixed.mkv");
+    let expected = record(common::rotating_stream(), &path, Duration::from_secs(1));
+    assert!(
+        expected.sizes.windows(2).any(|w| w[0] != w[1]),
+        "the stream rotates"
+    );
+
+    let mut steps = Vec::new();
+    phonecut_core::normalize::fix_rotation(&path, &mut |f| steps.push(f)).unwrap();
+    assert!(
+        !phonecut_core::normalize::temp_path(&path).exists(),
+        "temp file removed"
+    );
+    assert_eq!(steps.last(), Some(&1.0));
+
+    let mut input = ffmpeg::format::input(&path).unwrap();
+    let duration = input.duration();
+    assert!(
+        (duration - expected.duration_us).abs() <= 50_000,
+        "duration {duration} µs, expected {} µs",
+        expected.duration_us
+    );
+    let stream = input.streams().best(ffmpeg::media::Type::Video).unwrap();
+    let index = stream.index();
+    let header = {
+        let p = stream.parameters();
+        // SAFETY: plain reads of the stream's codec parameters.
+        unsafe { ((*p.as_ptr()).width as u32, (*p.as_ptr()).height as u32) }
+    };
+    let (w, h) = expected.sizes[0];
+    assert_eq!(
+        header,
+        phonecut_core::normalize::square_frame(w, h),
+        "square frame"
+    );
+    assert_eq!(
+        header.0,
+        w.max(h) + (w.max(h) & 1),
+        "both orientations at real size"
+    );
+    let mut decoder = ffmpeg::codec::Context::from_parameters(stream.parameters())
+        .unwrap()
+        .decoder()
+        .video()
+        .unwrap();
+    let mut frame = ffmpeg::util::frame::Video::empty();
+    let mut frames = 0;
+    for (s, packet) in input.packets() {
+        if s.index() != index {
+            continue;
+        }
+        decoder.send_packet(&packet).unwrap();
+        while decoder.receive_frame(&mut frame).is_ok() {
+            assert_eq!(
+                (frame.width(), frame.height()),
+                header,
+                "one size everywhere"
+            );
+            frames += 1;
+        }
+    }
+    decoder.send_eof().unwrap();
+    while decoder.receive_frame(&mut frame).is_ok() {
+        assert_eq!((frame.width(), frame.height()), header);
+        frames += 1;
+    }
+    assert_eq!(frames, expected.frames, "every frame kept");
+    let _ = fs::remove_file(&path);
+}

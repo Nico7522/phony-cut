@@ -299,6 +299,10 @@ pub enum ExportProblem {
 pub enum RecordingState {
     /// File created; waiting for the next key frame (at most ~1 s) to start.
     WaitingKeyFrame { path: PathBuf },
+    /// Stopped, but the phone rotated during the recording: the video is
+    /// being re-encoded into one fixed frame so every player reads it
+    /// (`percent` 0..=100). `Finished` follows.
+    Finalizing { path: PathBuf, percent: u8 },
     /// Writing. Sent when writing starts, then about twice per second.
     Recording(RecordingInfo),
     /// The file is complete and playable.

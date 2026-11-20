@@ -470,6 +470,9 @@ struct Task {
     /// Device PTS of the first recorded video frame (file time 0).
     video_origin: Option<u64>,
     audio_timeline: Option<AudioTimeline>,
+    /// The video size changed after writing started: players need the file
+    /// re-encoded into one fixed frame (see `normalize`).
+    rotated: bool,
     /// Cut markers, saved next to the video after each new one.
     cuts: CutFile,
     failed: bool,
@@ -490,6 +493,7 @@ impl Task {
             writer: None,
             video_origin: None,
             audio_timeline: None,
+            rotated: false,
             cuts: CutFile::default(),
             failed: false,
             events: setup.events,
@@ -510,6 +514,9 @@ impl Task {
                 Ok(Input::Resized { width, height }) => {
                     self.width = width;
                     self.height = height;
+                    if self.writer.is_some() {
+                        self.rotated = true;
+                    }
                 }
                 Ok(Input::Mark(at)) => self.mark(at),
                 Ok(Input::Stop(end, at)) => return self.finish(end, at),
@@ -695,14 +702,12 @@ impl Task {
                 let end_us = timeline.time_at(at);
                 match writer.finish(end_us) {
                     Ok(()) => {
-                        // Rebuild the timeline-free info from the final values.
-                        let info = RecordingInfo {
-                            path: self.path.clone(),
-                            bytes: fs::metadata(&self.path).map_or(0, |m| m.len()),
-                            duration: Duration::from_micros(u64::try_from(end_us).unwrap_or(0)),
-                        };
-                        tracing::info!(?end, bytes = info.bytes, duration = ?info.duration, "recording finished");
-                        self.send(RecordingState::Finished { info, end });
+                        let duration = Duration::from_micros(u64::try_from(end_us).unwrap_or(0));
+                        if self.rotated {
+                            self.fix_rotation_then_finish(end, duration);
+                        } else {
+                            self.finished(end, duration);
+                        }
                     }
                     Err(err) => {
                         tracing::error!(%err, "could not finalize recording");
@@ -713,6 +718,51 @@ impl Task {
                     }
                 }
             }
+        }
+    }
+
+    fn finished(&self, end: RecordingEnd, duration: Duration) {
+        let info = RecordingInfo {
+            path: self.path.clone(),
+            bytes: fs::metadata(&self.path).map_or(0, |m| m.len()),
+            duration,
+        };
+        tracing::info!(?end, bytes = info.bytes, duration = ?info.duration, "recording finished");
+        self.send(RecordingState::Finished { info, end });
+    }
+
+    /// Re-encodes the file on its own thread (it can take a while), so `stop`
+    /// returns at once; `Finished` is sent when done. If the fix fails, the
+    /// original file is kept: PhoneCut still reads it.
+    fn fix_rotation_then_finish(self, end: RecordingEnd, duration: Duration) {
+        tracing::info!("the phone rotated during the recording: re-encoding into one frame");
+        self.send(RecordingState::Finalizing {
+            path: self.path.clone(),
+            percent: 0,
+        });
+        let spawned = thread::Builder::new()
+            .name("rotation-fix".into())
+            .spawn(move || {
+                let started = Instant::now();
+                let mut last = 0u8;
+                let result = crate::normalize::fix_rotation(&self.path, &mut |fraction| {
+                    let percent = (fraction.clamp(0.0, 1.0) * 100.0) as u8;
+                    if percent >= last.saturating_add(2) {
+                        last = percent;
+                        self.send(RecordingState::Finalizing {
+                            path: self.path.clone(),
+                            percent,
+                        });
+                    }
+                });
+                match result {
+                    Ok(()) => tracing::info!(took = ?started.elapsed(), "rotation fixed"),
+                    Err(err) => tracing::error!(%err, "rotation fix failed: original file kept"),
+                }
+                self.finished(end, duration);
+            });
+        if let Err(err) = spawned {
+            tracing::error!(%err, "cannot start the rotation fix");
         }
     }
 

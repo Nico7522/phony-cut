@@ -49,3 +49,18 @@ Sound setting follow)
   Sound before the first recorded image is dropped.
 - Both tracks go through FFmpeg's interleaving queue (`max_interleave_delta` 1 s, so a
   crash still loses about 1 s at most).
+
+## Rotation during a recording (fixed at the same time)
+
+- The phone restarts its encoder at the new size; the new SPS goes inside the track. FFmpeg
+  decodes it, but Windows Media Player and VLC keep the size of the file header and show
+  garbage after the rotation. A Matroska track cannot change its codec description.
+- So when the phone rotated during a recording, the file is re-encoded after the stop
+  (`normalize.rs`, libopenh264, same engine as the precise export) into **one square frame**
+  as large as the longest side: portrait and landscape both keep their real size, with
+  black bars (product choice: a portrait frame made landscape parts less than half as
+  big). The sound is copied. The UI shows "Finishing the recording… N %"; the result
+  replaces the file only once complete, otherwise the original is kept.
+- Recordings without rotation are not touched (instant stop, no quality loss).
+- Same session: the shared encoder now resets its intermediate picture when the input size
+  changes ("Output changed" broke a precise export spanning a rotation).

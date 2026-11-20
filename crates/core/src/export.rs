@@ -293,7 +293,12 @@ impl PreciseClip {
             return Ok(());
         }
         if self.sink.is_none() {
-            self.sink = Some(EncodeSink::new(out, frame, self.bit_rate).map_err(sink_error)?);
+            let size = (frame.width(), frame.height());
+            self.sink = Some(EncodeSink::new(out, size, self.bit_rate).map_err(sink_error)?);
+            write_mp4_header(out).map_err(|e| match e {
+                ExportError::Write(e) => DecodeError::Ffmpeg(e),
+                _ => DecodeError::Ffmpeg(ffmpeg::Error::Bug),
+            })?;
         }
         if let Some(sink) = &mut self.sink {
             sink.encode(out, frame, (time_us - self.start_us) / 1000)
@@ -316,7 +321,7 @@ fn write_mp4_header(out: &mut format::context::Output) -> Result<(), ExportError
 }
 
 #[derive(Debug, thiserror::Error)]
-enum SinkError {
+pub(crate) enum SinkError {
     #[error("no H.264 encoder")]
     NoEncoder,
     #[error("{0}")]
@@ -339,8 +344,10 @@ fn unwrap_sink_error(err: DecodeError) -> ExportError {
     }
 }
 
-/// H.264 encoder + output stream, sized on the first frame of the clip.
-struct EncodeSink {
+/// H.264 encoder + output stream of a fixed size. Adding the
+/// stream does not write the file header: the caller adds its other streams
+/// first, then writes the header.
+pub(crate) struct EncodeSink {
     encoder: encoder::Video,
     /// Converts frames to YUV420P at their fitted size inside the clip.
     scaler: Option<(ScalerInput, scaling::Context)>,
@@ -348,7 +355,8 @@ struct EncodeSink {
     /// Clip-sized frame handed to the encoder (black bars around `scaled`
     /// when a rotation changes the aspect ratio inside the clip).
     canvas: ffmpeg::util::frame::Video,
-    out_tb: Rational,
+    /// Index of the encoded stream in the output.
+    index: usize,
     width: u32,
     height: u32,
     /// Encoded packet waiting for the next one (to know its duration).
@@ -374,16 +382,17 @@ fn fit_inside(src: (u32, u32), clip: (u32, u32)) -> ((u32, u32), (u32, u32)) {
 }
 
 impl EncodeSink {
-    fn new(
+    /// Adds an H.264 stream of `size` (even dimensions) to `out`.
+    pub(crate) fn new(
         out: &mut format::context::Output,
-        first: &ffmpeg::util::frame::Video,
+        size: (u32, u32),
         bit_rate: usize,
     ) -> Result<Self, SinkError> {
         let codec = encoder::find_by_name("libopenh264")
             .or_else(|| encoder::find(codec::Id::H264))
             .ok_or(SinkError::NoEncoder)?;
         let global_header = out.format().flags().contains(format::Flags::GLOBAL_HEADER);
-        let (width, height) = (first.width(), first.height());
+        let (width, height) = size;
 
         let mut ctx = codec::Context::new_with_codec(codec).encoder().video()?;
         ctx.set_width(width);
@@ -401,21 +410,14 @@ impl EncodeSink {
         let mut stream = out.add_stream(codec)?;
         stream.set_parameters(&encoder);
         stream.set_time_base(ENCODER_TIME_BASE);
-        write_mp4_header(out).map_err(|e| match e {
-            ExportError::Write(e) => SinkError::Ffmpeg(e),
-            _ => SinkError::Ffmpeg(ffmpeg::Error::Bug),
-        })?;
-        let out_tb = out
-            .stream(0)
-            .map(|s| s.time_base())
-            .ok_or(ffmpeg::Error::StreamNotFound)?;
+        let index = stream.index();
 
         Ok(Self {
             encoder,
             scaler: None,
             scaled: ffmpeg::util::frame::Video::empty(),
             canvas: ffmpeg::util::frame::Video::new(format::Pixel::YUV420P, width, height),
-            out_tb,
+            index,
             width,
             height,
             pending: None,
@@ -424,7 +426,7 @@ impl EncodeSink {
 
     /// Encodes a frame at clip time `time_ms`. A frame of another size (a
     /// rotation inside the clip) is fitted without distortion, with black bars.
-    fn encode(
+    pub(crate) fn encode(
         &mut self,
         out: &mut format::context::Output,
         frame: &ffmpeg::util::frame::Video,
@@ -448,6 +450,9 @@ impl EncodeSink {
                     h,
                     scaling::Flags::BILINEAR,
                 )?;
+                // The scaled picture changes size too (rotation): the old
+                // buffer would be rejected ("output changed").
+                self.scaled = ffmpeg::util::frame::Video::empty();
                 &mut slot.insert((input, scaler)).1
             }
         };
@@ -460,7 +465,11 @@ impl EncodeSink {
     }
 
     /// Flushes the encoder; the last frame lasts until `end_ms` (clip time).
-    fn finish(&mut self, out: &mut format::context::Output, end_ms: i64) -> Result<(), SinkError> {
+    pub(crate) fn finish(
+        &mut self,
+        out: &mut format::context::Output,
+        end_ms: i64,
+    ) -> Result<(), SinkError> {
         self.encoder.send_eof()?;
         self.write_packets(out)?;
         if let Some(last) = self.pending.take() {
@@ -489,9 +498,13 @@ impl EncodeSink {
         mut packet: ffmpeg::Packet,
         duration_ms: i64,
     ) -> Result<(), SinkError> {
-        packet.set_stream(0);
+        let out_tb = out
+            .stream(self.index)
+            .map(|s| s.time_base())
+            .ok_or(ffmpeg::Error::StreamNotFound)?;
+        packet.set_stream(self.index);
         packet.set_duration(duration_ms);
-        packet.rescale_ts(ENCODER_TIME_BASE, self.out_tb);
+        packet.rescale_ts(ENCODER_TIME_BASE, out_tb);
         packet.write_interleaved(out)?;
         Ok(())
     }

@@ -287,6 +287,18 @@ pub fn record_stop() -> &'static str {
 pub fn record_waiting() -> &'static str {
     tr("Démarrage de l'enregistrement…", "Starting the recording…")
 }
+/// The phone rotated during the recording: the video is re-encoded so every
+/// player reads it.
+pub fn record_finalizing(percent: u8) -> String {
+    match language() {
+        Language::French => {
+            format!("Finalisation de l'enregistrement (le téléphone a tourné) : {percent} %…")
+        }
+        Language::English => {
+            format!("Finishing the recording (the phone was rotated): {percent}%…")
+        }
+    }
+}
 pub fn record_waiting_asleep() -> &'static str {
     tr(
         "Le téléphone est peut-être en veille : rallumez son écran (bouton marche, ou clic \
