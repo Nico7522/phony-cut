@@ -42,7 +42,7 @@ export const fr: Dict = {
       },
       {
         title: "Un enregistrement sans perte de qualité",
-        text: "La vidéo envoyée par le téléphone est enregistrée telle quelle, sans être recompressée. La durée et la taille s'affichent pendant l'enregistrement, et la vidéo est conservée même si le câble se débranche.",
+        text: "La vidéo et le son envoyés par le téléphone (Android 11 ou plus pour le son) sont enregistrés tels quels, sans être recompressés. La durée et la taille s'affichent pendant l'enregistrement, et la vidéo est conservée même si le câble se débranche.",
       },
       {
         title: "Des cuts pendant l'enregistrement, des clips à l'arrivée",
@@ -69,7 +69,7 @@ export const fr: Dict = {
     ],
     openTitle: "Gratuit et libre",
     openText:
-      "PhoneCut est gratuit, sans publicité, sans compte et sans pistage. Son code source est public sur GitHub. Il fonctionne sous Windows pour l'instant ; l'enregistrement du son, la connexion sans fil et une version Mac sont prévus.",
+      "PhoneCut est gratuit, sans publicité, sans compte et sans pistage. Son code source est public sur GitHub. Il fonctionne sous Windows pour l'instant ; la connexion sans fil et une version Mac sont prévues.",
     ctaTitle: "Envie d'essayer ?",
   },
   download: {
@@ -324,7 +324,7 @@ export const fr: Dict = {
           },
           {
             q: "Le son est-il enregistré ?",
-            a: "<p>Pas encore : PhoneCut n'enregistre que l'image pour l'instant. L'enregistrement du son est prévu (il nécessitera Android 11 ou plus).</p>",
+            a: "<p>Oui, avec Android 11 ou plus : le son est enregistré avec l'image et gardé dans les clips. Pendant que PhoneCut le capture, le téléphone devient muet et son son sort sur le PC (vous pouvez couper l'écoute ou la capture dans les Réglages). Certaines applis interdisent la capture de leur son. Quand PhoneCut s'arrête, certains lecteurs (YouTube…) se mettent en pause, comme quand on débranche un casque.</p>",
           },
         ],
       },
@@ -373,7 +373,7 @@ export const fr: Dict = {
     intro:
       "PhoneCut est gratuit et le restera. <strong>Aucune fonction n'est réservée aux donateurs</strong>, et vous n'avez rien à donner pour l'utiliser.",
     whyText:
-      "Si PhoneCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, l'enregistrement du son, une version Mac…), vous pouvez faire un don du montant de votre choix, une fois ou chaque mois : avec GitHub Sponsors si vous avez un compte GitHub, sinon avec Ko-fi.",
+      "Si PhoneCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, la connexion sans fil, une version Mac…), vous pouvez faire un don du montant de votre choix, une fois ou chaque mois : avec GitHub Sponsors si vous avez un compte GitHub, sinon avec Ko-fi.",
     sponsorButton: "Soutenir sur GitHub",
     kofiButton: "Offrir un café sur Ko-fi",
     otherTitle: "D'autres façons d'aider, gratuitement",

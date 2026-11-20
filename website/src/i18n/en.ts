@@ -43,7 +43,7 @@ export const en = {
       },
       {
         title: "Record without quality loss",
-        text: "The video sent by the phone is saved as it is, without being compressed again. You see the length and size of the recording while it runs, and the video is kept even if the cable comes out.",
+        text: "The video and the sound sent by the phone (Android 11 or later for the sound) are saved as they are, without being compressed again. You see the length and size of the recording while it runs, and the video is kept even if the cable comes out.",
       },
       {
         title: "Mark cuts, export clips",
@@ -70,7 +70,7 @@ export const en = {
     ],
     openTitle: "Free and open source",
     openText:
-      "PhoneCut is free, without ads, accounts or tracking. Its source code is public on GitHub. It works on Windows for now; sound recording, a wireless connection and a Mac version are planned.",
+      "PhoneCut is free, without ads, accounts or tracking. Its source code is public on GitHub. It works on Windows for now; a wireless connection and a Mac version are planned.",
     ctaTitle: "Ready to try?",
   },
   download: {
@@ -324,7 +324,7 @@ export const en = {
           },
           {
             q: "Is the sound recorded?",
-            a: "<p>Not yet: PhoneCut only records the picture for now. Sound recording is planned (it will need Android 11 or later).</p>",
+            a: "<p>Yes, with Android 11 or later: the sound is recorded with the picture and kept in the clips. While PhoneCut captures it, the phone goes silent and its sound comes out of the PC (you can turn listening or capture off in the Settings). Some apps do not allow their sound to be captured. When PhoneCut stops, some players (YouTube…) pause, as when headphones are unplugged.</p>",
           },
         ],
       },
@@ -373,7 +373,7 @@ export const en = {
     intro:
       "PhoneCut is free and will stay free. <strong>No feature is reserved to donors</strong>, and you do not need to give anything to use it.",
     whyText:
-      "If PhoneCut is useful to you and you want to help it grow (more tested phones, sound recording, a Mac version…), you can make a donation of the amount you choose, once or every month: with GitHub Sponsors if you have a GitHub account, otherwise with Ko-fi.",
+      "If PhoneCut is useful to you and you want to help it grow (more tested phones, a wireless connection, a Mac version…), you can make a donation of the amount you choose, once or every month: with GitHub Sponsors if you have a GitHub account, otherwise with Ko-fi.",
     sponsorButton: "Sponsor on GitHub",
     kofiButton: "Buy me a coffee on Ko-fi",
     otherTitle: "Other ways to help, for free",
