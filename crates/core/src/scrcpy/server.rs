@@ -37,6 +37,41 @@ pub struct ServerOptions {
     pub key_frame_interval_s: u32,
     /// Open the control socket (mouse and keyboard).
     pub control: bool,
+    /// Capture the phone's sound (Android 11+, AAC) on its own socket.
+    pub audio: bool,
+    /// Where the sound is captured on the phone.
+    pub audio_source: AudioSource,
+}
+
+/// scrcpy `audio_source` values used by PhoneCut.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AudioSource {
+    /// Whole device output (`REMOTE_SUBMIX`, Android 11+).
+    #[default]
+    Output,
+    /// What apps play (`AudioPlaybackCapture`, Android 13+; apps may opt out).
+    Playback,
+}
+
+impl AudioSource {
+    /// Source for an Android API level, `None` when the phone cannot share
+    /// its sound (before Android 11). `playback` from Android 13: `output`
+    /// gives pure silence on some phones (verified on a Xiaomi, Android 16)
+    /// while `playback` works.
+    pub fn for_sdk(sdk: u32) -> Option<Self> {
+        match sdk {
+            33.. => Some(Self::Playback),
+            30..=32 => Some(Self::Output),
+            _ => None,
+        }
+    }
+
+    pub fn arg(self) -> &'static str {
+        match self {
+            Self::Output => "output",
+            Self::Playback => "playback",
+        }
+    }
 }
 
 impl Default for ServerOptions {
@@ -47,6 +82,8 @@ impl Default for ServerOptions {
             max_fps: 60,
             key_frame_interval_s: 1,
             control: true,
+            audio: false,
+            audio_source: AudioSource::default(),
         }
     }
 }
@@ -55,6 +92,8 @@ impl Default for ServerOptions {
 pub struct Connection {
     /// Device meta, codec, session and media packets.
     pub video: TcpStream,
+    /// Audio codec id, then media packets (no session packets on audio).
+    pub audio: Option<TcpStream>,
     /// Control messages (PC → phone) and device messages (phone → PC).
     pub control: Option<TcpStream>,
 }
@@ -117,7 +156,6 @@ pub fn server_args(scid: u32, options: &ServerOptions) -> Vec<String> {
         format!("scid={scid:08x}"),
         "log_level=info".into(),
         "tunnel_forward=true".into(),
-        "audio=false".into(),
         "video_codec=h264".into(),
         format!("video_bit_rate={}", options.video_bit_rate),
         format!("max_fps={}", options.max_fps),
@@ -128,6 +166,16 @@ pub fn server_args(scid: u32, options: &ServerOptions) -> Vec<String> {
     ];
     if options.max_size > 0 {
         args.push(format!("max_size={}", options.max_size));
+    }
+    if options.audio {
+        // Device output (REMOTE_SUBMIX): the phone itself goes silent while
+        // captured (no audio_dup), 48 kHz stereo, 128 kbit/s by default. AAC
+        // plays everywhere once copied into an MP4.
+        args.push("audio=true".into());
+        args.push("audio_codec=aac".into());
+        args.push(format!("audio_source={}", options.audio_source.arg()));
+    } else {
+        args.push("audio=false".into());
     }
     if options.control {
         // Control is on by default on the server. The phone clipboard is
@@ -184,13 +232,18 @@ impl RunningServer {
     }
 
     /// Connects to the server, retrying while it starts up, consumes the
-    /// dummy byte, then opens the control socket if enabled. `stop` aborts
-    /// the wait.
+    /// dummy byte, then opens the audio and control sockets if enabled (same
+    /// values as given to [`RunningServer::start`]). `stop` aborts the wait.
     ///
     /// Order matters (scrcpy `DesktopConnection.open`): the server accepts
-    /// the video socket, then the control socket, and only then sends the
-    /// device name on the video socket.
-    pub fn connect(&mut self, stop: &AtomicBool, control: bool) -> Result<Connection, ServerError> {
+    /// video, then audio, then control, and only then sends the device name
+    /// on the video socket. The dummy byte is only on the first socket.
+    pub fn connect(
+        &mut self,
+        stop: &AtomicBool,
+        audio: bool,
+        control: bool,
+    ) -> Result<Connection, ServerError> {
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, self.port));
         for _ in 0..CONNECT_ATTEMPTS {
             if stop.load(Ordering::Relaxed) {
@@ -205,15 +258,24 @@ impl RunningServer {
             if let Ok(mut video) = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT) {
                 video.set_read_timeout(Some(HANDSHAKE_TIMEOUT))?;
                 if protocol::read_dummy_byte(&mut video).is_ok() {
+                    // No dummy byte on the following sockets.
+                    let audio = if audio {
+                        Some(TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT)?)
+                    } else {
+                        None
+                    };
                     let control = if control {
-                        // No dummy byte on the following sockets.
                         let socket = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT)?;
                         socket.set_nodelay(true)?;
                         Some(socket)
                     } else {
                         None
                     };
-                    return Ok(Connection { video, control });
+                    return Ok(Connection {
+                        video,
+                        audio,
+                        control,
+                    });
                 }
             }
             thread::sleep(CONNECT_DELAY);
@@ -292,6 +354,32 @@ mod tests {
         ] {
             assert!(args.iter().any(|a| a == expected), "missing {expected}");
         }
+    }
+
+    #[test]
+    fn audio_asks_for_aac_from_the_device_output() {
+        let options = ServerOptions {
+            audio: true,
+            ..ServerOptions::default()
+        };
+        let args = server_args(1, &options);
+        for expected in ["audio=true", "audio_codec=aac", "audio_source=output"] {
+            assert!(args.iter().any(|a| a == expected), "missing {expected}");
+        }
+        assert!(!args.iter().any(|a| a == "audio=false"));
+        assert!(
+            !args.iter().any(|a| a.starts_with("audio_dup")),
+            "sound only on the PC"
+        );
+    }
+
+    #[test]
+    fn audio_source_follows_the_android_version() {
+        assert_eq!(AudioSource::for_sdk(29), None, "Android 10");
+        assert_eq!(AudioSource::for_sdk(30), Some(AudioSource::Output));
+        assert_eq!(AudioSource::for_sdk(32), Some(AudioSource::Output));
+        assert_eq!(AudioSource::for_sdk(33), Some(AudioSource::Playback));
+        assert_eq!(AudioSource::for_sdk(36), Some(AudioSource::Playback));
     }
 
     #[test]

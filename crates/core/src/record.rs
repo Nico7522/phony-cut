@@ -152,57 +152,153 @@ struct Pending {
     key_frame: bool,
 }
 
-/// Writes one H.264 video track into a Matroska file.
-pub struct MkvWriter {
-    output: format::context::Output,
+/// Duration of one AAC frame from the phone: 1024 samples at 48 kHz.
+pub const AAC_FRAME_US: i64 = 1024 * 1_000_000 / crate::audio::DEVICE_RATE as i64;
+
+/// Sets the codec parameters of a new stream, with `config` as extradata.
+///
+/// # Safety
+/// `stream` must have just been created by `add_stream` (valid `codecpar`).
+unsafe fn set_codec_parameters(
+    stream: &mut format::stream::StreamMut,
+    video: Option<(u32, u32)>,
+    config: &[u8],
+) -> Result<(), WriteError> {
+    // SAFETY (caller): `codecpar` is valid and owned by the stream. FFmpeg
+    // requires extradata to be av_malloc'ed with zeroed padding, and frees it
+    // with the stream.
+    let par = unsafe { (*stream.as_mut_ptr()).codecpar };
+    unsafe {
+        match video {
+            Some((width, height)) => {
+                (*par).codec_type = ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO;
+                (*par).codec_id = ffmpeg::ffi::AVCodecID::AV_CODEC_ID_H264;
+                (*par).width = i32::try_from(width).unwrap_or(i32::MAX);
+                (*par).height = i32::try_from(height).unwrap_or(i32::MAX);
+            }
+            None => {
+                (*par).codec_type = ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_AUDIO;
+                (*par).codec_id = ffmpeg::ffi::AVCodecID::AV_CODEC_ID_AAC;
+                (*par).sample_rate = crate::audio::DEVICE_RATE as i32;
+                (*par).frame_size = 1024;
+                (*par).ch_layout =
+                    ffmpeg::ChannelLayout::default(i32::from(crate::audio::DEVICE_CHANNELS)).into();
+            }
+        }
+        let extradata = ffmpeg::ffi::av_mallocz(config.len() + FFMPEG_PADDING).cast::<u8>();
+        if extradata.is_null() {
+            return Err(WriteError::OutOfMemory);
+        }
+        ptr::copy_nonoverlapping(config.as_ptr(), extradata, config.len());
+        (*par).extradata = extradata;
+        (*par).extradata_size = i32::try_from(config.len()).unwrap_or(0);
+    }
+    Ok(())
+}
+
+/// Per-stream timestamp state.
+struct Track {
+    index: usize,
     time_base: Rational,
-    pending: Option<Pending>,
     last_ts: Option<i64>,
 }
 
+impl Track {
+    /// Timestamp in the stream time base, strictly increasing.
+    fn timestamp(&mut self, time_us: i64) -> i64 {
+        let mut ts = time_us.rescale(MICROS, self.time_base);
+        if let Some(last) = self.last_ts {
+            if ts <= last {
+                ts = last + 1;
+            }
+        }
+        self.last_ts = Some(ts);
+        ts
+    }
+}
+
+/// Writes one H.264 video track, and optionally the phone's AAC sound, into
+/// a Matroska file. Packets of both tracks go through FFmpeg's interleaving
+/// queue, so they reach the file in time order.
+pub struct MkvWriter {
+    output: format::context::Output,
+    video: Track,
+    audio: Option<Track>,
+    pending: Option<Pending>,
+}
+
 impl MkvWriter {
-    /// Creates the file. `config` is the codec configuration packet (SPS/PPS,
-    /// Annex-B) as sent by the server.
-    pub fn create(path: &Path, width: u32, height: u32, config: &[u8]) -> Result<Self, WriteError> {
+    /// Creates the file. `config` is the video configuration packet (SPS/PPS,
+    /// Annex-B) as sent by the server; `audio_config` the AAC
+    /// AudioSpecificConfig when the sound is recorded too.
+    pub fn create(
+        path: &Path,
+        width: u32,
+        height: u32,
+        config: &[u8],
+        audio_config: Option<&[u8]>,
+    ) -> Result<Self, WriteError> {
         crate::decode::init_ffmpeg();
         let mut output = format::output_as(path, "matroska")?;
         {
             let mut stream = output.add_stream(Option::<ffmpeg::Codec>::None)?;
             stream.set_time_base((1, 1000));
-            // SAFETY: `stream` was just created by avformat_new_stream and is
-            // owned by `output`; its `codecpar` is valid and allocated. FFmpeg
-            // requires extradata to be av_malloc'ed with zeroed padding, and
-            // frees it with the stream.
-            unsafe {
-                let par = (*stream.as_mut_ptr()).codecpar;
-                (*par).codec_type = ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO;
-                (*par).codec_id = ffmpeg::ffi::AVCodecID::AV_CODEC_ID_H264;
-                (*par).width = i32::try_from(width).unwrap_or(i32::MAX);
-                (*par).height = i32::try_from(height).unwrap_or(i32::MAX);
-                let extradata = ffmpeg::ffi::av_mallocz(config.len() + FFMPEG_PADDING).cast::<u8>();
-                if extradata.is_null() {
-                    return Err(WriteError::OutOfMemory);
-                }
-                ptr::copy_nonoverlapping(config.as_ptr(), extradata, config.len());
-                (*par).extradata = extradata;
-                (*par).extradata_size = i32::try_from(config.len()).unwrap_or(0);
-            }
+            // SAFETY: the stream was just created.
+            unsafe { set_codec_parameters(&mut stream, Some((width, height)), config)? };
+        }
+        if let Some(audio_config) = audio_config {
+            let mut stream = output.add_stream(Option::<ffmpeg::Codec>::None)?;
+            stream.set_time_base((1, 1000));
+            // SAFETY: the stream was just created.
+            unsafe { set_codec_parameters(&mut stream, None, audio_config)? };
         }
         let mut options = Dictionary::new();
         // Small clusters + flushing: a crash loses at most ~1 s of video.
         options.set("cluster_time_limit", "1000");
         options.set("flush_packets", "1");
+        // Interleaving waits for the other track at most 1 s (default 10 s).
+        options.set("max_interleave_delta", "1000000");
         output.write_header_with(options)?;
-        let time_base = output
-            .stream(0)
-            .map(|s| s.time_base())
-            .ok_or(ffmpeg::Error::StreamNotFound)?;
+        let track = |index: usize| {
+            output
+                .stream(index)
+                .map(|s| Track {
+                    index,
+                    time_base: s.time_base(),
+                    last_ts: None,
+                })
+                .ok_or(ffmpeg::Error::StreamNotFound)
+        };
+        let video = track(0)?;
+        let audio = audio_config.map(|_| track(1)).transpose()?;
         Ok(Self {
             output,
-            time_base,
+            video,
+            audio,
             pending: None,
-            last_ts: None,
         })
+    }
+
+    /// The file has a sound track.
+    pub fn has_audio(&self) -> bool {
+        self.audio.is_some()
+    }
+
+    /// Writes one AAC frame at file time `time_us` (ignored without a sound
+    /// track).
+    pub fn write_audio(&mut self, data: &[u8], time_us: i64) -> Result<(), WriteError> {
+        let Some(track) = &mut self.audio else {
+            return Ok(());
+        };
+        let ts = track.timestamp(time_us);
+        let mut packet = ffmpeg::Packet::copy(data);
+        packet.set_stream(track.index);
+        packet.set_pts(Some(ts));
+        packet.set_dts(Some(ts));
+        packet.set_duration(AAC_FRAME_US.rescale(MICROS, track.time_base).max(1));
+        packet.set_flags(codec::packet::Flags::KEY);
+        packet.write_interleaved(&mut self.output)?;
+        Ok(())
     }
 
     /// Queues a frame at file time `time_us`; the previous one is written now
@@ -236,24 +332,18 @@ impl MkvWriter {
     }
 
     fn write_packet(&mut self, frame: Pending, duration_us: i64) -> Result<(), WriteError> {
-        let mut ts = frame.time_us.rescale(MICROS, self.time_base);
-        if let Some(last) = self.last_ts {
-            if ts <= last {
-                ts = last + 1; // timestamps must strictly increase
-            }
-        }
-        self.last_ts = Some(ts);
-        let duration = duration_us.rescale(MICROS, self.time_base).max(1);
+        let ts = self.video.timestamp(frame.time_us);
+        let duration = duration_us.rescale(MICROS, self.video.time_base).max(1);
 
         let mut packet = ffmpeg::Packet::copy(&frame.data);
-        packet.set_stream(0);
+        packet.set_stream(self.video.index);
         packet.set_pts(Some(ts));
         packet.set_dts(Some(ts));
         packet.set_duration(duration);
         if frame.key_frame {
             packet.set_flags(codec::packet::Flags::KEY);
         }
-        packet.write(&mut self.output)?;
+        packet.write_interleaved(&mut self.output)?;
         Ok(())
     }
 }
@@ -266,12 +356,16 @@ pub struct RecorderSetup {
     pub height: u32,
     /// Last codec configuration packet received, if any.
     pub config: Option<Vec<u8>>,
+    /// AAC configuration when the phone's sound is streamed: the file gets a
+    /// sound track.
+    pub audio_config: Option<Vec<u8>>,
     pub events: Sender<Event>,
     pub notify: Notifier,
 }
 
 enum Input {
     Packet(MediaPacket, Instant),
+    Audio(MediaPacket, Instant),
     Resized { width: u32, height: u32 },
     Mark(Instant),
     Stop(RecordingEnd, Instant),
@@ -313,6 +407,13 @@ impl Recorder {
             .send(Input::Packet(packet.clone(), Instant::now()));
     }
 
+    /// Hands an AAC frame to the recorder (non-blocking).
+    pub fn push_audio(&self, packet: &MediaPacket) {
+        let _ = self
+            .input
+            .send(Input::Audio(packet.clone(), Instant::now()));
+    }
+
     /// The video size changed (rotation).
     pub fn resized(&self, width: u32, height: u32) {
         let _ = self.input.send(Input::Resized { width, height });
@@ -348,6 +449,14 @@ impl Drop for Recorder {
     }
 }
 
+/// File time of the sound: offset of its first frame from the first video
+/// frame, then its own continuity (the video clock may restart on rotation,
+/// the sound clock does not).
+struct AudioTimeline {
+    offset: i64,
+    timeline: Timeline,
+}
+
 /// State of the recording thread.
 struct Task {
     path: PathBuf,
@@ -356,7 +465,11 @@ struct Task {
     config: Option<Vec<u8>>,
     /// New SPS/PPS (after a rotation) to put in front of the next frame.
     inline_config: Option<Vec<u8>>,
+    audio_config: Option<Vec<u8>>,
     writer: Option<(MkvWriter, Timeline)>,
+    /// Device PTS of the first recorded video frame (file time 0).
+    video_origin: Option<u64>,
+    audio_timeline: Option<AudioTimeline>,
     /// Cut markers, saved next to the video after each new one.
     cuts: CutFile,
     failed: bool,
@@ -373,7 +486,10 @@ impl Task {
             height: setup.height,
             config: setup.config,
             inline_config: None,
+            audio_config: setup.audio_config,
             writer: None,
+            video_origin: None,
+            audio_timeline: None,
             cuts: CutFile::default(),
             failed: false,
             events: setup.events,
@@ -390,6 +506,7 @@ impl Task {
         loop {
             match input.recv_timeout(PROGRESS_INTERVAL) {
                 Ok(Input::Packet(packet, arrival)) => self.on_packet(packet, arrival),
+                Ok(Input::Audio(packet, arrival)) => self.on_audio(&packet, arrival),
                 Ok(Input::Resized { width, height }) => {
                     self.width = width;
                     self.height = height;
@@ -425,14 +542,17 @@ impl Task {
                 return;
             }
             let Some(config) = &self.config else { return };
-            match MkvWriter::create(&self.path, self.width, self.height, config) {
+            let audio = self.audio_config.as_deref();
+            match MkvWriter::create(&self.path, self.width, self.height, config, audio) {
                 Ok(writer) => {
                     tracing::info!(
                         width = self.width,
                         height = self.height,
+                        sound = writer.has_audio(),
                         "recording started"
                     );
                     self.writer = Some((writer, Timeline::new(pts, arrival)));
+                    self.video_origin = Some(pts);
                     self.inline_config = None;
                 }
                 Err(err) => {
@@ -460,6 +580,42 @@ impl Task {
         }
         if self.last_progress.elapsed() >= PROGRESS_INTERVAL || self.writer_just_started() {
             self.report_progress();
+        }
+    }
+
+    /// Writes an AAC frame once the video has started; earlier sound is not
+    /// part of the recording.
+    fn on_audio(&mut self, packet: &MediaPacket, arrival: Instant) {
+        if self.failed || packet.config {
+            return;
+        }
+        let (Some(pts), Some(origin), Some((writer, _))) =
+            (packet.pts_us, self.video_origin, &mut self.writer)
+        else {
+            return;
+        };
+        if !writer.has_audio() {
+            return;
+        }
+        let timeline = match &mut self.audio_timeline {
+            Some(timeline) => timeline,
+            None => {
+                // Same device clock as the video: its offset from the first
+                // video frame is its file time.
+                let offset = i64::try_from(pts).unwrap_or(0) - i64::try_from(origin).unwrap_or(0);
+                if offset < 0 {
+                    return; // captured before the first recorded image
+                }
+                self.audio_timeline.insert(AudioTimeline {
+                    offset,
+                    timeline: Timeline::new(pts, arrival),
+                })
+            }
+        };
+        let time_us = timeline.offset + timeline.timeline.map(pts, arrival);
+        if let Err(err) = writer.write_audio(&packet.data, time_us) {
+            tracing::error!(%err, "recording sound write failed");
+            self.fail(RecordingProblem::WriteFailed);
         }
     }
 

@@ -365,6 +365,8 @@ impl PhoneCutApp {
             Some(MirrorRequest::Start(serial)) => self.command(Command::StartMirror {
                 serial,
                 quality: self.settings.video_quality(),
+                // Sound settings come with the "Sound" section of the settings.
+                sound: phonecut_core::api::SoundOptions::default(),
             }),
             None => {}
         }

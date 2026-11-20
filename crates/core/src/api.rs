@@ -23,6 +23,7 @@ pub enum Command {
     StartMirror {
         serial: String,
         quality: VideoQuality,
+        sound: SoundOptions,
     },
     /// Stop the running mirror, if any.
     StopMirror,
@@ -140,6 +141,25 @@ pub enum PhoneButton {
     VolumeUp,
     VolumeDown,
     Power,
+}
+
+/// What to do with the phone's sound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SoundOptions {
+    /// Capture the phone's sound (Android 11+). The phone itself goes silent
+    /// while its sound is captured.
+    pub capture: bool,
+    /// Play it on the PC during the live preview.
+    pub listen: bool,
+}
+
+impl Default for SoundOptions {
+    fn default() -> Self {
+        Self {
+            capture: true,
+            listen: true,
+        }
+    }
 }
 
 /// Video stream settings requested from the phone (also what gets recorded).

@@ -32,7 +32,7 @@ pub fn write_test_recording_with_tail(path: &std::path::Path, seconds: usize, ta
     use phonecut_core::record::MkvWriter;
     let packets = encode_h264_with(160, 96, seconds * 30, 30);
     let (config, first) = split_config(&packets[0].0);
-    let mut writer = MkvWriter::create(path, 160, 96, &config).expect("create mkv");
+    let mut writer = MkvWriter::create(path, 160, 96, &config, None).expect("create mkv");
     for (i, (au, key)) in packets.iter().enumerate() {
         let data = if i == 0 { first.clone() } else { au.clone() };
         let time_us = i as i64 * FRAME_US as i64;

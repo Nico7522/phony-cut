@@ -184,6 +184,18 @@ impl Adb {
         Ok(parse_product_info(&out.stdout))
     }
 
+    /// Android API level (`ro.build.version.sdk`: 30 = Android 11,
+    /// 33 = Android 13). `None` when it cannot be read.
+    pub fn sdk_version(&self, serial: &str) -> Option<u32> {
+        let out = self
+            .run(
+                &["-s", serial, "shell", "getprop ro.build.version.sdk"],
+                QUICK_TIMEOUT,
+            )
+            .ok()?;
+        out.stdout.trim().parse().ok()
+    }
+
     /// True when the device is connected and authorized.
     pub fn is_ready(&self, serial: &str) -> bool {
         self.run(&["-s", serial, "get-state"], QUICK_TIMEOUT)

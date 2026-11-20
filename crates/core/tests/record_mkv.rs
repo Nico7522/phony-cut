@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use ffmpeg_next as ffmpeg;
 
-use phonecut_core::record::{MkvWriter, Timeline};
+use phonecut_core::record::{MkvWriter, Recorder, RecorderSetup, Timeline};
 use phonecut_core::scrcpy::protocol::{self, ProtocolError, StreamItem};
 
 /// What a recording should contain.
@@ -73,7 +73,8 @@ fn record(stream: Vec<u8>, path: &Path, tail: Duration) -> Expected {
             if !packet.key_frame {
                 continue;
             }
-            let w = MkvWriter::create(path, size.0, size.1, config.as_ref().unwrap()).unwrap();
+            let w =
+                MkvWriter::create(path, size.0, size.1, config.as_ref().unwrap(), None).unwrap();
             writer = Some((w, Timeline::new(pts, arrival)));
         }
         let (w, timeline) = writer.as_mut().unwrap();
@@ -175,7 +176,10 @@ fn real_phone_streams() {
         return;
     };
     for fixture in entries.flatten().map(|e| e.path()) {
-        if fixture.extension().is_none_or(|e| e != "bin") {
+        // Video sockets only: `*.audio.bin` is the audio socket of a capture.
+        if fixture.extension().is_none_or(|e| e != "bin")
+            || fixture.to_string_lossy().ends_with(".audio.bin")
+        {
             continue;
         }
         let name = fixture.file_stem().unwrap().to_string_lossy().into_owned();
@@ -189,4 +193,129 @@ fn real_phone_streams() {
         verify(&path, &expected);
         let _ = fs::remove_file(&path);
     }
+}
+
+/// Packets of a capture socket, after its header (video: name + codec;
+/// audio: codec), with their device PTS.
+fn capture_packets(bytes: Vec<u8>, audio: bool) -> Vec<protocol::MediaPacket> {
+    let mut r = Cursor::new(bytes);
+    if audio {
+        protocol::read_audio_codec(&mut r).unwrap();
+    } else {
+        protocol::read_device_name(&mut r).unwrap();
+        protocol::read_codec(&mut r).unwrap();
+    }
+    let mut packets = Vec::new();
+    loop {
+        match protocol::read_item(&mut r) {
+            Ok(StreamItem::Packet(p)) => packets.push(p),
+            Ok(StreamItem::Session(_)) => {}
+            Err(ProtocolError::Closed) => return packets,
+            Err(err) => panic!("{err}"),
+        }
+    }
+}
+
+/// The real recorder, fed with a capture made with sound: the file has an AAC
+/// track that starts with the picture, lasts as long and decodes.
+#[test]
+fn recording_with_sound() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let video = capture_packets(
+        fs::read(dir.join("xiaomi-poco-android16-sound.bin")).unwrap(),
+        false,
+    );
+    let audio = capture_packets(
+        fs::read(dir.join("xiaomi-poco-android16-sound.audio.bin")).unwrap(),
+        true,
+    );
+    let video_config = video.iter().find(|p| p.config).unwrap().data.clone();
+    let audio_config = audio[0].data.clone();
+    assert!(audio[0].config);
+
+    let path = temp_file("with-sound.mkv");
+    let (events, _rx) = crossbeam_channel::unbounded();
+    let recorder = Recorder::start(RecorderSetup {
+        path: path.clone(),
+        width: 214,
+        height: 480,
+        config: Some(video_config),
+        audio_config: Some(audio_config),
+        events,
+        notify: std::sync::Arc::new(|| {}),
+    })
+    .unwrap();
+    // Deliver both sockets in device-time order, as they arrive live.
+    let mut v = video.iter().filter(|p| !p.config).peekable();
+    let mut a = audio.iter().skip(1).peekable();
+    loop {
+        match (v.peek(), a.peek()) {
+            (Some(vp), Some(ap)) if ap.pts_us < vp.pts_us => recorder.push_audio(a.next().unwrap()),
+            (Some(_), _) => recorder.push(v.next().unwrap()),
+            (None, Some(_)) => recorder.push_audio(a.next().unwrap()),
+            (None, None) => break,
+        }
+    }
+    recorder.stop(phonecut_core::api::RecordingEnd::Requested);
+
+    let first_key = video.iter().find(|p| p.key_frame).unwrap().pts_us.unwrap();
+    let expected_audio: Vec<u64> = audio
+        .iter()
+        .filter_map(|p| p.pts_us)
+        .filter(|&pts| pts >= first_key)
+        .collect();
+
+    let mut input = ffmpeg::format::input(&path).unwrap();
+    let stream = input
+        .streams()
+        .best(ffmpeg::media::Type::Audio)
+        .expect("sound track");
+    let index = stream.index();
+    let time_base = stream.time_base();
+    let mut decoder = ffmpeg::codec::Context::from_parameters(stream.parameters())
+        .unwrap()
+        .decoder()
+        .audio()
+        .unwrap();
+    assert_eq!(decoder.id(), ffmpeg::codec::Id::AAC);
+    assert_eq!(decoder.rate(), 48_000);
+    assert_eq!(decoder.channels(), 2);
+
+    let mut pts_ms = Vec::new();
+    let mut samples = 0;
+    let mut frame = ffmpeg::util::frame::Audio::empty();
+    for (s, packet) in input.packets() {
+        if s.index() != index {
+            continue;
+        }
+        let pts = packet.pts().unwrap();
+        pts_ms.push(pts * 1000 * i64::from(time_base.0) / i64::from(time_base.1));
+        decoder.send_packet(&packet).unwrap();
+        while decoder.receive_frame(&mut frame).is_ok() {
+            samples += frame.samples();
+        }
+    }
+    assert_eq!(
+        pts_ms.len(),
+        expected_audio.len(),
+        "every sound frame after the first image"
+    );
+    let first_offset_ms = i64::try_from((expected_audio[0] - first_key) / 1000).unwrap();
+    assert!(
+        (pts_ms[0] - first_offset_ms).abs() <= 1,
+        "sound starts {} ms after the picture, expected {first_offset_ms} ms",
+        pts_ms[0]
+    );
+    let span_ms =
+        i64::try_from((expected_audio[expected_audio.len() - 1] - expected_audio[0]) / 1000)
+            .unwrap();
+    assert!(
+        (pts_ms[pts_ms.len() - 1] - pts_ms[0] - span_ms).abs() <= 2,
+        "sound keeps the device timing"
+    );
+    assert!(
+        samples >= (pts_ms.len() - 2) * 1024,
+        "sound decodes ({samples} samples)"
+    );
+    let _ = fs::remove_file(&path);
 }

@@ -5,6 +5,8 @@
 
 pub mod adb;
 pub mod api;
+pub mod audio;
+pub mod audio_out;
 pub mod decode;
 pub mod export;
 pub mod image;

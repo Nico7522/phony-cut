@@ -1,4 +1,9 @@
-//! Wire format of the scrcpy **v5.0.1** video socket (forward tunnel, video only).
+//! Wire format of the scrcpy **v5.0.1** video and audio sockets (forward tunnel).
+//!
+//! Audio socket (scrcpy `AudioEncoder`/`Streamer`): codec id `u32` (`0` = the
+//! device could not capture sound and streams video only, `1` = config
+//! error), then media packets with the same 12-byte header as below, never
+//! session packets. The first packet is the codec config (AAC: csd-0).
 //!
 //! Verified against scrcpy v5.0.1 `doc/develop.md`, `Streamer.java`,
 //! `DesktopConnection.java` and `app/src/demuxer.c`. The protocol is internal to
@@ -67,6 +72,8 @@ pub enum ProtocolError {
     UnsupportedCodec(u32),
     #[error("expected a session packet first")]
     MissingSession,
+    #[error("unexpected session packet on the audio socket")]
+    UnexpectedSession,
     #[error("invalid video size {width}x{height}")]
     InvalidSize { width: u32, height: u32 },
     #[error("invalid packet size {0}")]
@@ -139,6 +146,50 @@ pub fn read_codec(r: &mut impl Read) -> Result<VideoCodec, ProtocolError> {
         0 => Err(ProtocolError::StreamDisabled),
         1 => Err(ProtocolError::ConfigError),
         id => VideoCodec::from_id(id).ok_or(ProtocolError::UnsupportedCodec(id)),
+    }
+}
+
+/// Audio codec announced on the audio socket.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioCodec {
+    Opus,
+    Aac,
+    Flac,
+    Raw,
+}
+
+impl AudioCodec {
+    pub fn from_id(id: u32) -> Option<Self> {
+        match id {
+            0x6f70_7573 => Some(Self::Opus),
+            0x0061_6163 => Some(Self::Aac),
+            0x666c_6163 => Some(Self::Flac),
+            0x0072_6177 => Some(Self::Raw),
+            _ => None,
+        }
+    }
+}
+
+/// Reads the codec id that starts the audio socket. `Ok(None)`: the device
+/// could not capture sound (Android < 11, capture refused…) and keeps
+/// streaming video only (scrcpy `writeDisableStream(false)`).
+pub fn read_audio_codec(r: &mut impl Read) -> Result<Option<AudioCodec>, ProtocolError> {
+    let id = read_u32(r)?;
+    match id {
+        0 => Ok(None),
+        1 => Err(ProtocolError::ConfigError),
+        id => AudioCodec::from_id(id)
+            .map(Some)
+            .ok_or(ProtocolError::UnsupportedCodec(id)),
+    }
+}
+
+/// Reads the next audio packet. The audio socket carries the same 12-byte
+/// media headers as video but never session packets.
+pub fn read_audio_packet(r: &mut impl Read) -> Result<MediaPacket, ProtocolError> {
+    match read_item(r)? {
+        StreamItem::Packet(packet) => Ok(packet),
+        StreamItem::Session(_) => Err(ProtocolError::UnexpectedSession),
     }
 }
 
@@ -325,6 +376,37 @@ mod tests {
             Err(ProtocolError::UnsupportedCodec(0x6f70_7573))
         ));
         assert_eq!(read(0x6832_3635).unwrap(), VideoCodec::H265);
+    }
+
+    #[test]
+    fn audio_codec_ids() {
+        let read = |id: u32| read_audio_codec(&mut Cursor::new(id.to_be_bytes()));
+        assert_eq!(read(0x0061_6163).unwrap(), Some(AudioCodec::Aac));
+        assert_eq!(read(0x6f70_7573).unwrap(), Some(AudioCodec::Opus));
+        assert_eq!(read(0).unwrap(), None, "device could not capture sound");
+        assert!(matches!(read(1), Err(ProtocolError::ConfigError)));
+        assert!(matches!(
+            read(0x6832_3634), // "h264" is not an audio codec
+            Err(ProtocolError::UnsupportedCodec(_))
+        ));
+    }
+
+    #[test]
+    fn audio_packets_have_no_sessions() {
+        let mut stream = packet(0, true, false, &[0x11, 0x90]);
+        stream.extend(packet(21_333, false, true, &[1, 2, 3]));
+        stream.extend(session(10, 10, false));
+        let mut r = Cursor::new(stream);
+        let config = read_audio_packet(&mut r).unwrap();
+        assert!(config.config);
+        assert_eq!(config.pts_us, None);
+        assert_eq!(config.data, [0x11, 0x90]);
+        let frame = read_audio_packet(&mut r).unwrap();
+        assert_eq!(frame.pts_us, Some(21_333));
+        assert!(matches!(
+            read_audio_packet(&mut r),
+            Err(ProtocolError::UnexpectedSession)
+        ));
     }
 
     #[test]

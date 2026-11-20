@@ -52,7 +52,7 @@ Déroulement d'une session :
 2. `adb push scrcpy-server /data/local/tmp/scrcpy-server.jar`
 3. `adb forward tcp:0 localabstract:scrcpy_<scid>` (adb choisit le port local et l'affiche)
 4. Lancer le serveur :
-   `adb shell CLASSPATH=/data/local/tmp/scrcpy-server.jar app_process / com.genymobile.scrcpy.Server <VERSION> scid=<scid> tunnel_forward=true audio=false ...`
+   `adb shell CLASSPATH=/data/local/tmp/scrcpy-server.jar app_process / com.genymobile.scrcpy.Server <VERSION> scid=<scid> tunnel_forward=true audio=true audio_codec=aac ...`
    (le contrôle souris/clavier est **activé** : ne pas passer `control=false`, voir plus bas)
 5. Se connecter au port local, lire les métadonnées puis les paquets vidéo.
 
@@ -83,6 +83,17 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
   Messages dans `scrcpy/control.rs`, testés avec les vecteurs de
   `app/tests/test_control_msg_serialize.c` ; le téléphone renvoie des « device messages »
   sur ce socket, toujours le lire (même pour les jeter).
+- **audio** (`audio=true audio_codec=aac audio_source=output`) : socket ouvert **entre**
+  la vidéo et le contrôle (ordre : vidéo, audio, contrôle). Codec id `u32` (`0x00616163`
+  = AAC ; `0` = le téléphone ne peut pas capturer le son, Android < 11 ou capture
+  refusée, **la vidéo continue** ; `1` = erreur), puis les mêmes en-têtes de 12 octets
+  que la vidéo, **jamais de paquet de session**. Vérifié sur un vrai téléphone
+  (fixture `xiaomi-poco-android16-sound.audio.bin`) : 1er paquet = config `11 90`
+  (AudioSpecificConfig AAC-LC 48 kHz stéréo, à utiliser comme extradata), puis des
+  trames AAC brutes (sans ADTS) de 1024 échantillons (21,333 ms). **Les PTS audio et
+  vidéo partagent la même horloge** (écart de quelques dizaines de ms) : pas de
+  recalage. Avec `audio_source=output`, le téléphone devient muet pendant la capture.
+  Android 11 : le téléphone doit être déverrouillé au démarrage de la capture.
 
 ---
 
@@ -102,6 +113,7 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
 | Sélecteur de dossier    | `rfd` (sans features par défaut)                          | Ouvert dans un thread, jamais sur le thread UI |
 | Packaging               | **Inno Setup 6** (installeur par utilisateur, sans admin) | Choisi en phase 6, voir ADR 0007               |
 | Ressources de l'exe     | `embed-resource` (build-dependency)                       | Icône et infos de version de phonecut.exe      |
+| Sortie audio            | `cpal`                                                    | Son du téléphone sur le PC (phase 8, ADR 0010) |
 
 **Règle : demander avant d'ajouter une dépendance importante** qui n'est pas dans ce tableau.
 
