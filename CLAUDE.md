@@ -114,6 +114,7 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
 | Packaging               | **Inno Setup 6** (installeur par utilisateur, sans admin) | Choisi en phase 6, voir ADR 0007               |
 | Ressources de l'exe     | `embed-resource` (build-dependency)                       | Icône et infos de version de PhonyCut.exe      |
 | Sortie audio            | `cpal`                                                    | Son du téléphone sur le PC (phase 8, ADR 0010) |
+| QR code                 | `qrcode` (sans features par défaut)                       | Appairage Wi-Fi, dessiné par egui (ADR 0011)   |
 
 **Règle : demander avant d'ajouter une dépendance importante** qui n'est pas dans ce tableau.
 
@@ -298,7 +299,7 @@ sur un autre PC, ce qui valide aussi la phase 6).
 ### Phase 8 — Plus tard
 
 - ✅ Audio (Android 11 et plus, flux séparé dans le protocole scrcpy) : écoute en direct sur le PC, son dans les enregistrements, les clips et « Mes clips », réglage « Son » (ADR 0010)
-- Connexion sans fil (débogage sans fil, appairage par code)
+- ✅ Connexion sans fil (débogage sans fil Android 11+, appairage par QR code ou code, reconnexion automatique, ADR 0011)
 - Portage macOS (adb macOS, dylib FFmpeg, `.dmg`, notarisation)
 - Vérification des mises à jour
 
