@@ -156,6 +156,13 @@ impl AudioOutput {
     pub fn push(&self, samples: &[f32]) {
         lock(&self.queue).push(samples);
     }
+
+    /// Drops what is queued (pause, seek): silence until new samples come.
+    pub fn clear(&self) {
+        let mut queue = lock(&self.queue);
+        queue.samples.clear();
+        queue.primed = false;
+    }
 }
 
 impl Drop for AudioOutput {

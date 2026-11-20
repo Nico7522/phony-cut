@@ -1,5 +1,6 @@
 //! Plays a recording in the app: decoding on its own thread, frames paced on
 //! the wall clock and published to a [`FrameSlot`], frame-accurate seeking.
+//! The sound (if any) is played on the PC, fed on the same clock.
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -13,6 +14,8 @@ use ffmpeg::{format, media, Rational};
 use ffmpeg_next as ffmpeg;
 
 use crate::api::{Event, FrameSlot, LoadedVideo, Notifier, PlayerEvent};
+use crate::audio::AacDecoder;
+use crate::audio_out::AudioOutput;
 use crate::decode::{init_ffmpeg, DecodeError, RgbaConverter};
 use crate::markers::CutFile;
 
@@ -118,6 +121,94 @@ fn run(setup: PlayerSetup, control: &Receiver<Control>) {
     }
 }
 
+/// Sound fed to the output this much ahead of its time: about the queue the
+/// output keeps (see `audio_out`), so each sample plays on time.
+const AUDIO_LEAD_US: i64 = 100_000;
+/// Longest wait between two sound feeds while a picture is due later.
+const AUDIO_FEED_INTERVAL: Duration = Duration::from_millis(20);
+
+/// The recording's sound: decoded as packets are read, then handed to the
+/// PC's output in step with the picture clock.
+struct PlayerAudio {
+    index: usize,
+    time_base: Rational,
+    decoder: AacDecoder,
+    output: AudioOutput,
+    /// Decoded samples waiting for their time (µs).
+    pending: VecDeque<(i64, Vec<f32>)>,
+}
+
+impl PlayerAudio {
+    /// `None` when the file has no sound or the PC cannot play it.
+    fn open(input: &format::context::Input) -> Option<Self> {
+        let stream = input.streams().best(media::Type::Audio)?;
+        let output = match AudioOutput::start() {
+            Ok(output) => output,
+            Err(err) => {
+                tracing::warn!(%err, "recording sound not played: no sound output");
+                return None;
+            }
+        };
+        let format = output.format();
+        let decoder =
+            match AacDecoder::from_parameters(&stream.parameters(), format.rate, format.channels) {
+                Ok(decoder) => decoder,
+                Err(err) => {
+                    tracing::warn!(%err, "recording sound not played: cannot decode it");
+                    return None;
+                }
+            };
+        Some(Self {
+            index: stream.index(),
+            time_base: stream.time_base(),
+            decoder,
+            output,
+            pending: VecDeque::new(),
+        })
+    }
+
+    fn on_packet(&mut self, packet: &ffmpeg::Packet) {
+        let (Some(pts), Some(data)) = (packet.pts(), packet.data()) else {
+            return;
+        };
+        let mut samples = Vec::new();
+        match self.decoder.decode(data, &mut samples) {
+            Ok(()) => self
+                .pending
+                .push_back((pts.rescale(self.time_base, MICROS), samples)),
+            Err(err) => tracing::debug!(%err, "sound packet skipped"),
+        }
+    }
+
+    /// Hands over the samples due before `now_us` + lead; late ones (more
+    /// than one lead behind, e.g. after a long decode) are dropped.
+    fn feed(&mut self, now_us: i64) {
+        while let Some((time_us, _)) = self.pending.front() {
+            if *time_us >= now_us + AUDIO_LEAD_US {
+                break;
+            }
+            let late = *time_us < now_us - AUDIO_LEAD_US;
+            if let Some((_, samples)) = self.pending.pop_front() {
+                if !late {
+                    self.output.push(&samples);
+                }
+            }
+        }
+    }
+
+    /// Pause: what the output has queued stops now; samples read from the
+    /// file stay, to play on resume.
+    fn pause(&mut self) {
+        self.output.clear();
+    }
+
+    /// Seek: nothing read so far plays any more.
+    fn stop(&mut self) {
+        self.pending.clear();
+        self.output.clear();
+    }
+}
+
 /// Demuxer + decoder of one video stream.
 struct Playback {
     input: format::context::Input,
@@ -131,6 +222,7 @@ struct Playback {
     duration_us: i64,
     width: u32,
     height: u32,
+    audio: Option<PlayerAudio>,
 }
 
 impl Playback {
@@ -148,6 +240,7 @@ impl Playback {
             .video()?;
         let (width, height) = (decoder.width(), decoder.height());
         let duration_us = input.duration().max(0);
+        let audio = PlayerAudio::open(&input);
         Ok(Self {
             input,
             stream_index,
@@ -160,6 +253,7 @@ impl Playback {
             duration_us,
             width,
             height,
+            audio,
         })
     }
 
@@ -181,7 +275,13 @@ impl Playback {
             }
             match self.packet.read(&mut self.input) {
                 Ok(()) => {
-                    if self.packet.stream() == self.stream_index {
+                    if let Some(audio) = self
+                        .audio
+                        .as_mut()
+                        .filter(|a| a.index == self.packet.stream())
+                    {
+                        audio.on_packet(&self.packet);
+                    } else if self.packet.stream() == self.stream_index {
                         if let Err(err) = self.decoder.send_packet(&self.packet) {
                             tracing::debug!(%err, "packet skipped");
                         }
@@ -247,13 +347,18 @@ impl State<'_> {
             // Wait until the frame is due, staying responsive to commands.
             let due = self.clock.0
                 + Duration::from_micros(u64::try_from(time_us - self.clock.1).unwrap_or(0));
-            let wait = due.saturating_duration_since(Instant::now());
             let interrupted = match self.deferred.pop_front() {
                 Some(c) => Some(c),
-                None => match control.recv_timeout(wait) {
-                    Ok(c) => Some(c),
-                    Err(RecvTimeoutError::Timeout) => None,
-                    Err(RecvTimeoutError::Disconnected) => return Ok(()),
+                None => loop {
+                    // Wake up regularly to feed the sound until the picture is due.
+                    self.feed_audio();
+                    let wait = due.saturating_duration_since(Instant::now());
+                    match control.recv_timeout(wait.min(AUDIO_FEED_INTERVAL)) {
+                        Ok(c) => break Some(c),
+                        Err(RecvTimeoutError::Timeout) if wait > AUDIO_FEED_INTERVAL => {}
+                        Err(RecvTimeoutError::Timeout) => break None,
+                        Err(RecvTimeoutError::Disconnected) => return Ok(()),
+                    }
                 },
             };
             if let Some(c) = interrupted {
@@ -284,6 +389,9 @@ impl State<'_> {
             }
             Control::Pause => {
                 self.playing = false;
+                if let Some(audio) = &mut self.playback.audio {
+                    audio.pause();
+                }
                 self.report(true);
             }
             Control::Seek(target) => {
@@ -307,6 +415,7 @@ impl State<'_> {
 
     /// Shows the frame at `target_us` (or the last one before the end).
     fn seek(&mut self, target_us: i64) {
+        self.stop_audio();
         let target_us = target_us.clamp(0, self.playback.duration_us.max(0));
         if let Err(err) = self.playback.seek_key_frame(target_us) {
             tracing::warn!(%err, target_us, "seek failed");
@@ -339,7 +448,33 @@ impl State<'_> {
         }
         self.position_us = shown.unwrap_or(target_us).max(0);
         self.clock = (Instant::now(), self.position_us);
+        // Sound decoded between the key frame and the target is skipped.
+        let position = self.position_us;
+        if let Some(audio) = &mut self.playback.audio {
+            audio.pending.retain(|(time_us, _)| *time_us >= position);
+        }
         self.report(true);
+    }
+
+    /// Media time now, on the playback clock.
+    fn now_us(&self) -> i64 {
+        self.clock.1 + i64::try_from(self.clock.0.elapsed().as_micros()).unwrap_or(i64::MAX)
+    }
+
+    fn feed_audio(&mut self) {
+        if !self.playing {
+            return;
+        }
+        let now = self.now_us();
+        if let Some(audio) = &mut self.playback.audio {
+            audio.feed(now);
+        }
+    }
+
+    fn stop_audio(&mut self) {
+        if let Some(audio) = &mut self.playback.audio {
+            audio.stop();
+        }
     }
 
     fn show_current(&mut self, time_us: i64) -> Result<(), DecodeError> {

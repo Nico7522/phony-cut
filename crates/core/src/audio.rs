@@ -75,6 +75,26 @@ impl AacDecoder {
         })
     }
 
+    /// Decoder for the AAC track of a file (its extradata is the config).
+    pub fn from_parameters(
+        params: &codec::Parameters,
+        out_rate: u32,
+        out_channels: u16,
+    ) -> Result<Self, AudioDecodeError> {
+        // SAFETY: plain reads of the stream's codec parameters, valid while
+        // `params` lives; the bytes are copied before returning.
+        let config = unsafe {
+            let raw = params.as_ptr();
+            let size = usize::try_from((*raw).extradata_size).unwrap_or(0);
+            if (*raw).extradata.is_null() || size == 0 {
+                Vec::new()
+            } else {
+                std::slice::from_raw_parts((*raw).extradata, size).to_vec()
+            }
+        };
+        Self::new(&config, out_rate, out_channels)
+    }
+
     /// Decodes one AAC frame and appends its samples (interleaved) to `out`.
     pub fn decode(&mut self, data: &[u8], out: &mut Vec<f32>) -> Result<(), AudioDecodeError> {
         let packet = ffmpeg::Packet::copy(data);
