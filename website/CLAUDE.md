@@ -1,6 +1,6 @@
-# CLAUDE.md — site web de PhoneCut
+# CLAUDE.md — site web de PhonyCut
 
-Site de présentation et de téléchargement de PhoneCut, publié sur GitHub Pages :
+Site de présentation et de téléchargement de PhonyCut, publié sur GitHub Pages :
 **https://nico7522.github.io/phony-cut/**. Lire aussi le `CLAUDE.md` à la racine du dépôt.
 
 ## Stack
@@ -62,7 +62,7 @@ npm run preview    # servir dist/ en local
   `href="/..."` en dur. `npm run build` échoue si un lien interne ne commence pas par
   `/phony-cut/` ou ne mène nulle part.
 - **Lien de téléchargement stable** : toujours
-  `https://github.com/Nico7522/phony-cut/releases/latest/download/PhoneCut-Setup-x64.exe`
+  `https://github.com/Nico7522/phony-cut/releases/latest/download/PhonyCut-Setup-x64.exe`
   (`links.download` dans `src/config.ts`). Jamais de lien vers un fichier versionné : la
   release doit publier l'installeur sous ce nom exact, avec `SHA256SUMS.txt` à côté.
 - **Dépôt public** : aucune donnée personnelle (e-mail, nom, chemin local, jeton). Seul

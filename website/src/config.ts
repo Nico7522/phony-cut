@@ -5,7 +5,7 @@ const REPO = "https://github.com/Nico7522/phony-cut";
 export const links = {
   repo: REPO,
   /** Stable link: always the installer of the latest release. Never link a versioned file. */
-  download: `${REPO}/releases/latest/download/PhoneCut-Setup-x64.exe`,
+  download: `${REPO}/releases/latest/download/PhonyCut-Setup-x64.exe`,
   checksums: `${REPO}/releases/latest/download/SHA256SUMS.txt`,
   releases: `${REPO}/releases`,
   latestReleaseApi: "https://api.github.com/repos/Nico7522/phony-cut/releases/latest",
@@ -17,7 +17,7 @@ export const links = {
 } as const;
 
 /** File name of the installer, as published on the Releases page. */
-export const installerName = "PhoneCut-Setup-x64.exe";
+export const installerName = "PhonyCut-Setup-x64.exe";
 
 /** Pages of the site; the same slug is used in every language. */
 export const pages = ["", "download", "tutorial", "faq", "support"] as const;

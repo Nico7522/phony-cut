@@ -13,7 +13,7 @@ interface Props {
 const { lang, page, title } = Astro.props;
 const text = t(lang);
 const other = otherLang(lang);
-const fullTitle = page === "" ? title : `${title} · PhoneCut`;
+const fullTitle = page === "" ? title : `${title} · PhonyCut`;
 const logo = assetUrl("shared/logo.svg");
 
 const menu: { page: Page; label: string }[] = [
@@ -53,7 +53,7 @@ const switchHref = pageUrl(other, page ?? "");
       <div class="container">
         <a class="brand" href={pageUrl(lang, "")}>
           <img src={logo} alt="" width="21" height="33" />
-          <span>PhoneCut</span>
+          <span>PhonyCut</span>
         </a>
         <nav class="site-nav" aria-label={text.nav.mainLabel}>
           <ul>
@@ -113,7 +113,7 @@ const switchHref = pageUrl(other, page ?? "");
           });
         }
         try {
-          var cached = sessionStorage.getItem("phonecut-latest-version");
+          var cached = sessionStorage.getItem("phonycut-latest-version");
           if (cached) return show(cached);
         } catch (e) {}
         fetch(api, { headers: { Accept: "application/vnd.github+json" } })
@@ -124,7 +124,7 @@ const switchHref = pageUrl(other, page ?? "");
             if (!data || typeof data.tag_name !== "string") return;
             var version = data.tag_name.replace(/^v/, "");
             try {
-              sessionStorage.setItem("phonecut-latest-version", version);
+              sessionStorage.setItem("phonycut-latest-version", version);
             } catch (e) {}
             show(version);
           })

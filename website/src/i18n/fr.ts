@@ -6,7 +6,7 @@ import type { Dict } from "./en";
 export const fr: Dict = {
   htmlLang: "fr",
   meta: {
-    siteName: "PhoneCut",
+    siteName: "PhonyCut",
     description:
       "Logiciel gratuit pour Windows : affichez l'écran de votre téléphone Android sur le PC, enregistrez-le sans perte de qualité et découpez-le en clips.",
   },
@@ -26,15 +26,15 @@ export const fr: Dict = {
     downloadFacts: "Gratuit · Windows 10 et 11 (64 bits) · Android 5.0 ou plus",
     latestVersion: "Dernière version :",
     allVersions: "Toutes les versions et notes de version",
-    logoAlt: "Logo de PhoneCut",
+    logoAlt: "Logo de PhonyCut",
   },
   home: {
-    title: "PhoneCut — L'écran de votre Android sur le PC, enregistré et découpé en clips",
+    title: "PhonyCut — L'écran de votre Android sur le PC, enregistré et découpé en clips",
     heroTitle: "Votre téléphone Android sur votre PC.<br />Enregistrez-le. Découpez-le en clips.",
     heroText:
-      "PhoneCut affiche l'écran de votre téléphone en direct sur votre ordinateur Windows, l'enregistre et vous permet de repérer les bons moments pendant l'enregistrement. Il ne reste qu'à en faire des clips en quelques clics. Pas de terminal, pas de réglages compliqués.",
+      "PhonyCut affiche l'écran de votre téléphone en direct sur votre ordinateur Windows, l'enregistre et vous permet de repérer les bons moments pendant l'enregistrement. Il ne reste qu'à en faire des clips en quelques clics. Pas de terminal, pas de réglages compliqués.",
     tutorialLink: "Comment connecter son téléphone",
-    featuresTitle: "Ce que fait PhoneCut",
+    featuresTitle: "Ce que fait PhonyCut",
     features: [
       {
         title: "L'écran du téléphone en direct",
@@ -49,13 +49,13 @@ export const fr: Dict = {
         text: "Appuyez sur <kbd>M</kbd> (ou sur le bouton « Marquer un cut ») à chaque bon moment pendant l'enregistrement. Dans « Mes clips », ajustez le début et la fin, nommez les clips et exportez-les en MP4, lisibles partout.",
       },
     ],
-    demoTitle: "PhoneCut en action",
+    demoTitle: "PhonyCut en action",
     demoAlt:
-      "PhoneCut affiche en direct l'écran d'un téléphone Android : on l'utilise à la souris et au clavier, puis un enregistrement démarre et un cut est posé.",
+      "PhonyCut affiche en direct l'écran d'un téléphone Android : on l'utilise à la souris et au clavier, puis un enregistrement démarre et un cut est posé.",
     stepsTitle: "Prêt en trois étapes",
     steps: [
       {
-        title: "Installer PhoneCut",
+        title: "Installer PhonyCut",
         text: "Téléchargez l'installeur et lancez-le. Aucun droit administrateur n'est demandé.",
       },
       {
@@ -69,13 +69,13 @@ export const fr: Dict = {
     ],
     openTitle: "Gratuit et libre",
     openText:
-      "PhoneCut est gratuit, sans publicité, sans compte et sans pistage. Son code source est public sur GitHub. Il fonctionne sous Windows pour l'instant ; la connexion sans fil et une version Mac sont prévues.",
+      "PhonyCut est gratuit, sans publicité, sans compte et sans pistage. Son code source est public sur GitHub. Il fonctionne sous Windows pour l'instant ; la connexion sans fil et une version Mac sont prévues.",
     ctaTitle: "Envie d'essayer ?",
   },
   download: {
-    title: "Télécharger PhoneCut pour Windows",
+    title: "Télécharger PhonyCut pour Windows",
     intro:
-      "PhoneCut est gratuit. Le lien de téléchargement ci-dessous donne toujours la dernière version.",
+      "PhonyCut est gratuit. Le lien de téléchargement ci-dessous donne toujours la dernière version.",
     checksumsText:
       "Pour vérifier que le téléchargement est intact, comparez son empreinte avec celle du fichier <a href=\"{checksums}\">SHA256SUMS.txt</a>, publié à côté de l'installeur. Dans PowerShell :",
     requirementsTitle: "Ce qu'il vous faut",
@@ -88,13 +88,13 @@ export const fr: Dict = {
     installTitle: "Installation",
     install: [
       "Téléchargez <code>{installer}</code> avec le bouton ci-dessus.",
-      "Lancez le fichier. PhoneCut s'installe pour votre compte Windows uniquement : <strong>aucun droit administrateur n'est demandé</strong>.",
-      "Suivez l'assistant, puis lancez PhoneCut depuis le <strong>menu Démarrer</strong> (ou le bureau si vous avez coché l'option).",
+      "Lancez le fichier. PhonyCut s'installe pour votre compte Windows uniquement : <strong>aucun droit administrateur n'est demandé</strong>.",
+      "Suivez l'assistant, puis lancez PhonyCut depuis le <strong>menu Démarrer</strong> (ou le bureau si vous avez coché l'option).",
       "Au premier lancement, l'assistant de connexion vous guide pour connecter votre téléphone.",
     ],
     smartscreenTitle: "« Windows a protégé votre ordinateur »",
     smartscreenText:
-      "PhoneCut n'est pas encore signé numériquement (un certificat de signature est payant et n'est pas prévu pour la première version). Windows SmartScreen affiche donc un avertissement au premier lancement de l'installeur :",
+      "PhonyCut n'est pas encore signé numériquement (un certificat de signature est payant et n'est pas prévu pour la première version). Windows SmartScreen affiche donc un avertissement au premier lancement de l'installeur :",
     smartscreenSteps: [
       "Cliquez sur <strong>« Informations complémentaires »</strong>.",
       "Vérifiez que l'application est bien <code>{installer}</code>.",
@@ -108,7 +108,7 @@ export const fr: Dict = {
       },
       {
         file: "step2.png",
-        alt: "La même fenêtre après le clic : elle affiche l'application PhoneCut-Setup-x64.exe et le bouton « Exécuter quand même ».",
+        alt: "La même fenêtre après le clic : elle affiche l'application PhonyCut-Setup-x64.exe et le bouton « Exécuter quand même ».",
         caption: "2. Vérifiez le nom de l'application, puis cliquez sur « Exécuter quand même ».",
       },
     ],
@@ -116,27 +116,27 @@ export const fr: Dict = {
       "Cet avertissement signifie seulement que Windows ne connaît pas encore cet éditeur. Il n'a détecté aucun problème dans le fichier.",
     updateTitle: "Mise à jour",
     updateText:
-      "Téléchargez et lancez l'installeur de la nouvelle version : il remplace l'ancienne en gardant vos réglages. Si PhoneCut est ouvert, l'installeur propose de le fermer.",
+      "Téléchargez et lancez l'installeur de la nouvelle version : il remplace l'ancienne en gardant vos réglages. Si PhonyCut est ouvert, l'installeur propose de le fermer.",
     uninstallTitle: "Désinstallation",
     uninstallText:
-      "Paramètres Windows → <strong>Applications</strong> → <strong>Applications installées</strong> → PhoneCut → <strong>Désinstaller</strong>. Le programme, ses réglages et ses journaux sont supprimés. <strong>Vos vidéos et vos clips ne sont jamais supprimés.</strong>",
+      "Paramètres Windows → <strong>Applications</strong> → <strong>Applications installées</strong> → PhonyCut → <strong>Désinstaller</strong>. Le programme, ses réglages et ses journaux sont supprimés. <strong>Vos vidéos et vos clips ne sont jamais supprimés.</strong>",
     filesTitle: "Où sont les fichiers ?",
     filesWhat: "Quoi",
     filesWhere: "Où",
     files: [
-      ["Programme", "<code>%LOCALAPPDATA%\\Programs\\PhoneCut</code>"],
-      ["Réglages, journaux", "<code>%APPDATA%\\PhoneCut</code>"],
-      ["Vidéos", "<code>Vidéos\\PhoneCut</code> (modifiable dans les Réglages)"],
+      ["Programme", "<code>%LOCALAPPDATA%\\Programs\\PhonyCut</code>"],
+      ["Réglages, journaux", "<code>%APPDATA%\\PhonyCut</code>"],
+      ["Vidéos", "<code>Vidéos\\PhonyCut</code> (modifiable dans les Réglages)"],
       ["Clips exportés", "dossier <code>&lt;vidéo&gt; - clips</code>, à côté de chaque vidéo"],
     ],
     otherSystemsTitle: "Mac, iPhone ?",
     otherSystemsText:
-      "PhoneCut fonctionne uniquement sous Windows pour l'instant. Une version Mac est prévue. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.",
+      "PhonyCut fonctionne uniquement sous Windows pour l'instant. Une version Mac est prévue. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.",
   },
   tutorial: {
     title: "Connecter votre téléphone",
     intro:
-      "Pour afficher son écran sur l'ordinateur, votre téléphone a besoin du <strong>débogage USB</strong>, une option d'Android cachée par défaut. Vous ne le faites qu'une fois. PhoneCut contient le même assistant : il vérifie chaque étape tout seul dès que le téléphone est branché.",
+      "Pour afficher son écran sur l'ordinateur, votre téléphone a besoin du <strong>débogage USB</strong>, une option d'Android cachée par défaut. Vous ne le faites qu'une fois. PhonyCut contient le même assistant : il vérifie chaque étape tout seul dès que le téléphone est branché.",
     variesNotice:
       "Les menus varient selon la marque du téléphone, mais restent proches. Les images ci-dessous montrent un téléphone Xiaomi. Si vous ne trouvez pas une option, cherchez sur internet « activer le débogage USB » suivi du modèle de votre téléphone.",
     brandColumn: "Marque du téléphone",
@@ -215,7 +215,7 @@ export const fr: Dict = {
       {
         id: "plug",
         title: "3. Brancher le téléphone",
-        body: "Branchez le téléphone à l'ordinateur avec un câble USB, de préférence sur un port à l'arrière du PC. <strong>Attention : certains câbles ne servent qu'à charger et ne transmettent pas de données.</strong> Si une notification USB apparaît sur le téléphone, choisissez « Transfert de fichiers ». PhoneCut détecte le téléphone tout seul.",
+        body: "Branchez le téléphone à l'ordinateur avec un câble USB, de préférence sur un port à l'arrière du PC. <strong>Attention : certains câbles ne servent qu'à charger et ne transmettent pas de données.</strong> Si une notification USB apparaît sur le téléphone, choisissez « Transfert de fichiers ». PhonyCut détecte le téléphone tout seul.",
         brandPaths: "",
         images: [
           {
@@ -252,13 +252,13 @@ export const fr: Dict = {
     ],
     doneTitle: "C'est prêt !",
     doneText:
-      "Votre téléphone est connecté. Vous pouvez maintenant voir son écran, l'enregistrer et créer des clips. Dans PhoneCut, l'assistant reste disponible dans les Réglages.",
+      "Votre téléphone est connecté. Vous pouvez maintenant voir son écran, l'enregistrer et créer des clips. Dans PhonyCut, l'assistant reste disponible dans les Réglages.",
     faqLink: "Plus de réponses dans l'aide et la FAQ",
   },
   faq: {
     title: "Aide et questions fréquentes",
     intro:
-      "Les messages ci-dessous sont ceux qu'affiche PhoneCut. Chaque réponse vous dit quoi faire.",
+      "Les messages ci-dessous sont ceux qu'affiche PhonyCut. Chaque réponse vous dit quoi faire.",
     stillStuck:
       "Toujours bloqué ? Vous pouvez <a href=\"{issues}\">poser une question ou signaler un problème sur GitHub</a>.",
     groups: [
@@ -279,7 +279,7 @@ export const fr: Dict = {
           },
           {
             q: "« Un autre logiciel Android est ouvert sur cet ordinateur »",
-            a: "<p>Un autre logiciel qui communique avec les téléphones Android est ouvert (Android Studio, outil de transfert ou de flashage…). Fermez-le pour éviter les coupures de connexion. Si PhoneCut affiche « Impossible de démarrer la connexion au téléphone », fermez aussi ces logiciels : PhoneCut réessaie automatiquement.</p>",
+            a: "<p>Un autre logiciel qui communique avec les téléphones Android est ouvert (Android Studio, outil de transfert ou de flashage…). Fermez-le pour éviter les coupures de connexion. Si PhonyCut affiche « Impossible de démarrer la connexion au téléphone », fermez aussi ces logiciels : PhonyCut réessaie automatiquement.</p>",
           },
           {
             q: "Mon téléphone charge, mais rien d'autre. C'est le câble ?",
@@ -291,11 +291,11 @@ export const fr: Dict = {
           },
           {
             q: "Plusieurs téléphones sont branchés. Lequel est utilisé ?",
-            a: "<p>PhoneCut affiche « Plusieurs téléphones détectés » et vous laisse choisir le téléphone à utiliser dans une liste.</p>",
+            a: "<p>PhonyCut affiche « Plusieurs téléphones détectés » et vous laisse choisir le téléphone à utiliser dans une liste.</p>",
           },
           {
             q: "Faut-il activer le débogage USB à chaque fois ?",
-            a: "<p>Non, une seule fois. Il se désactive parfois après une mise à jour du téléphone : dans ce cas, réactivez-le dans « Options pour les développeurs ». Vous pouvez le désactiver quand vous voulez si vous n'utilisez plus PhoneCut.</p>",
+            a: "<p>Non, une seule fois. Il se désactive parfois après une mise à jour du téléphone : dans ce cas, réactivez-le dans « Options pour les développeurs ». Vous pouvez le désactiver quand vous voulez si vous n'utilisez plus PhonyCut.</p>",
           },
         ],
       },
@@ -312,7 +312,7 @@ export const fr: Dict = {
           },
           {
             q: "Où sont mes vidéos et mes clips ?",
-            a: "<p>Les vidéos sont enregistrées dans <code>Vidéos\\PhoneCut</code> par défaut. Vous pouvez choisir un autre dossier dans les Réglages. Les clips exportés sont rangés dans un dossier <code>&lt;vidéo&gt; - clips</code> à côté de chaque vidéo. Le bouton « Ouvrir le dossier » vous y emmène.</p>",
+            a: "<p>Les vidéos sont enregistrées dans <code>Vidéos\\PhonyCut</code> par défaut. Vous pouvez choisir un autre dossier dans les Réglages. Les clips exportés sont rangés dans un dossier <code>&lt;vidéo&gt; - clips</code> à côté de chaque vidéo. Le bouton « Ouvrir le dossier » vous y emmène.</p>",
           },
           {
             q: "Que se passe-t-il si le câble se débranche pendant un enregistrement ?",
@@ -324,7 +324,7 @@ export const fr: Dict = {
           },
           {
             q: "Le son est-il enregistré ?",
-            a: "<p>Oui, avec Android 11 ou plus : le son est enregistré avec l'image et gardé dans les clips. Pendant que PhoneCut le capture, le téléphone devient muet et son son sort sur le PC (vous pouvez couper l'écoute ou la capture dans les Réglages). Certaines applis interdisent la capture de leur son. Quand PhoneCut s'arrête, certains lecteurs (YouTube…) se mettent en pause, comme quand on débranche un casque.</p>",
+            a: "<p>Oui, avec Android 11 ou plus : le son est enregistré avec l'image et gardé dans les clips. Pendant que PhonyCut le capture, le téléphone devient muet et son son sort sur le PC (vous pouvez couper l'écoute ou la capture dans les Réglages). Certaines applis interdisent la capture de leur son. Quand PhonyCut s'arrête, certains lecteurs (YouTube…) se mettent en pause, comme quand on débranche un casque.</p>",
           },
         ],
       },
@@ -342,11 +342,11 @@ export const fr: Dict = {
         items: [
           {
             q: "Windows affiche « Windows a protégé votre ordinateur ». Est-ce dangereux ?",
-            a: "<p>PhoneCut n'est pas encore signé numériquement : Windows ne connaît donc pas son éditeur. Cliquez sur « Informations complémentaires », vérifiez que l'application est bien <code>PhoneCut-Setup-x64.exe</code>, puis cliquez sur « Exécuter quand même ». Pour vérifier le fichier, comparez son empreinte avec <code>SHA256SUMS.txt</code> (voir la page de téléchargement).</p>",
+            a: "<p>PhonyCut n'est pas encore signé numériquement : Windows ne connaît donc pas son éditeur. Cliquez sur « Informations complémentaires », vérifiez que l'application est bien <code>PhonyCut-Setup-x64.exe</code>, puis cliquez sur « Exécuter quand même ». Pour vérifier le fichier, comparez son empreinte avec <code>SHA256SUMS.txt</code> (voir la page de téléchargement).</p>",
           },
           {
             q: "Faut-il des droits administrateur ?",
-            a: "<p>Non. PhoneCut s'installe pour votre compte Windows uniquement.</p>",
+            a: "<p>Non. PhonyCut s'installe pour votre compte Windows uniquement.</p>",
           },
           {
             q: "La désinstallation supprime-t-elle mes vidéos ?",
@@ -354,14 +354,14 @@ export const fr: Dict = {
           },
           {
             q: "Ça marche sur Mac, sur iPhone ou sans câble ?",
-            a: "<p>Pas pour l'instant : PhoneCut fonctionne sous Windows 10 et 11, avec un téléphone Android branché en USB. Une version Mac et la connexion sans fil sont prévues. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.</p>",
+            a: "<p>Pas pour l'instant : PhonyCut fonctionne sous Windows 10 et 11, avec un téléphone Android branché en USB. Une version Mac et la connexion sans fil sont prévues. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.</p>",
           },
           {
-            q: "« PhoneCut est déjà ouvert »",
-            a: "<p>Une seule fenêtre de PhoneCut peut être ouverte à la fois. Retrouvez sa fenêtre dans la barre des tâches.</p>",
+            q: "« PhonyCut est déjà ouvert »",
+            a: "<p>Une seule fenêtre de PhonyCut peut être ouverte à la fois. Retrouvez sa fenêtre dans la barre des tâches.</p>",
           },
           {
-            q: "PhoneCut est-il gratuit ?",
+            q: "PhonyCut est-il gratuit ?",
             a: "<p>Oui, entièrement : pas de publicité, pas de compte, pas de version payante. Son code source est public. Si vous le souhaitez, vous pouvez <a href=\"{support}\">soutenir le projet</a>, mais rien n'est réservé aux donateurs.</p>",
           },
         ],
@@ -371,14 +371,14 @@ export const fr: Dict = {
   support: {
     title: "Soutenir le projet",
     intro:
-      "PhoneCut est gratuit et le restera. <strong>Aucune fonction n'est réservée aux donateurs</strong>, et vous n'avez rien à donner pour l'utiliser.",
+      "PhonyCut est gratuit et le restera. <strong>Aucune fonction n'est réservée aux donateurs</strong>, et vous n'avez rien à donner pour l'utiliser.",
     whyText:
-      "Si PhoneCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, la connexion sans fil, une version Mac…), vous pouvez faire un don du montant de votre choix, une fois ou chaque mois : avec GitHub Sponsors si vous avez un compte GitHub, sinon avec Ko-fi.",
+      "Si PhonyCut vous est utile et que vous voulez l'aider à grandir (plus de téléphones testés, la connexion sans fil, une version Mac…), vous pouvez faire un don du montant de votre choix, une fois ou chaque mois : avec GitHub Sponsors si vous avez un compte GitHub, sinon avec Ko-fi.",
     sponsorButton: "Soutenir sur GitHub",
     kofiButton: "Offrir un café sur Ko-fi",
     otherTitle: "D'autres façons d'aider, gratuitement",
     other: [
-      "Parlez de PhoneCut autour de vous.",
+      "Parlez de PhonyCut autour de vous.",
       "<a href=\"{issues}\">Signalez un problème ou proposez une idée</a> sur GitHub : indiquez le modèle de votre téléphone si quelque chose ne marche pas.",
       "Donnez une étoile au projet sur <a href=\"{repo}\">GitHub</a>.",
     ],
@@ -389,7 +389,7 @@ export const fr: Dict = {
     license: "Licence",
     thirdParty: "Licences tierces",
     credits:
-      "PhoneCut s'appuie sur le serveur Android de <a href=\"{scrcpy}\">scrcpy</a> (licence Apache 2.0). Il n'est pas affilié à Genymobile ni à Google. Android est une marque de Google LLC.",
+      "PhonyCut s'appuie sur le serveur Android de <a href=\"{scrcpy}\">scrcpy</a> (licence Apache 2.0). Il n'est pas affilié à Genymobile ni à Google. Android est une marque de Google LLC.",
   },
   notFound: {
     title: "Page introuvable",
