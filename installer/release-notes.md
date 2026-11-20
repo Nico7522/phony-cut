@@ -1,16 +1,17 @@
-## Nouveautés de la 0.3.0 / What's new in 0.3.0
+## Nouveautés de la 0.4.0 / What's new in 0.4.0
 
-- **Connexion en Wi-Fi** (Android 11 ou plus) : associez le téléphone une seule fois avec
-  un QR code (ou un code à 6 chiffres) via « Se connecter en Wi-Fi », puis PhonyCut s'y
-  reconnecte tout seul sur le même Wi-Fi. Aperçu, son, souris et clavier, enregistrement :
-  tout fonctionne sans câble. / **Wi-Fi connection** (Android 11 or later): pair the phone
-  once with a QR code (or a 6-digit code) from "Connect over Wi-Fi", then PhonyCut
-  reconnects by itself on the same Wi-Fi. Preview, sound, mouse and keyboard, recording:
-  everything works without a cable.
+- **Prévenu des nouvelles versions** : un bandeau discret indique quand une version plus
+  récente est sortie (vérification une fois par jour au plus, désactivable dans Réglages >
+  Mises à jour ; seule la page des versions sur GitHub est consultée). / **Told about new
+  versions**: a discreet banner shows when a newer version is out (checked at most once a
+  day, can be turned off in Settings > Updates; only the GitHub releases page is read).
+- **Aperçu fluide sur les PC plus modestes**, même en qualité maximale : plus de latence qui
+  s'accumule. L'enregistrement garde la pleine résolution. / **Smooth preview on slower
+  PCs**, even at the maximum quality: no more growing delay. Recordings keep the full
+  resolution.
 
-Depuis la 0.2 / Since 0.2: le son du téléphone ; le nouveau nom PhonyCut (réglages et
-enregistrements repris). / the phone's sound; the new name PhonyCut (settings and
-recordings taken over).
+Depuis la 0.3 / Since 0.3: la connexion en Wi-Fi (Android 11 ou plus). / the Wi-Fi
+connection (Android 11 or later).
 
 ## Installer PhonyCut
 
