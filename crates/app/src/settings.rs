@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use phonecut_core::api::{SoundOptions, VideoQuality};
+use phonycut_core::api::{SoundOptions, VideoQuality};
 
 use crate::texts::Language;
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,7 @@ impl LanguageChoice {
         match self {
             Self::French => Language::French,
             Self::English => Language::English,
-            Self::Auto if phonecut_core::platform::system_prefers_french() => Language::French,
+            Self::Auto if phonycut_core::platform::system_prefers_french() => Language::French,
             Self::Auto => Language::English,
         }
     }
@@ -120,16 +120,28 @@ impl Settings {
     }
 }
 
-/// `Videos\PhoneCut` (the user's Videos folder, wherever it is).
+/// `Videos\PhonyCut` (the user's Videos folder, wherever it is). Someone who
+/// recorded with a version named PhoneCut keeps `Videos\PhoneCut`, so their
+/// recordings stay in "My clips".
 pub fn default_output_dir() -> PathBuf {
-    let videos = directories::UserDirs::new().and_then(|dirs| {
-        dirs.video_dir()
-            .map(Path::to_path_buf)
-            .or_else(|| Some(dirs.home_dir().join("Videos")))
-    });
-    videos
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(phonecut_core::APP_NAME)
+    let videos = directories::UserDirs::new()
+        .and_then(|dirs| {
+            dirs.video_dir()
+                .map(Path::to_path_buf)
+                .or_else(|| Some(dirs.home_dir().join("Videos")))
+        })
+        .unwrap_or_else(|| PathBuf::from("."));
+    pick_output_dir(&videos)
+}
+
+fn pick_output_dir(videos: &Path) -> PathBuf {
+    let current = videos.join(phonycut_core::APP_NAME);
+    let legacy = videos.join(phonycut_core::LEGACY_APP_NAME);
+    if !current.exists() && legacy.is_dir() {
+        legacy
+    } else {
+        current
+    }
 }
 
 impl Settings {
@@ -161,7 +173,7 @@ impl Settings {
 }
 
 fn settings_path() -> anyhow::Result<PathBuf> {
-    Ok(phonecut_core::paths::app_data_dir()?.join(FILE_NAME))
+    Ok(phonycut_core::paths::app_data_dir()?.join(FILE_NAME))
 }
 
 #[cfg(test)]
@@ -169,8 +181,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_folder_is_phonecut_in_videos() {
-        assert!(default_output_dir().ends_with(phonecut_core::APP_NAME));
+    fn default_folder_keeps_the_old_videos_folder() {
+        let videos = std::env::temp_dir().join(format!("phonycut-videos-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&videos);
+        fs::create_dir_all(&videos).unwrap();
+        assert_eq!(
+            pick_output_dir(&videos),
+            videos.join("PhonyCut"),
+            "new users"
+        );
+        fs::create_dir_all(videos.join("PhoneCut")).unwrap();
+        assert_eq!(
+            pick_output_dir(&videos),
+            videos.join("PhoneCut"),
+            "recorded before the rename"
+        );
+        fs::create_dir_all(videos.join("PhonyCut")).unwrap();
+        assert_eq!(
+            pick_output_dir(&videos),
+            videos.join("PhonyCut"),
+            "new folder wins"
+        );
+        fs::remove_dir_all(&videos).unwrap();
     }
 
     #[test]

@@ -1,4 +1,4 @@
-# CLAUDE.md — PhoneCut (nom provisoire)
+# CLAUDE.md — PhonyCut (nom provisoire)
 
 Ce fichier décrit le projet, ses choix techniques et la feuille de route.
 Lis-le en entier avant de commencer une tâche. Respecte l'ordre des phases.
@@ -112,7 +112,7 @@ Protocole vérifié pour **v5.0.1** (implémenté dans `crates/core/src/scrcpy/p
 | Chemins système         | `directories`                                             |                                                |
 | Sélecteur de dossier    | `rfd` (sans features par défaut)                          | Ouvert dans un thread, jamais sur le thread UI |
 | Packaging               | **Inno Setup 6** (installeur par utilisateur, sans admin) | Choisi en phase 6, voir ADR 0007               |
-| Ressources de l'exe     | `embed-resource` (build-dependency)                       | Icône et infos de version de phonecut.exe      |
+| Ressources de l'exe     | `embed-resource` (build-dependency)                       | Icône et infos de version de PhonyCut.exe      |
 | Sortie audio            | `cpal`                                                    | Son du téléphone sur le PC (phase 8, ADR 0010) |
 
 **Règle : demander avant d'ajouter une dépendance importante** qui n'est pas dans ce tableau.
@@ -159,11 +159,11 @@ première release publique (scrcpy les redistribue dans ses versions Windows).
 ## 5. Structure du dépôt
 
 ```
-phonecut/
+phonycut/
 ├─ CLAUDE.md
 ├─ Cargo.toml              # workspace
 ├─ crates/
-│  ├─ core/                # paquet `phonecut-core`, aucune dépendance UI
+│  ├─ core/                # paquet `phonycut-core`, aucune dépendance UI
 │  │  ├─ tests/            # tests d'intégration + fixtures (flux enregistrés)
 │  │  └─ src/
 │  │     ├─ api.rs         # contrat core ↔ app : commandes, événements, types partagés
@@ -237,7 +237,7 @@ remplis. À la fin de chaque phase : `cargo fmt`, `cargo clippy -- -D warnings`,
 - Bouton Enregistrer / Arrêter
 - Écriture des paquets H.264 **sans réencodage** dans un `.mkv` (robuste en cas de crash),
   avec des timestamps corrects à partir des PTS scrcpy
-- Dossier de sortie configurable (par défaut `Vidéos\PhoneCut`)
+- Dossier de sortie configurable (par défaut `Vidéos\PhonyCut`)
 - Indicateur de durée et de taille en direct
 - **Fini quand :** le fichier se lit dans VLC et dans le lecteur Windows, avec la bonne durée.
 
@@ -271,7 +271,7 @@ remplis. À la fin de chaque phase : `cargo fmt`, `cargo clippy -- -D warnings`,
 
 ✅ **Terminée.**
 
-- Installeur **Inno Setup 6** (`PhoneCut-Setup-x64.exe`, voir ADR 0007) contenant l'exe,
+- Installeur **Inno Setup 6** (`PhonyCut-Setup-x64.exe`, voir ADR 0007) contenant l'exe,
   `vendor/` et les licences
 - Raccourci dans le menu Démarrer, icône, désinstallation propre
 - Build release via GitHub Actions, déclenchée par un tag
@@ -332,10 +332,10 @@ jamais sans validation de l'utilisateur.
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\fetch-ffmpeg.ps1   # une fois par clone
 cargo run -p app                 # lancer l'app
-cargo run -p phonecut-core --example capture_stream -- crates/core/tests/fixtures/<nom>.bin 3
+cargo run -p phonycut-core --example capture_stream -- crates/core/tests/fixtures/<nom>.bin 3
                                  # enregistrer un flux réel pour les tests
 powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
-                                 # installeur : target\installer\PhoneCut-Setup-x64.exe
+                                 # installeur : target\installer\PhonyCut-Setup-x64.exe
 powershell -ExecutionPolicy Bypass -File scripts\make-icon.ps1
                                  # régénérer l'icône depuis assets\icon\PhyCut_logo_software.svg
 git tag v0.1.0; git push origin v0.1.0
@@ -360,7 +360,7 @@ vendor\adb\adb.exe devices -l    # vérifier le téléphone à la main
   l'aperçu tombe à ~5 fps.
 - **Licences** : FFmpeg uniquement en build LGPL shared, jamais de build GPL. Pour
   réencoder en H.264, utiliser `libopenh264` (BSD) : x264 est GPL et absent.
-- **Installeur** : ne jamais changer l'`AppId` de `installer/phonecut.iss`. Le nom du
+- **Installeur** : ne jamais changer l'`AppId` de `installer/phonycut.iss`. Le nom du
   mutex (`AppMutex`) doit rester identique à `platform::SINGLE_INSTANCE_MUTEX`. Tout
   nouveau fichier nécessaire à l'exécution (dans `vendor/` ou `assets/`) doit être ajouté
   à la section `[Files]`.
@@ -385,9 +385,9 @@ agent teams de Claude Code), **chacun dans son propre git worktree et sa propre 
    de la phase concernée.
 3. Créer les worktrees :
    ```powershell
-   git worktree add ..\phonecut-record -b feat/record
-   git worktree add ..\phonecut-ui     -b feat/ui
-   git worktree add ..\phonecut-qa     -b feat/qa
+   git worktree add ..\phonycut-record -b feat/record
+   git worktree add ..\phonycut-ui     -b feat/ui
+   git worktree add ..\phonycut-qa     -b feat/qa
    ```
 4. Copier `vendor/` et vérifier les variables d'environnement dans chaque worktree
    (voir « Pièges » plus bas).
@@ -397,11 +397,11 @@ agent teams de Claude Code), **chacun dans son propre git worktree et sa propre 
 | Agent                   | Worktree / branche                | Fichiers qu'il peut modifier                                         | Ne touche pas à                                        |
 | ----------------------- | --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
 | **lead**                | dépôt principal / `main`          | `api.rs`, `Cargo.toml` du workspace, `docs/`, merges                 | code des autres, sauf pour résoudre un conflit         |
-| **record**              | `phonecut-record` / `feat/record` | `core/src/record.rs`, `markers.rs`, `export.rs`, leurs tests         | `crates/app/`                                          |
-| **ui**                  | `phonecut-ui` / `feat/ui`         | `crates/app/**`, `assets/`                                           | `crates/core/` (sauf demande au lead)                  |
-| **qa**                  | `phonecut-qa` / `feat/qa`         | `crates/*/tests/` (tests d'intégration et fixtures), CI (`.github/`) | code de production : il **signale**, il ne corrige pas |
-| **packaging** (phase 6) | `phonecut-pkg` / `feat/packaging` | `installer/`, `scripts/build-installer.ps1`, `.github/workflows/release.yml` | `crates/`                                      |
-| **site** (phase 7)      | `phonecut-site` / `feat/website`  | `website/**`, `.github/workflows/website.yml`                        | `crates/`, `assets/` (lecture seule)                   |
+| **record**              | `phonycut-record` / `feat/record` | `core/src/record.rs`, `markers.rs`, `export.rs`, leurs tests         | `crates/app/`                                          |
+| **ui**                  | `phonycut-ui` / `feat/ui`         | `crates/app/**`, `assets/`                                           | `crates/core/` (sauf demande au lead)                  |
+| **qa**                  | `phonycut-qa` / `feat/qa`         | `crates/*/tests/` (tests d'intégration et fixtures), CI (`.github/`) | code de production : il **signale**, il ne corrige pas |
+| **packaging** (phase 6) | `phonycut-pkg` / `feat/packaging` | `installer/`, `scripts/build-installer.ps1`, `.github/workflows/release.yml` | `crates/`                                      |
+| **site** (phase 7)      | `phonycut-site` / `feat/website`  | `website/**`, `.github/workflows/website.yml`                        | `crates/`, `assets/` (lecture seule)                   |
 
 Si un agent a besoin de modifier un fichier hors de sa zone (surtout `api.rs`), il
 **envoie un message au lead** au lieu de le modifier lui-même.
@@ -466,7 +466,7 @@ Si un agent a besoin de modifier un fichier hors de sa zone (surtout `api.rs`), 
 - **Le tutoriel du site réutilise les images de `assets/tutorial/`.** Il n'y a qu'une
   source, à ne pas dupliquer.
 - **Lien de téléchargement stable** :
-  `https://github.com/<owner>/<repo>/releases/latest/download/PhoneCut-Setup-x64.exe`.
+  `https://github.com/<owner>/<repo>/releases/latest/download/PhonyCut-Setup-x64.exe`.
   Le nom du fichier de l'installeur **ne doit pas contenir de numéro de version**, sinon
   ce lien casse. La version affichée sur le site peut être lue via l'API GitHub Releases.
 - Mentionner sur la page de téléchargement l'avertissement SmartScreen (app non signée)

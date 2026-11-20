@@ -1,7 +1,7 @@
-//! The PhoneCut icon, made from the logo `assets/icon/PhyCut_logo_software.svg`
+//! The PhonyCut icon, made from the logo `assets/icon/PhyCut_logo_software.svg`
 //! by `scripts/make-icon.ps1` (which runs `examples/make_icon.rs`):
-//! - `assets/icon/phonecut.ico`: executable (embedded) and installer;
-//! - `assets/icon/phonecut-256.rgba`: raw pixels for the window icon,
+//! - `assets/icon/phonycut.ico`: executable (embedded) and installer;
+//! - `assets/icon/phonycut-256.rgba`: raw pixels for the window icon,
 //!   embedded below so no image decoding happens at startup.
 
 /// Side of the raw window icon.
@@ -10,7 +10,7 @@ pub const WINDOW_ICON_SIZE: u32 = 256;
 /// Window icon pixels (RGBA, straight alpha).
 #[allow(dead_code)] // used by the app, not by examples/make_icon.rs
 pub fn window_icon() -> Vec<u8> {
-    include_bytes!("../../../assets/icon/phonecut-256.rgba").to_vec()
+    include_bytes!("../../../assets/icon/phonycut-256.rgba").to_vec()
 }
 
 /// Crops `rgba` (`width` × `height`) to its visible pixels, centers them on a

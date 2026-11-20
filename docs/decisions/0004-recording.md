@@ -17,9 +17,9 @@ stop it at any time, even when the screen is static and no packet arrives.
 - Starts on the next key frame (≤ 1 s, `i-frame-interval=1`). Before that the UI shows
   "Démarrage de l'enregistrement…". Stopped before any key frame → file deleted,
   `RecordingProblem::NoVideo`.
-- Name: `PhoneCut YYYY-MM-DD HH-MM-SS.mkv` in local time (Windows `GetLocalTime`, no
+- Name: `PhonyCut YYYY-MM-DD HH-MM-SS.mkv` in local time (Windows `GetLocalTime`, no
   date crate), `(2)`, `(3)`… if it exists. Folder from settings
-  (`%APPDATA%\PhoneCut\settings.json`), default `Videos\PhoneCut`, created on demand.
+  (`%APPDATA%\PhonyCut\settings.json`), default `Videos\PhonyCut`, created on demand.
 - Folder choice: native dialog via `rfd` (approved dependency), run on its own thread
   so the UI never blocks; the answer comes back through a channel.
 

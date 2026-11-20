@@ -9,10 +9,10 @@ unaware of the UI, channels between both) assumes an immediate-mode Rust UI.
 
 ## Crate naming
 
-The `crates/core` folder holds the package `phonecut-core` (lib `phonecut_core`):
+The `crates/core` folder holds the package `phonycut-core` (lib `phonycut_core`):
 a package cannot be named `core` because it would shadow Rust's built-in `core` crate.
 The UI package is named `app` (so `cargo run -p app` works) and builds the
-`phonecut` executable.
+`phonycut` executable.
 
 ## Pinned scrcpy version
 
@@ -25,5 +25,5 @@ eframe 0.37 requires Rust ≥ 1.95. Developed on stable 1.100 (MSVC).
 ## Logging
 
 `tracing-subscriber` with two layers: stderr and an append-only file
-`%APPDATA%\PhoneCut\logs\phonecut.log` (no extra crate; `tracing-appender` could be
+`%APPDATA%\PhonyCut\logs\phonycut.log` (no extra crate; `tracing-appender` could be
 added later for rotation). Level overridable with `RUST_LOG`.

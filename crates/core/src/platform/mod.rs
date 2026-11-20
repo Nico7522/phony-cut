@@ -55,10 +55,10 @@ pub fn system_prefers_french() -> bool {
         .is_some_and(|lang| lang.starts_with("fr"))
 }
 
-/// Name of the mutex marking a running PhoneCut. The installer checks the same
-/// name (`AppMutex` in `installer/phonecut.iss`) before updating or removing
+/// Name of the mutex marking a running PhonyCut. The installer checks the same
+/// name (`AppMutex` in `installer/phonycut.iss`) before updating or removing
 /// the program.
-pub const SINGLE_INSTANCE_MUTEX: &str = "PhoneCutAppMutex";
+pub const SINGLE_INSTANCE_MUTEX: &str = "PhonyCutAppMutex";
 
 /// Held while the app runs; released when dropped.
 pub struct InstanceGuard {
@@ -84,7 +84,7 @@ mod win32 {
     }
 }
 
-/// Returns `None` when another PhoneCut is already running.
+/// Returns `None` when another PhonyCut is already running.
 pub fn single_instance() -> Option<InstanceGuard> {
     single_instance_named(SINGLE_INSTANCE_MUTEX)
 }
@@ -213,8 +213,8 @@ mod tests {
 
     #[test]
     fn second_instance_is_detected() {
-        // Own name: must not clash with a PhoneCut open on this machine.
-        let name = format!("PhoneCutTestMutex-{}", std::process::id());
+        // Own name: must not clash with a PhonyCut open on this machine.
+        let name = format!("PhonyCutTestMutex-{}", std::process::id());
         let first = single_instance_named(&name);
         assert!(first.is_some());
         if cfg!(windows) {

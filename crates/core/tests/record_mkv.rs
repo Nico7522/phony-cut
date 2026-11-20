@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 
 use ffmpeg_next as ffmpeg;
 
-use phonecut_core::record::{MkvWriter, Recorder, RecorderSetup, Timeline};
-use phonecut_core::scrcpy::protocol::{self, ProtocolError, StreamItem};
+use phonycut_core::record::{MkvWriter, Recorder, RecorderSetup, Timeline};
+use phonycut_core::scrcpy::protocol::{self, ProtocolError, StreamItem};
 
 /// What a recording should contain.
 struct Expected {
@@ -153,7 +153,7 @@ fn verify(path: &Path, expected: &Expected) {
 }
 
 fn temp_file(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("phonecut-rec-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("phonycut-rec-{}", std::process::id()));
     fs::create_dir_all(&dir).unwrap();
     dir.join(name)
 }
@@ -256,7 +256,7 @@ fn recording_with_sound() {
             (None, None) => break,
         }
     }
-    recorder.stop(phonecut_core::api::RecordingEnd::Requested);
+    recorder.stop(phonycut_core::api::RecordingEnd::Requested);
 
     let first_key = video.iter().find(|p| p.key_frame).unwrap().pts_us.unwrap();
     let expected_audio: Vec<u64> = audio
@@ -332,9 +332,9 @@ fn rotation_fix_keeps_one_frame_size() {
     );
 
     let mut steps = Vec::new();
-    phonecut_core::normalize::fix_rotation(&path, &mut |f| steps.push(f)).unwrap();
+    phonycut_core::normalize::fix_rotation(&path, &mut |f| steps.push(f)).unwrap();
     assert!(
-        !phonecut_core::normalize::temp_path(&path).exists(),
+        !phonycut_core::normalize::temp_path(&path).exists(),
         "temp file removed"
     );
     assert_eq!(steps.last(), Some(&1.0));
@@ -356,7 +356,7 @@ fn rotation_fix_keeps_one_frame_size() {
     let (w, h) = expected.sizes[0];
     assert_eq!(
         header,
-        phonecut_core::normalize::square_frame(w, h),
+        phonycut_core::normalize::square_frame(w, h),
         "square frame"
     );
     assert_eq!(

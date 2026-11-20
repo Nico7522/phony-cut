@@ -37,10 +37,10 @@ const MAX_CLOCK_DRIFT_US: i64 = 1_000_000;
 const FFMPEG_PADDING: usize = 64;
 const MICROS: Rational = Rational(1, 1_000_000);
 
-/// `PhoneCut 2026-11-17 16-05-32.mkv`
+/// `PhonyCut 2026-11-17 16-05-32.mkv`
 pub fn recording_file_name(at: LocalDateTime) -> String {
     format!(
-        "PhoneCut {:04}-{:02}-{:02} {:02}-{:02}-{:02}.mkv",
+        "PhonyCut {:04}-{:02}-{:02} {:02}-{:02}-{:02}.mkv",
         at.year, at.month, at.day, at.hour, at.minute, at.second
     )
 }
@@ -733,7 +733,7 @@ impl Task {
 
     /// Re-encodes the file on its own thread (it can take a while), so `stop`
     /// returns at once; `Finished` is sent when done. If the fix fails, the
-    /// original file is kept: PhoneCut still reads it.
+    /// original file is kept: PhonyCut still reads it.
     fn fix_rotation_then_finish(self, end: RecordingEnd, duration: Duration) {
         tracing::info!("the phone rotated during the recording: re-encoding into one frame");
         self.send(RecordingState::Finalizing {
@@ -787,12 +787,12 @@ mod tests {
             minute: 5,
             second: 2,
         };
-        assert_eq!(recording_file_name(at), "PhoneCut 2026-03-07 09-05-02.mkv");
+        assert_eq!(recording_file_name(at), "PhonyCut 2026-03-07 09-05-02.mkv");
     }
 
     #[test]
     fn unique_path_adds_a_counter() {
-        let dir = std::env::temp_dir().join(format!("phonecut-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("phonycut-test-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let first = unique_path(&dir, "clip.mkv");
         assert_eq!(first, dir.join("clip.mkv"));

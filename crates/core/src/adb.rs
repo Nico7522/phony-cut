@@ -16,7 +16,7 @@ use crate::api::{DeviceInfo, DeviceState};
 use crate::{paths, platform};
 
 /// Environment variable that overrides the adb location (for development).
-pub const ADB_PATH_ENV: &str = "PHONECUT_ADB";
+pub const ADB_PATH_ENV: &str = "PHONYCUT_ADB";
 
 const START_SERVER_TIMEOUT: Duration = Duration::from_secs(20);
 const QUICK_TIMEOUT: Duration = Duration::from_secs(5);
@@ -80,7 +80,7 @@ impl Adb {
         Self { path }
     }
 
-    /// Finds the bundled adb (`$PHONECUT_ADB` overrides), see
+    /// Finds the bundled adb (`$PHONYCUT_ADB` overrides), see
     /// [`paths::find_vendor_file`].
     pub fn locate() -> Result<Self, AdbError> {
         let relative = Path::new("adb").join(platform::ADB_EXE);

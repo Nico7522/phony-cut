@@ -8,8 +8,8 @@ mod common;
 use std::io::Cursor;
 
 use common::{rotating_stream, FRAMES};
-use phonecut_core::decode::H264Decoder;
-use phonecut_core::scrcpy::protocol::{self, StreamItem};
+use phonycut_core::decode::H264Decoder;
+use phonycut_core::scrcpy::protocol::{self, StreamItem};
 
 #[test]
 fn decodes_scrcpy_framed_stream_with_rotation() {

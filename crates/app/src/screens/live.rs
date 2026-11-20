@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, RichText, TextureHandle};
-use phonecut_core::api::{DeviceInfo, MirrorEnd, MirrorState, PhoneInput, SoundState, VideoFrame};
+use phonycut_core::api::{DeviceInfo, MirrorEnd, MirrorState, PhoneInput, SoundState, VideoFrame};
 
 use crate::texts;
 use crate::widgets::phone_input::PhoneControl;
@@ -199,7 +199,7 @@ impl LiveScreen {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use phonecut_core::api::DeviceState;
+    use phonycut_core::api::DeviceState;
 
     fn dev(serial: &str) -> DeviceInfo {
         DeviceInfo {

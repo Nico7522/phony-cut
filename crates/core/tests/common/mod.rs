@@ -6,7 +6,7 @@ use ffmpeg::format::Pixel;
 use ffmpeg::util::frame;
 use ffmpeg_next as ffmpeg;
 
-use phonecut_core::scrcpy::protocol::encode;
+use phonycut_core::scrcpy::protocol::encode;
 
 /// Frames per generated capture session.
 pub const FRAMES: usize = 12;
@@ -29,7 +29,7 @@ pub fn write_test_recording(path: &std::path::Path, seconds: usize) -> u64 {
 /// Like [`write_test_recording`], followed by `tail_ms` of static screen
 /// (no frame, like the real server when nothing changes).
 pub fn write_test_recording_with_tail(path: &std::path::Path, seconds: usize, tail_ms: i64) -> u64 {
-    use phonecut_core::record::MkvWriter;
+    use phonycut_core::record::MkvWriter;
     let packets = encode_h264_with(160, 96, seconds * 30, 30);
     let (config, first) = split_config(&packets[0].0);
     let mut writer = MkvWriter::create(path, 160, 96, &config, None).expect("create mkv");
@@ -148,8 +148,8 @@ pub fn rotating_stream() -> Vec<u8> {
 pub fn capture_packets(
     bytes: Vec<u8>,
     audio: bool,
-) -> Vec<phonecut_core::scrcpy::protocol::MediaPacket> {
-    use phonecut_core::scrcpy::protocol::{self, ProtocolError, StreamItem};
+) -> Vec<phonycut_core::scrcpy::protocol::MediaPacket> {
+    use phonycut_core::scrcpy::protocol::{self, ProtocolError, StreamItem};
     let mut r = std::io::Cursor::new(bytes);
     if audio {
         protocol::read_audio_codec(&mut r).unwrap();
@@ -172,7 +172,7 @@ pub fn capture_packets(
 /// `xiaomi-poco-android16-sound` (about 7.7 s, 214x480, AAC). File time 0 is
 /// its first key frame. Returns the duration in ms.
 pub fn write_recording_with_sound(path: &std::path::Path) -> u64 {
-    use phonecut_core::record::MkvWriter;
+    use phonycut_core::record::MkvWriter;
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let video = capture_packets(
         std::fs::read(dir.join("xiaomi-poco-android16-sound.bin")).unwrap(),

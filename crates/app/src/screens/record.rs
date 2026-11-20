@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText};
-use phonecut_core::api::{RecordingEnd, RecordingInfo, RecordingState};
+use phonycut_core::api::{RecordingEnd, RecordingInfo, RecordingState};
 
 use crate::texts;
 
@@ -278,7 +278,7 @@ fn saved_line(ui: &mut egui::Ui, info: &RecordingInfo) -> Option<RecordAction> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use phonecut_core::api::RecordingProblem;
+    use phonycut_core::api::RecordingProblem;
 
     fn info() -> RecordingInfo {
         RecordingInfo {

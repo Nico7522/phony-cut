@@ -7,7 +7,7 @@ use eframe::egui::{
     self, Event, EventFilter, Id, ImeEvent, Key, Modifiers, MouseWheelUnit, PointerButton, Pos2,
     Rect, Sense,
 };
-use phonecut_core::api::{PhoneButton, PhoneInput, PhoneKey, TouchPhase};
+use phonycut_core::api::{PhoneButton, PhoneInput, PhoneKey, TouchPhase};
 
 /// Points per wheel tick when the system reports pixels (touchpads).
 const POINTS_PER_TICK: f32 = 50.0;
@@ -68,7 +68,7 @@ impl PhoneControl {
                             ui.memory_mut(|m| m.request_focus(id));
                         }
                         (PointerButton::Primary, true) => {
-                            // Clicking elsewhere gives the keyboard back to PhoneCut.
+                            // Clicking elsewhere gives the keyboard back to PhonyCut.
                             if focused {
                                 ui.memory_mut(|m| m.surrender_focus(id));
                             }

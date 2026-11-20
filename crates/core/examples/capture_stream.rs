@@ -1,7 +1,7 @@
 //! Records the raw scrcpy sockets of a real phone, to build test fixtures.
 //!
 //! Usage (phone plugged in, authorized and unlocked):
-//!   cargo run -p phonecut-core --example capture_stream -- <out.bin> [seconds] [serial] [--audio | --playback]
+//!   cargo run -p phonycut-core --example capture_stream -- <out.bin> [seconds] [serial] [--audio | --playback]
 //!
 //! `<out.bin>` contains everything after the dummy byte of the video socket:
 //! device name (64 bytes), codec id, then session/media packets. With
@@ -20,9 +20,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context};
-use phonecut_core::adb::Adb;
-use phonecut_core::api::DeviceState;
-use phonecut_core::scrcpy::server::{AudioSource, RunningServer, ServerOptions};
+use phonycut_core::adb::Adb;
+use phonycut_core::api::DeviceState;
+use phonycut_core::scrcpy::server::{AudioSource, RunningServer, ServerOptions};
 
 fn main() -> anyhow::Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();

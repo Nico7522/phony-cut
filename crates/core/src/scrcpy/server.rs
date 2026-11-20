@@ -15,7 +15,7 @@ use crate::scrcpy::protocol::{self, ProtocolError};
 use crate::scrcpy::SCRCPY_VERSION;
 
 /// Environment variable that overrides the server file location (development).
-pub const SERVER_PATH_ENV: &str = "PHONECUT_SCRCPY_SERVER";
+pub const SERVER_PATH_ENV: &str = "PHONYCUT_SCRCPY_SERVER";
 /// Where the server is pushed on the device (same path as scrcpy itself).
 pub const DEVICE_SERVER_PATH: &str = "/data/local/tmp/scrcpy-server.jar";
 
@@ -43,7 +43,7 @@ pub struct ServerOptions {
     pub audio_source: AudioSource,
 }
 
-/// scrcpy `audio_source` values used by PhoneCut.
+/// scrcpy `audio_source` values used by PhonyCut.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum AudioSource {
     /// Whole device output (`REMOTE_SUBMIX`, Android 11+).

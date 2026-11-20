@@ -4,7 +4,7 @@ Date: 2026-11-17 — Status: accepted
 
 ## Locating adb
 
-`PHONECUT_ADB` env var (dev override), else `vendor/adb/adb.exe` next to the
+`PHONYCUT_ADB` env var (dev override), else `vendor/adb/adb.exe` next to the
 executable or in up to three parent folders (installed layout and `target/debug`).
 
 ## Watching devices

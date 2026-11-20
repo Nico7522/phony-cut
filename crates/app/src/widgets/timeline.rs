@@ -2,7 +2,7 @@
 //! the selected segment. Click or drag anywhere else to move the playhead.
 
 use eframe::egui::{self, pos2, vec2, Color32, CursorIcon, Rect, Sense, Stroke, StrokeKind};
-use phonecut_core::markers::{Marker, Segment};
+use phonycut_core::markers::{Marker, Segment};
 
 const HEIGHT: f32 = 64.0;
 const HANDLE_WIDTH: f32 = 10.0;

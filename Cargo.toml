@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/core", "crates/app"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 publish = false
@@ -23,7 +23,7 @@ lto = "thin"
 strip = true
 
 [workspace.dependencies]
-phonecut-core = { path = "crates/core" }
+phonycut-core = { path = "crates/core" }
 anyhow = "1.0.104"
 crossbeam-channel = "0.5.17"
 # Sound output (WASAPI on Windows, CoreAudio later on macOS).

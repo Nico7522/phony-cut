@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText, TextureHandle};
-use phonecut_core::api::{
+use phonycut_core::api::{
     ExportMode, ExportRequest, ExportState, LoadedVideo, PlayerEvent, RecordingEntry, VideoFrame,
 };
-use phonecut_core::markers::{default_segments, CutFile, Segment, MIN_SEGMENT_MS};
+use phonycut_core::markers::{default_segments, CutFile, Segment, MIN_SEGMENT_MS};
 
 use crate::texts;
 use crate::widgets::timeline::{timeline, TimelineEdit, TimelineView};
@@ -500,7 +500,7 @@ pub fn split_at(segments: &mut Vec<Segment>, ms: u64) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use phonecut_core::markers::Marker;
+    use phonycut_core::markers::Marker;
 
     fn loaded(markers: &[u64]) -> LoadedVideo {
         LoadedVideo {

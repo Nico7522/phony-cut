@@ -9,9 +9,9 @@ use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
-use phonecut_core::audio::AacDecoder;
-use phonecut_core::decode::H264Decoder;
-use phonecut_core::scrcpy::protocol::{self, AudioCodec, ProtocolError, StreamItem, VideoCodec};
+use phonycut_core::audio::AacDecoder;
+use phonycut_core::decode::H264Decoder;
+use phonycut_core::scrcpy::protocol::{self, AudioCodec, ProtocolError, StreamItem, VideoCodec};
 
 /// AAC frame: 1024 samples at 48 kHz.
 const AAC_FRAME_US: u64 = 21_333;

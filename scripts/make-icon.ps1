@@ -4,7 +4,7 @@
 # 1. Microsoft Edge (headless) renders assets\icon\PhyCut_logo_software.svg to a
 #    large transparent PNG (no SVG library needed in the project).
 # 2. examples/make_icon.rs crops it, makes it square and writes
-#    assets\icon\phonecut.ico and assets\icon\phonecut-256.rgba.
+#    assets\icon\phonycut.ico and assets\icon\phonycut-256.rgba.
 # Commit the generated files; the build does not need Edge.
 
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,7 @@ $scale = 8
 $width = [int][Math]::Ceiling([double]$Matches[1] * $scale)
 $height = [int][Math]::Ceiling([double]$Matches[2] * $scale)
 
-$tmp = Join-Path ([IO.Path]::GetTempPath()) ("phonecut-icon-" + [Guid]::NewGuid())
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("phonycut-icon-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
     # An HTML page scales the SVG to the window (the SVG has no width/height).

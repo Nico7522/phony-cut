@@ -7,7 +7,7 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 
-use phonecut_core::api::{AdbProblem, DeviceInfo, DeviceState, ExportProblem, RecordingProblem};
+use phonycut_core::api::{AdbProblem, DeviceInfo, DeviceState, ExportProblem, RecordingProblem};
 use serde::{Deserialize, Serialize};
 
 /// Languages of the interface.
@@ -100,12 +100,12 @@ pub fn adb_problem(problem: AdbProblem) -> Message {
     match problem {
         AdbProblem::AdbMissing => Message::new(
             tr(
-                "Un fichier de PhoneCut est manquant",
-                "A PhoneCut file is missing",
+                "Un fichier de PhonyCut est manquant",
+                "A PhonyCut file is missing",
             ),
             tr(
-                "Réinstallez PhoneCut pour réparer l'installation.",
-                "Reinstall PhoneCut to repair it.",
+                "Réinstallez PhonyCut pour réparer l'installation.",
+                "Reinstall PhonyCut to repair it.",
             ),
         ),
         AdbProblem::ServerFailed => Message::new(
@@ -115,9 +115,9 @@ pub fn adb_problem(problem: AdbProblem) -> Message {
             ),
             tr(
                 "Fermez les autres logiciels Android ouverts (Android Studio, outils de \
-                 transfert ou de flashage…). PhoneCut réessaie automatiquement.",
+                 transfert ou de flashage…). PhonyCut réessaie automatiquement.",
                 "Close other open Android programs (Android Studio, transfer or flashing \
-                 tools…). PhoneCut keeps retrying automatically.",
+                 tools…). PhonyCut keeps retrying automatically.",
             ),
         ),
     }
@@ -221,8 +221,8 @@ pub fn live_badge() -> &'static str {
 }
 
 /// Short status of the phone's sound, above the preview.
-pub fn sound_status(state: Option<phonecut_core::api::SoundState>, capture: bool) -> &'static str {
-    use phonecut_core::api::SoundState;
+pub fn sound_status(state: Option<phonycut_core::api::SoundState>, capture: bool) -> &'static str {
+    use phonycut_core::api::SoundState;
     match (capture, state) {
         (false, _) => tr(
             "Son : désactivé (Réglages)",
@@ -302,8 +302,8 @@ pub fn open_clips() -> &'static str {
 }
 pub fn already_running() -> &'static str {
     tr(
-        "PhoneCut est déjà ouvert. Retrouvez sa fenêtre dans la barre des tâches.",
-        "PhoneCut is already open. Find its window in the taskbar.",
+        "PhonyCut est déjà ouvert. Retrouvez sa fenêtre dans la barre des tâches.",
+        "PhonyCut is already open. Find its window in the taskbar.",
     )
 }
 
@@ -570,8 +570,8 @@ pub fn support_project() -> &'static str {
 }
 pub fn support_after_export() -> &'static str {
     tr(
-        "PhoneCut est gratuit. S'il vous est utile, vous pouvez soutenir le projet :",
-        "PhoneCut is free. If it is useful to you, you can support the project:",
+        "PhonyCut est gratuit. S'il vous est utile, vous pouvez soutenir le projet :",
+        "PhonyCut is free. If it is useful to you, you can support the project:",
     )
 }
 
@@ -781,12 +781,12 @@ pub mod onboarding {
                     "Branchez le téléphone à l'ordinateur avec un câble USB, de préférence sur \
                      un port à l'arrière du PC. Attention : certains câbles ne servent qu'à \
                      charger et ne transmettent pas de données. Si une notification USB \
-                     apparaît sur le téléphone, choisissez « Transfert de fichiers ». PhoneCut \
+                     apparaît sur le téléphone, choisissez « Transfert de fichiers ». PhonyCut \
                      détecte le téléphone tout seul.",
                     "Connect the phone to the computer with a USB cable, preferably on a port at \
                      the back of the PC. Careful: some cables only charge and do not carry \
                      data. If a USB notification appears on the phone, choose \"File \
-                     transfer\". PhoneCut detects the phone by itself.",
+                     transfer\". PhonyCut detects the phone by itself.",
                 ),
             ),
             Step::Authorize => (
@@ -1015,8 +1015,8 @@ pub mod settings {
     }
     pub fn about_uses() -> &'static str {
         tr(
-            "PhoneCut s'appuie sur ces logiciels libres :",
-            "PhoneCut is built on this free software:",
+            "PhonyCut s'appuie sur ces logiciels libres :",
+            "PhonyCut is built on this free software:",
         )
     }
     pub fn about_credits() -> [&'static str; 5] {
@@ -1049,7 +1049,7 @@ pub mod settings {
     }
 
     pub fn version(version: &str) -> String {
-        format!("PhoneCut version {version}")
+        format!("PhonyCut version {version}")
     }
 
     pub fn language_choice(choice: LanguageChoice) -> &'static str {

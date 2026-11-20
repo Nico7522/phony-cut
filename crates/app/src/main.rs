@@ -14,12 +14,12 @@ use std::time::Duration;
 
 use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, Color32, RichText};
-use phonecut_core::api::{
+use phonycut_core::api::{
     Command, Event, ExportState, FrameSlot, PhoneButton, PhoneInput, RecordingState, SoundState,
 };
-use phonecut_core::platform;
-use phonecut_core::service::Core;
-use phonecut_core::APP_NAME;
+use phonycut_core::platform;
+use phonycut_core::service::Core;
+use phonycut_core::APP_NAME;
 
 use screens::clips::{ClipsAction, ClipsScreen};
 use screens::home::HomeScreen;
@@ -33,12 +33,19 @@ use settings::Settings;
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(8);
 
 fn main() -> anyhow::Result<()> {
+    // Before logging: the log file lives in the settings folder.
+    let migration = phonycut_core::paths::migrate_legacy_app_data();
     let log_path = logging::init()?;
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
         log_file = %log_path.display(),
         "{APP_NAME} starting"
     );
+    match migration {
+        Ok(phonycut_core::paths::Migration::None) => {}
+        Ok(done) => tracing::info!(?done, "settings taken over from PhoneCut"),
+        Err(err) => tracing::warn!(%err, "could not take over the PhoneCut settings"),
+    }
 
     // Settings first: the language is needed for every message.
     let settings = Settings::load();
@@ -49,7 +56,7 @@ fn main() -> anyhow::Result<()> {
         "settings loaded"
     );
 
-    // Two PhoneCut at once would fight over the phone (two previews).
+    // Two PhonyCut at once would fight over the phone (two previews).
     let Some(_instance) = platform::single_instance() else {
         tracing::info!("{APP_NAME} is already running");
         rfd::MessageDialog::new()
@@ -82,7 +89,7 @@ fn main() -> anyhow::Result<()> {
         Box::new(|cc| {
             let ctx = cc.egui_ctx.clone();
             let started = Core::start(Arc::new(move || ctx.request_repaint()))?;
-            let app = PhoneCutApp::new(&started, settings);
+            let app = PhonyCutApp::new(&started, settings);
             core = Some(started);
             Ok(Box::new(app))
         }),
@@ -111,7 +118,7 @@ enum Tab {
     Settings,
 }
 
-struct PhoneCutApp {
+struct PhonyCutApp {
     commands: Sender<Command>,
     events: Receiver<Event>,
     frames: Arc<FrameSlot>,
@@ -131,7 +138,7 @@ struct PhoneCutApp {
     folder_picker: Option<Receiver<Option<PathBuf>>>,
 }
 
-impl PhoneCutApp {
+impl PhonyCutApp {
     fn new(core: &Core, settings: Settings) -> Self {
         Self {
             commands: core.commands(),
@@ -190,7 +197,7 @@ impl PhoneCutApp {
                     let marker =
                         std::path::Path::new("licenses").join("scrcpy-LICENSE-Apache-2.0.txt");
                     let folder =
-                        phonecut_core::paths::find_vendor_file(&marker, "PHONECUT_LICENSES")
+                        phonycut_core::paths::find_vendor_file(&marker, "PHONYCUT_LICENSES")
                             .ok()
                             .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
                     match folder {
@@ -458,7 +465,7 @@ impl PhoneCutApp {
     }
 }
 
-impl eframe::App for PhoneCutApp {
+impl eframe::App for PhonyCutApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let events: Vec<Event> = self.events.try_iter().collect();
         for event in events {
@@ -591,7 +598,7 @@ impl eframe::App for PhoneCutApp {
     }
 }
 
-impl Drop for PhoneCutApp {
+impl Drop for PhonyCutApp {
     fn drop(&mut self) {
         // Window closing: save pending clip edits (the core is still running
         // and handles commands in order, before its shutdown).

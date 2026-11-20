@@ -1,18 +1,20 @@
-; PhoneCut installer (Inno Setup 6). Built by scripts\build-installer.ps1:
-;   ISCC /DAppVersion=0.1.0 installer\phonecut.iss
+; PhonyCut installer (Inno Setup 6). Built by scripts\build-installer.ps1:
+;   ISCC /DAppVersion=0.1.0 installer\phonycut.iss
 ;
 ; Per-user install, no administrator rights (no UAC prompt):
-;   %LOCALAPPDATA%\Programs\PhoneCut
+;   %LOCALAPPDATA%\Programs\PhonyCut
 ; Layout (the app looks for vendor\ and assets\ next to the executable):
-;   phonecut.exe + FFmpeg DLLs, vendor\adb, vendor\scrcpy, vendor\licenses,
+;   PhonyCut.exe + FFmpeg DLLs, vendor\adb, vendor\scrcpy, vendor\licenses,
 ;   assets\tutorial, assets\icon
 
 #ifndef AppVersion
   #error AppVersion must be defined (/DAppVersion=x.y.z)
 #endif
 
-#define AppName "PhoneCut"
-#define AppExe "phonecut.exe"
+#define AppName "PhonyCut"
+#define AppExe "PhonyCut.exe"
+; Cargo builds the binary in lower case.
+#define BuiltExe "phonycut.exe"
 
 [Setup]
 ; Never change AppId: it identifies the installed program for upgrades.
@@ -25,6 +27,10 @@ AppPublisherURL=https://github.com/Nico7522/phony-cut
 AppSupportURL=https://github.com/Nico7522/phony-cut/issues
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
+; The product was called PhoneCut up to 0.2.0: new shortcuts go to a PhonyCut group
+; (the old ones are removed in [InstallDelete]). The install folder of an
+; existing installation is kept (moving it would leave the old files behind).
+UsePreviousGroup=no
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 PrivilegesRequired=lowest
@@ -32,9 +38,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir=..\target\installer
-; No version in the name: the website links to releases/latest/download/PhoneCut-Setup-x64.exe
-OutputBaseFilename=PhoneCut-Setup-x64
-SetupIconFile=..\assets\icon\phonecut.ico
+; No version in the name: the website links to releases/latest/download/PhonyCut-Setup-x64.exe
+OutputBaseFilename=PhonyCut-Setup-x64
+SetupIconFile=..\assets\icon\phonycut.ico
 UninstallDisplayIcon={app}\{#AppExe}
 ; Tells Windows to refresh its icon cache at the end of the install: otherwise a
 ; shortcut made by an older version keeps showing the old icon after an update.
@@ -44,8 +50,9 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 ShowLanguageDialog=auto
-; Detects a running PhoneCut (see platform::SINGLE_INSTANCE_MUTEX).
-AppMutex=PhoneCutAppMutex
+; Detects a running PhonyCut (see platform::SINGLE_INSTANCE_MUTEX), or a running
+; version from before the rename (PhoneCut, up to 0.2.0).
+AppMutex=PhonyCutAppMutex,PhoneCutAppMutex
 CloseApplications=yes
 RestartApplications=no
 
@@ -59,7 +66,7 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\target\release\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\target\release\{#BuiltExe}"; DestDir: "{app}"; DestName: "{#AppExe}"; Flags: ignoreversion
 ; FFmpeg (LGPL, shared): the DLLs must sit next to the executable.
 Source: "..\vendor\ffmpeg\bin\*.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\vendor\adb\adb.exe"; DestDir: "{app}\vendor\adb"; Flags: ignoreversion
@@ -75,11 +82,16 @@ Source: "..\assets\tutorial\*.jpg"; DestDir: "{app}\assets\tutorial"; Flags: ign
 Source: "..\assets\tutorial\*.png"; DestDir: "{app}\assets\tutorial"; Flags: ignoreversion skipifsourcedoesntexist
 ; Optional English pictures (assets\tutorial\en\), used when the app is in English.
 Source: "..\assets\tutorial\en\*"; DestDir: "{app}\assets\tutorial\en"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "..\assets\icon\phonecut.ico"; DestDir: "{app}\assets\icon"; Flags: ignoreversion
+Source: "..\assets\icon\phonycut.ico"; DestDir: "{app}\assets\icon"; Flags: ignoreversion
 
 [InstallDelete]
 ; Upgrades: remove pictures that a newer version may have renamed.
 Type: filesandordirs; Name: "{app}\assets\tutorial"
+; Upgrades from PhoneCut (up to 0.2.0): old program, icon and shortcuts.
+Type: files; Name: "{app}\phonecut.exe"
+Type: files; Name: "{app}\assets\icon\phonecut.ico"
+Type: filesandordirs; Name: "{autoprograms}\PhoneCut"
+Type: files; Name: "{autodesktop}\PhoneCut.lnk"
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -93,8 +105,10 @@ Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags
 Filename: "{app}\vendor\adb\adb.exe"; Parameters: "kill-server"; Flags: runhidden waituntilterminated; RunOnceId: "StopAdb"
 
 [UninstallDelete]
-; Settings and logs only. Recordings (Videos\PhoneCut) are never touched.
+; Settings and logs only. Recordings (Videos\PhonyCut) are never touched.
 Type: filesandordirs; Name: "{userappdata}\{#AppName}"
+; Left by a version from before the rename if it was never started again.
+Type: filesandordirs; Name: "{userappdata}\PhoneCut"
 
 [Code]
 // Before replacing files during an upgrade, stop the adb server started by

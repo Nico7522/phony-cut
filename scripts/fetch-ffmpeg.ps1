@@ -26,7 +26,7 @@ if ((Test-Path $Marker) -and ((Get-Content $Marker -Raw).Trim() -eq $Archive)) {
 
 if ($Archive -notmatch 'lgpl-shared') { throw "Refusing a non LGPL-shared build: $Archive" }
 
-$Tmp = Join-Path ([IO.Path]::GetTempPath()) ("phonecut-ffmpeg-" + [Guid]::NewGuid())
+$Tmp = Join-Path ([IO.Path]::GetTempPath()) ("phonycut-ffmpeg-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 try {
     $Zip = Join-Path $Tmp "$Archive.zip"

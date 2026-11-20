@@ -4,7 +4,7 @@
 > et jamais sans validation de l'utilisateur. L'ordre de priorité sera revu selon les
 > retours des utilisateurs après la sortie.
 
-Fil conducteur : PhoneCut n'est pas qu'un miroir d'écran, c'est un **outil pour produire
+Fil conducteur : PhonyCut n'est pas qu'un miroir d'écran, c'est un **outil pour produire
 des clips**. Les fonctionnalités qui renforcent ça passent en premier.
 
 ---

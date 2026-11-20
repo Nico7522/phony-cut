@@ -6,8 +6,8 @@ use std::thread;
 
 use crossbeam_channel::{unbounded, Receiver, TryRecvError};
 use eframe::egui::{self, Color32, RichText, TextureHandle};
-use phonecut_core::api::{DeviceInfo, DeviceState, VideoFrame};
-use phonecut_core::{image, paths};
+use phonycut_core::api::{DeviceInfo, DeviceState, VideoFrame};
+use phonycut_core::{image, paths};
 
 use crate::texts::{self, onboarding as t, Language};
 use crate::widgets::video;

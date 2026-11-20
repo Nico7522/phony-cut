@@ -1,7 +1,7 @@
 //! Home screen: connection status of the phone.
 
 use eframe::egui::{self, Color32, RichText};
-use phonecut_core::api::{AdbProblem, AdbStatus, DeviceInfo, DeviceState, Event};
+use phonycut_core::api::{AdbProblem, AdbStatus, DeviceInfo, DeviceState, Event};
 
 use crate::texts;
 

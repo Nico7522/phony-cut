@@ -14,10 +14,48 @@ pub enum PathsError {
 
 /// Per-user application data folder.
 ///
-/// Windows: `%APPDATA%\PhoneCut`; macOS: `~/Library/Application Support/PhoneCut`.
+/// Windows: `%APPDATA%\PhonyCut`; macOS: `~/Library/Application Support/PhonyCut`.
 pub fn app_data_dir() -> Result<PathBuf, PathsError> {
     let base = BaseDirs::new().ok_or(PathsError::NoHomeDir)?;
     Ok(base.data_dir().join(APP_NAME))
+}
+
+/// What [`migrate_legacy_app_data`] did, to log once logging runs.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Migration {
+    /// Nothing to do (new folder already there, or no old folder).
+    None,
+    /// The old folder was renamed to the new one.
+    Moved,
+    /// The old folder could not be renamed (a file in use?): settings copied.
+    SettingsCopied,
+}
+
+/// Takes over the settings folder of the versions named PhoneCut (up to
+/// 0.2.0). Call before logging starts (the log file lives in that folder).
+pub fn migrate_legacy_app_data() -> Result<Migration, PathsError> {
+    let base = BaseDirs::new().ok_or(PathsError::NoHomeDir)?;
+    Ok(migrate_folder(
+        &base.data_dir().join(crate::LEGACY_APP_NAME),
+        &base.data_dir().join(APP_NAME),
+    ))
+}
+
+fn migrate_folder(old: &Path, new: &Path) -> Migration {
+    if new.exists() || !old.is_dir() {
+        return Migration::None;
+    }
+    if std::fs::rename(old, new).is_ok() {
+        return Migration::Moved;
+    }
+    let settings = "settings.json";
+    if std::fs::create_dir_all(new).is_ok()
+        && std::fs::copy(old.join(settings), new.join(settings)).is_ok()
+    {
+        Migration::SettingsCopied
+    } else {
+        Migration::None
+    }
 }
 
 /// Folder where log files are written.
@@ -96,6 +134,23 @@ mod tests {
     }
 
     #[test]
+    fn legacy_folder_is_taken_over_once() {
+        let root = std::env::temp_dir().join(format!("phonycut-migrate-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (old, new) = (root.join("PhoneCut"), root.join("PhonyCut"));
+        assert_eq!(migrate_folder(&old, &new), Migration::None, "no old folder");
+        std::fs::create_dir_all(old.join("logs")).unwrap();
+        std::fs::write(old.join("settings.json"), "{}").unwrap();
+        assert_eq!(migrate_folder(&old, &new), Migration::Moved);
+        assert!(new.join("settings.json").is_file() && new.join("logs").is_dir());
+        assert!(!old.exists());
+        // Later starts: the new folder wins, nothing moves again.
+        std::fs::create_dir_all(&old).unwrap();
+        assert_eq!(migrate_folder(&old, &new), Migration::None);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
     fn vendor_candidates_walk_up_from_exe_dir() {
         let exe_dir = Path::new("repo").join("target").join("debug");
         let rel = Path::new("adb").join("adb.exe");
@@ -108,8 +163,8 @@ mod tests {
     fn bundled_files_are_found_from_test_binary() {
         // Test binaries live under target/, inside the repository.
         let adb = Path::new("adb").join(crate::platform::ADB_EXE);
-        assert!(find_vendor_file(&adb, "PHONECUT_TEST_UNSET").is_ok());
+        assert!(find_vendor_file(&adb, "PHONYCUT_TEST_UNSET").is_ok());
         let server = Path::new("scrcpy").join("scrcpy-server");
-        assert!(find_vendor_file(&server, "PHONECUT_TEST_UNSET").is_ok());
+        assert!(find_vendor_file(&server, "PHONYCUT_TEST_UNSET").is_ok());
     }
 }

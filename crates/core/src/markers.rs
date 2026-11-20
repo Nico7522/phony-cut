@@ -70,7 +70,7 @@ impl Default for CutFile {
     }
 }
 
-/// `PhoneCut 2026-11-17 17-22-45.mkv` → `PhoneCut 2026-11-17 17-22-45.markers.json`
+/// `PhonyCut 2026-11-17 17-22-45.mkv` → `PhonyCut 2026-11-17 17-22-45.markers.json`
 pub fn sidecar_path(video: &Path) -> PathBuf {
     video.with_extension("markers.json")
 }
@@ -205,12 +205,12 @@ mod tests {
 
     #[test]
     fn sidecar_round_trip() {
-        let dir = std::env::temp_dir().join(format!("phonecut-markers-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("phonycut-markers-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let video = dir.join("PhoneCut 2026-11-17 17-22-45.mkv");
+        let video = dir.join("PhonyCut 2026-11-17 17-22-45.mkv");
         assert_eq!(
             sidecar_path(&video),
-            dir.join("PhoneCut 2026-11-17 17-22-45.markers.json")
+            dir.join("PhonyCut 2026-11-17 17-22-45.markers.json")
         );
         assert_eq!(CutFile::load(&video).unwrap(), CutFile::default());
 

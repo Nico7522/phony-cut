@@ -6,15 +6,15 @@ Date: 2026-11-18 — Status: accepted
 
 Chosen with the product owner. The app is not a single executable: it ships FFmpeg
 DLLs, adb, scrcpy-server, tutorial pictures and licenses. Inno Setup lists them in a
-short script (`installer/phonecut.iss`), installs **per user without administrator
-rights** (`PrivilegesRequired=lowest` → `%LOCALAPPDATA%\Programs\PhoneCut`, no UAC
+short script (`installer/phonycut.iss`), installs **per user without administrator
+rights** (`PrivilegesRequired=lowest` → `%LOCALAPPDATA%\Programs\PhonyCut`, no UAC
 prompt), and is preinstalled on GitHub's Windows runners. cargo-dist targets single
 binaries; bundling these files in its WiX template meant maintaining generated XML.
 
 ## Layout
 
 ```
-phonecut.exe + FFmpeg DLLs        (DLLs must sit next to the exe)
+PhonyCut.exe + FFmpeg DLLs        (DLLs must sit next to the exe)
 vendor\adb\, vendor\scrcpy\       (found by paths::find_vendor_file)
 vendor\licenses\, vendor\VERSIONS.md
 assets\tutorial\, assets\icon\    (found by paths::find_asset_file)
@@ -22,18 +22,18 @@ assets\tutorial\, assets\icon\    (found by paths::find_asset_file)
 
 ## Details
 
-- `AppId` must never change (upgrades). `AppMutex=PhoneCutAppMutex` matches
+- `AppId` must never change (upgrades). `AppMutex=PhonyCutAppMutex` matches
   `platform::SINGLE_INSTANCE_MUTEX`: the app refuses a second instance (two previews on
-  one phone conflict) and the installer asks to close a running PhoneCut.
+  one phone conflict) and the installer asks to close a running PhonyCut.
 - adb server stopped before upgrading (`PrepareToInstall`) and on uninstall, otherwise
   `adb.exe` stays locked.
-- Uninstall removes `%APPDATA%\PhoneCut` (settings, logs); recordings are never touched.
+- Uninstall removes `%APPDATA%\PhonyCut` (settings, logs); recordings are never touched.
 - Icon from the product owner's logo `assets/icon/PhyCut_logo_software.svg` (a PNG
   wrapped in SVG). `scripts/make-icon.ps1` renders it with headless Microsoft Edge (no
   SVG library in the project), then `examples/make_icon.rs` crops it, puts it on a
   white rounded tile with a light grey border (the black drawing alone vanished on dark
   taskbars; approved by the product owner) and downsamples (area average, premultiplied alpha) to
-  `assets/icon/phonecut.ico` (16–256 px) and `assets/icon/phonecut-256.rgba` (window
+  `assets/icon/phonycut.ico` (16–256 px) and `assets/icon/phonycut-256.rgba` (window
   icon, embedded with `include_bytes!`). Generated files are committed; building does not
   need Edge. The `.ico` is embedded with `embed-resource` (approved) together with
   version info generated from Cargo's version.
@@ -46,9 +46,9 @@ assets\tutorial\, assets\icon\    (found by paths::find_asset_file)
 
 `.github/workflows/release.yml`, on `v*` tags: fmt, clippy, tests, then
 `scripts/build-installer.ps1` (also usable locally), which refuses a tag that does not
-match `Cargo.toml`, and publishes `PhoneCut-Setup-x64.exe` + `SHA256SUMS.txt` (no version in the name since the website links to `releases/latest/download/PhoneCut-Setup-x64.exe`; the version is in the release title and the installer itself).
-(The hash was first written to `PhoneCut-Setup-<version>.exe.sha256`: with file
-extensions hidden, Windows shows it as "PhoneCut-Setup-<version>.exe", and a tester
+match `Cargo.toml`, and publishes `PhonyCut-Setup-x64.exe` + `SHA256SUMS.txt` (no version in the name since the website links to `releases/latest/download/PhonyCut-Setup-x64.exe`; the version is in the release title and the installer itself).
+(The hash was first written to `PhonyCut-Setup-<version>.exe.sha256`: with file
+extensions hidden, Windows shows it as "PhonyCut-Setup-<version>.exe", and a tester
 opened it instead of the installer.)
 
 ## Not done in v1 / open points

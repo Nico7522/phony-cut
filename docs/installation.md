@@ -1,4 +1,4 @@
-# Installer et désinstaller PhoneCut
+# Installer et désinstaller PhonyCut
 
 ## Configuration requise
 
@@ -8,23 +8,23 @@
 
 ## Installation
 
-1. Téléchargez `PhoneCut-Setup-x64.exe` depuis la page
+1. Téléchargez `PhonyCut-Setup-x64.exe` depuis la page
    [Releases](https://github.com/Nico7522/phony-cut/releases).
 2. Lancez le fichier. L'installation se fait pour votre compte uniquement :
    **aucun droit administrateur n'est demandé**.
-3. Suivez l'assistant, puis lancez PhoneCut depuis le **menu Démarrer** (ou le
+3. Suivez l'assistant, puis lancez PhonyCut depuis le **menu Démarrer** (ou le
    bureau si vous avez coché l'option).
 
-PhoneCut est installé dans `%LOCALAPPDATA%\Programs\PhoneCut`.
+PhonyCut est installé dans `%LOCALAPPDATA%\Programs\PhonyCut`.
 
 ### « Windows a protégé votre ordinateur » (SmartScreen)
 
-PhoneCut n'est pas encore **signé numériquement** (un certificat de signature est
+PhonyCut n'est pas encore **signé numériquement** (un certificat de signature est
 payant et n'est pas prévu pour la première version). Windows SmartScreen affiche donc
 un avertissement au premier lancement de l'installeur :
 
 1. Cliquez sur **« Informations complémentaires »**.
-2. Vérifiez que l'application est bien `PhoneCut-Setup-x64.exe`.
+2. Vérifiez que l'application est bien `PhonyCut-Setup-x64.exe`.
 3. Cliquez sur **« Exécuter quand même »**.
 
 Cet avertissement signifie seulement que Windows ne connaît pas encore cet éditeur ;
@@ -33,28 +33,28 @@ est intact, comparez son empreinte avec celle du fichier `SHA256SUMS.txt` publi�
 côté :
 
 ```powershell
-Get-FileHash .\PhoneCut-Setup-x64.exe -Algorithm SHA256
+Get-FileHash .\PhonyCut-Setup-x64.exe -Algorithm SHA256
 ```
 
 ## Mise à jour
 
 Lancez simplement l'installeur de la nouvelle version : il remplace l'ancienne en
-gardant vos réglages. Si PhoneCut est ouvert, l'installeur propose de le fermer.
+gardant vos réglages. Si PhonyCut est ouvert, l'installeur propose de le fermer.
 
 ## Désinstallation
 
-Paramètres Windows → **Applications** → **Applications installées** → PhoneCut →
+Paramètres Windows → **Applications** → **Applications installées** → PhonyCut →
 **Désinstaller**.
 
 La désinstallation supprime le programme, ses réglages et ses journaux
-(`%APPDATA%\PhoneCut`). **Vos vidéos et vos clips ne sont jamais supprimés**
-(dossier `Vidéos\PhoneCut` par défaut).
+(`%APPDATA%\PhonyCut`). **Vos vidéos et vos clips ne sont jamais supprimés**
+(dossier `Vidéos\PhonyCut` par défaut).
 
 ## Où sont les fichiers ?
 
 | Quoi | Où |
 | --- | --- |
-| Programme | `%LOCALAPPDATA%\Programs\PhoneCut` |
-| Réglages, journaux | `%APPDATA%\PhoneCut` |
-| Vidéos | `Vidéos\PhoneCut` (modifiable dans les Réglages) |
+| Programme | `%LOCALAPPDATA%\Programs\PhonyCut` |
+| Réglages, journaux | `%APPDATA%\PhonyCut` |
+| Vidéos | `Vidéos\PhonyCut` (modifiable dans les Réglages) |
 | Clips exportés | `<vidéo> - clips\`, à côté de chaque vidéo |

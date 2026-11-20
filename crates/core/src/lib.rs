@@ -1,4 +1,4 @@
-//! PhoneCut core: device access, scrcpy protocol, recording and export.
+//! PhonyCut core: device access, scrcpy protocol, recording and export.
 //!
 //! This crate must never depend on any UI toolkit. The UI talks to it through
 //! channels (commands in, events out), see [`api`] and [`service::Core`].
@@ -20,4 +20,7 @@ pub mod scrcpy;
 pub mod service;
 
 /// Application name, used for folders and window titles.
-pub const APP_NAME: &str = "PhoneCut";
+pub const APP_NAME: &str = "PhonyCut";
+
+/// Name up to version 0.2.0: its folders (settings, videos) are taken over.
+pub const LEGACY_APP_NAME: &str = "PhoneCut";

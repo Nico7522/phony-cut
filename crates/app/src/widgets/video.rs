@@ -1,7 +1,7 @@
 //! Showing decoded video frames in egui.
 
 use eframe::egui::{self, pos2, Color32, Rect, Sense, TextureHandle, TextureOptions};
-use phonecut_core::api::VideoFrame;
+use phonycut_core::api::VideoFrame;
 
 /// Uploads `frame` into `texture` (created on first use).
 pub fn upload(

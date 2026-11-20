@@ -11,7 +11,7 @@
 //! ADR 0010). The sound is copied as-is.
 //!
 //! The result replaces the original file only once complete: if anything
-//! fails, the original (readable by PhoneCut and FFmpeg) is kept.
+//! fails, the original (readable by PhonyCut and FFmpeg) is kept.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -28,7 +28,7 @@ const MILLIS: Rational = Rational(1, 1000);
 const DEFAULT_BIT_RATE: usize = 10_000_000;
 
 /// Temporary output next to the recording. Not a `.mkv`, so it never shows up
-/// in "My clips" if PhoneCut is closed during the work.
+/// in "My clips" if PhonyCut is closed during the work.
 pub fn temp_path(recording: &Path) -> PathBuf {
     let mut name = recording.file_name().unwrap_or_default().to_os_string();
     name.push(".rotation-fix");

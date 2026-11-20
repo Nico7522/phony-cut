@@ -57,7 +57,7 @@ impl ExportError {
     }
 }
 
-/// `…/PhoneCut 2026-11-17 17-22-45.mkv` → `…/PhoneCut 2026-11-17 17-22-45 - clips/`
+/// `…/PhonyCut 2026-11-17 17-22-45.mkv` → `…/PhonyCut 2026-11-17 17-22-45 - clips/`
 pub fn clips_folder(video: &Path) -> PathBuf {
     let stem = video
         .file_stem()
@@ -824,10 +824,10 @@ mod tests {
 
     #[test]
     fn output_names() {
-        let video = Path::new("C:/Videos/PhoneCut/PhoneCut 2026-11-17 17-22-45.mkv");
+        let video = Path::new("C:/Videos/PhonyCut/PhonyCut 2026-11-17 17-22-45.mkv");
         assert_eq!(
             clips_folder(video),
-            Path::new("C:/Videos/PhoneCut/PhoneCut 2026-11-17 17-22-45 - clips")
+            Path::new("C:/Videos/PhonyCut/PhonyCut 2026-11-17 17-22-45 - clips")
         );
         let segment = Segment {
             name: "Le but !".into(),

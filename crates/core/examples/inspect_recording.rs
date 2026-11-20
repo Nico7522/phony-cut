@@ -1,6 +1,6 @@
 //! Prints what players will see in a recording, and decodes it fully.
 //!
-//!   cargo run -p phonecut-core --example inspect_recording -- <file.mkv>
+//!   cargo run -p phonycut-core --example inspect_recording -- <file.mkv>
 
 use anyhow::Context;
 use ffmpeg_next as ffmpeg;

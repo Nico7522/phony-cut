@@ -57,7 +57,7 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $files = Get-ChildItem target/installer -File |
-            Where-Object { $_.Name -eq 'PhoneCut-Setup-x64.exe' -or $_.Name -eq 'SHA256SUMS.txt' } |
+            Where-Object { $_.Name -eq 'PhonyCut-Setup-x64.exe' -or $_.Name -eq 'SHA256SUMS.txt' } |
             ForEach-Object { $_.FullName }
           if ($files.Count -ne 2) { Write-Error "Expected the installer and SHA256SUMS.txt, found: $files"; exit 1 }
           gh release view $tag *> $null
@@ -65,8 +65,8 @@ jobs:
             Write-Host "Release $tag already exists: replacing its files"
             gh release upload $tag @files --clobber
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            gh release edit $tag --title "PhoneCut $tag" --notes-file installer/release-notes.md
+            gh release edit $tag --title "PhonyCut $tag" --notes-file installer/release-notes.md
           } else {
-            gh release create $tag @files --title "PhoneCut $tag" --notes-file installer/release-notes.md
+            gh release create $tag @files --title "PhonyCut $tag" --notes-file installer/release-notes.md
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

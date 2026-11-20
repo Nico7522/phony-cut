@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let png = std::env::args()
         .nth(1)
         .ok_or("usage: make_icon <logo.png>")?;
-    let logo = phonecut_core::image::load_rgba(Path::new(&png))?;
+    let logo = phonycut_core::image::load_rgba(Path::new(&png))?;
     let (logo, logo_side) = icon::square(&logo.rgba, logo.width, logo.height);
     // White rounded tile behind the black logo: readable on dark backgrounds.
     let (square, side) = icon::on_tile(&logo, logo_side);
@@ -24,10 +24,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|&s| (s, icon::resize(&square, side, s)))
         .collect();
-    std::fs::write(dir.join("phonecut.ico"), icon::ico(&images))?;
+    std::fs::write(dir.join("phonycut.ico"), icon::ico(&images))?;
 
     let window = icon::resize(&square, side, icon::WINDOW_ICON_SIZE);
-    std::fs::write(dir.join("phonecut-256.rgba"), window)?;
+    std::fs::write(dir.join("phonycut-256.rgba"), window)?;
     println!("icons written to {} (source {side}x{side})", dir.display());
     Ok(())
 }

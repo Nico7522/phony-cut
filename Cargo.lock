@@ -224,14 +224,14 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "app"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
  "directories",
  "eframe",
  "embed-resource",
- "phonecut-core",
+ "phonycut-core",
  "rfd",
  "serde",
  "serde_json",
@@ -2778,8 +2778,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "phonecut-core"
-version = "0.2.0"
+name = "phonycut-core"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "cpal",

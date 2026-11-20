@@ -5,7 +5,7 @@ use std::fs;
 use ffmpeg::format::Pixel;
 use ffmpeg_next as ffmpeg;
 
-use phonecut_core::image::load_rgba;
+use phonycut_core::image::load_rgba;
 
 /// Encodes a small RGB image (left half red, right half blue) as PNG bytes.
 fn png_bytes(width: u32, height: u32) -> Vec<u8> {
@@ -46,7 +46,7 @@ fn png_bytes(width: u32, height: u32) -> Vec<u8> {
 
 #[test]
 fn png_is_decoded_to_rgba() {
-    let path = std::env::temp_dir().join(format!("phonecut-img-{}.png", std::process::id()));
+    let path = std::env::temp_dir().join(format!("phonycut-img-{}.png", std::process::id()));
     fs::write(&path, png_bytes(8, 4)).unwrap();
 
     let image = load_rgba(&path).unwrap();

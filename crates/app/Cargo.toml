@@ -6,15 +6,15 @@ license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "phonecut"
+name = "phonycut"
 path = "src/main.rs"
 
 [build-dependencies]
-# Embeds the icon and version info into phonecut.exe (approved in phase 6).
+# Embeds the icon and version info into phonycut.exe (approved in phase 6).
 embed-resource = "3.0.12"
 
 [dependencies]
-phonecut-core.workspace = true
+phonycut-core.workspace = true
 anyhow.workspace = true
 crossbeam-channel.workspace = true
 directories.workspace = true

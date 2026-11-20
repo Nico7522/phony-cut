@@ -11,10 +11,10 @@ use std::time::Duration;
 
 use ffmpeg_next as ffmpeg;
 
-use phonecut_core::api::{Event, ExportMode, ExportRequest, ExportState, FrameSlot, PlayerEvent};
-use phonecut_core::export::{clips_folder, export_fast, export_precise, run_export};
-use phonecut_core::markers::{default_segments, Marker, Segment};
-use phonecut_core::player::{Control, Player, PlayerSetup};
+use phonycut_core::api::{Event, ExportMode, ExportRequest, ExportState, FrameSlot, PlayerEvent};
+use phonycut_core::export::{clips_folder, export_fast, export_precise, run_export};
+use phonycut_core::markers::{default_segments, Marker, Segment};
+use phonycut_core::player::{Control, Player, PlayerSetup};
 
 /// Facts about an exported file, read back with FFmpeg.
 struct Clip {
@@ -60,7 +60,7 @@ fn inspect(path: &Path) -> Clip {
 }
 
 fn workdir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("phonecut-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("phonycut-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
@@ -335,7 +335,7 @@ fn rotation_fix_keeps_the_sound() {
     let video = dir.join("rec.mkv");
     let duration_ms = i64::try_from(common::write_recording_with_sound(&video)).unwrap();
     let before = sound_span(&video, duration_ms);
-    phonecut_core::normalize::fix_rotation(&video, &mut |_| {}).unwrap();
+    phonycut_core::normalize::fix_rotation(&video, &mut |_| {}).unwrap();
     assert_eq!(
         sound_span(&video, duration_ms),
         before,

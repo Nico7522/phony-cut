@@ -1,12 +1,12 @@
 [package]
-name = "phonecut-core"
+name = "phonycut-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [lib]
-name = "phonecut_core"
+name = "phonycut_core"
 
 [dependencies]
 cpal.workspace = true

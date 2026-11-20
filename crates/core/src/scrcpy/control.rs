@@ -1,5 +1,5 @@
 //! Control messages sent to the scrcpy **v5.0.1** server (mouse, keyboard,
-//! navigation buttons), and the translation from PhoneCut's input events.
+//! navigation buttons), and the translation from PhonyCut's input events.
 //!
 //! Verified against scrcpy v5.0.1 `app/src/control_msg.{h,c}`,
 //! `app/tests/test_control_msg_serialize.c` (the tests below reuse its byte
@@ -240,7 +240,7 @@ fn position(x: u32, y: u32, width: u32, height: u32) -> Position {
     }
 }
 
-/// Translates a PhoneCut input event into scrcpy control messages.
+/// Translates a PhonyCut input event into scrcpy control messages.
 pub fn translate(input: &PhoneInput) -> Vec<ControlMessage> {
     match input {
         PhoneInput::Touch {

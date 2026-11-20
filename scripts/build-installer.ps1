@@ -1,4 +1,4 @@
-# Builds the Windows installer: target\installer\PhoneCut-Setup-x64.exe
+# Builds the Windows installer: target\installer\PhonyCut-Setup-x64.exe
 #   powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
 #
 # Steps: FFmpeg DLLs, third-party license list, release build, Inno Setup.
@@ -22,7 +22,7 @@ try {
     if ($ExpectedVersion -and $ExpectedVersion.TrimStart('v') -ne $Version) {
         throw "Tag version '$ExpectedVersion' does not match Cargo.toml version '$Version'"
     }
-    Write-Host "PhoneCut $Version"
+    Write-Host "PhonyCut $Version"
 
     & (Join-Path $PSScriptRoot 'fetch-ffmpeg.ps1')
     & (Join-Path $PSScriptRoot 'third-party-licenses.ps1')
@@ -38,16 +38,16 @@ try {
     ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
     if (-not $iscc) { throw 'Inno Setup 6 not found (winget install JRSoftware.InnoSetup)' }
 
-    & $iscc "/DAppVersion=$Version" (Join-Path $Root 'installer\phonecut.iss')
+    & $iscc "/DAppVersion=$Version" (Join-Path $Root 'installer\phonycut.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
 
-    $setup = Join-Path $Root "target\installer\PhoneCut-Setup-x64.exe"
+    $setup = Join-Path $Root "target\installer\PhonyCut-Setup-x64.exe"
     $hash = (Get-FileHash -Algorithm SHA256 $setup).Hash.ToLower()
-    # A separate .txt name: "PhoneCut-Setup-x64.exe.sha256" looked like the
+    # A separate .txt name: "PhonyCut-Setup-x64.exe.sha256" looked like the
     # installer itself when Windows hides file extensions.
     Get-ChildItem (Join-Path $Root 'target\installer') -Filter '*.sha256' | Remove-Item
     Set-Content -Path (Join-Path $Root 'target\installer\SHA256SUMS.txt') `
-        -Value "$hash  PhoneCut-Setup-x64.exe" -Encoding ascii
+        -Value "$hash  PhonyCut-Setup-x64.exe" -Encoding ascii
     Write-Host "Installer: $setup"
     Write-Host "SHA-256:   $hash"
 }

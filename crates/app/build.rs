@@ -1,4 +1,4 @@
-//! Windows: embeds the icon and the version information into phonecut.exe.
+//! Windows: embeds the icon and the version information into PhonyCut.exe.
 //! The resource script is generated so the version always comes from Cargo.
 
 use std::env;
@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
-    let icon = manifest_dir.join("../../assets/icon/phonecut.ico");
+    let icon = manifest_dir.join("../../assets/icon/phonycut.ico");
     println!("cargo:rerun-if-changed={}", icon.display());
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -51,12 +51,12 @@ BEGIN
   BEGIN
     BLOCK "040C04B0"
     BEGIN
-      VALUE "CompanyName", "PhoneCut"
-      VALUE "FileDescription", "PhoneCut"
+      VALUE "CompanyName", "PhonyCut"
+      VALUE "FileDescription", "PhonyCut"
       VALUE "FileVersion", "{version}"
-      VALUE "InternalName", "phonecut"
-      VALUE "OriginalFilename", "phonecut.exe"
-      VALUE "ProductName", "PhoneCut"
+      VALUE "InternalName", "phonycut"
+      VALUE "OriginalFilename", "PhonyCut.exe"
+      VALUE "ProductName", "PhonyCut"
       VALUE "ProductVersion", "{version}"
     END
   END
@@ -67,7 +67,7 @@ BEGIN
 END
 "#
     );
-    let rc_path = out_dir.join("phonecut.rc");
+    let rc_path = out_dir.join("phonycut.rc");
     if let Err(err) = fs::write(&rc_path, rc) {
         println!("cargo:warning=cannot write resource script: {err}");
         return;
