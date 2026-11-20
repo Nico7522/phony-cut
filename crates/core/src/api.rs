@@ -27,6 +27,16 @@ pub enum Command {
     },
     /// Stop the running mirror, if any.
     StopMirror,
+    /// Start pairing a phone over Wi-Fi with a QR code (answered with
+    /// `Event::Pairing`). A running pairing is cancelled first.
+    StartPairing,
+    /// Pair with the 6-digit code shown by the phone ("Pair device with
+    /// pairing code"); its address is found on the network.
+    PairWithCode {
+        code: String,
+    },
+    /// Stop looking for a phone to pair.
+    CancelPairing,
     /// Start recording the running mirror into a new file in `folder`
     /// (created if needed).
     StartRecording {
@@ -143,6 +153,32 @@ pub enum PhoneButton {
     Power,
 }
 
+/// Pairing a phone over Wi-Fi (Android 11+ "Wireless debugging").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PairingState {
+    /// Show this text as a QR code; the phone scans it from "Wireless
+    /// debugging > Pair device with QR code". A code can be typed instead.
+    WaitingForPhone {
+        qr_payload: String,
+    },
+    /// The phone was found on the network: pairing.
+    Pairing,
+    /// Paired: adb connects to the phone by itself (it then shows up in the
+    /// device list).
+    Paired,
+    Failed(PairingProblem),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PairingProblem {
+    /// The phone refused the pairing code.
+    WrongCode,
+    /// No phone offering pairing was found on the network in time.
+    PhoneNotFound,
+    /// adb could not pair (other error, see the log).
+    Failed,
+}
+
 /// What happens to the phone's sound during the current mirror.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SoundState {
@@ -206,6 +242,8 @@ pub enum Event {
     /// Another program on this PC runs a different adb version and keeps
     /// restarting the shared adb server, which can drop the connection.
     AdbConflict,
+    /// Progress of a Wi-Fi pairing.
+    Pairing(PairingState),
     /// What happens to the phone's sound in the running mirror (sent after
     /// `Mirror(Running)` when the sound setting is on).
     Sound(SoundState),

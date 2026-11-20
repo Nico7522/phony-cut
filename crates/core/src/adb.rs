@@ -21,6 +21,8 @@ pub const ADB_PATH_ENV: &str = "PHONYCUT_ADB";
 const START_SERVER_TIMEOUT: Duration = Duration::from_secs(20);
 const QUICK_TIMEOUT: Duration = Duration::from_secs(5);
 const PUSH_TIMEOUT: Duration = Duration::from_secs(30);
+/// `adb pair` runs a TLS handshake over the network.
+const PAIR_TIMEOUT: Duration = Duration::from_secs(20);
 const POLL_STEP: Duration = Duration::from_millis(20);
 /// How long to wait for a child's output pipes to close after it exited.
 const PIPE_GRACE: Duration = Duration::from_millis(500);
@@ -196,6 +198,22 @@ impl Adb {
         out.stdout.trim().parse().ok()
     }
 
+    /// Services adb sees on the local network (`adb mdns services`).
+    pub fn mdns_services(&self) -> Result<Vec<MdnsService>, AdbError> {
+        let out = self.run(&["mdns", "services"], QUICK_TIMEOUT)?;
+        Ok(parse_mdns_services(&out.stdout))
+    }
+
+    /// Pairs with a phone offering Wi-Fi pairing at `address` (`ip:port`).
+    pub fn pair(&self, address: &str, code: &str) -> Result<(), PairError> {
+        match self.run(&["pair", address, code], PAIR_TIMEOUT) {
+            Ok(out) if out.contains("Successfully paired") => Ok(()),
+            Ok(out) => Err(pair_error(&format!("{}{}", out.stdout, out.stderr))),
+            Err(AdbError::Failed { output, .. }) => Err(pair_error(&output)),
+            Err(err) => Err(PairError::Adb(err)),
+        }
+    }
+
     /// True when the device is connected and authorized.
     pub fn is_ready(&self, serial: &str) -> bool {
         self.run(&["-s", serial, "get-state"], QUICK_TIMEOUT)
@@ -261,6 +279,93 @@ fn read_in_background<R: Read + Send + 'static>(pipe: Option<R>) -> Receiver<Str
     rx
 }
 
+/// Why `adb pair` failed.
+#[derive(Debug, thiserror::Error)]
+pub enum PairError {
+    #[error("the phone refused the pairing code")]
+    WrongCode,
+    #[error("pairing failed: {0}")]
+    Other(String),
+    #[error(transparent)]
+    Adb(AdbError),
+}
+
+fn pair_error(output: &str) -> PairError {
+    let output = output.trim();
+    // "Failed: Wrong password or connection was dropped."
+    if output.to_ascii_lowercase().contains("wrong password") {
+        PairError::WrongCode
+    } else {
+        PairError::Other(output.to_owned())
+    }
+}
+
+/// A service seen by adb on the local network.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MdnsService {
+    /// e.g. `adb-IR7XZT6DZPT44L99-0T2B7U`, or the name of a QR code pairing.
+    pub instance: String,
+    /// e.g. `_adb-tls-pairing._tcp`, `_adb-tls-connect._tcp`.
+    pub service: String,
+    /// `ip:port`.
+    pub address: String,
+}
+
+/// mDNS service of a phone waiting to be paired.
+pub const PAIRING_SERVICE: &str = "_adb-tls-pairing._tcp";
+
+/// Parses `adb mdns services`: a title line, then `instance\tservice\tip:port`.
+pub fn parse_mdns_services(output: &str) -> Vec<MdnsService> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.trim().split('\t').map(str::trim);
+            let (instance, service, address) = (parts.next()?, parts.next()?, parts.next()?);
+            (!instance.is_empty() && service.starts_with('_') && address.contains(':')).then(|| {
+                MdnsService {
+                    instance: instance.to_owned(),
+                    service: service.to_owned(),
+                    address: address.to_owned(),
+                }
+            })
+        })
+        .collect()
+}
+
+/// Suffix of the serial adb gives a phone it connected to over Wi-Fi by
+/// itself (mDNS auto-connect), e.g.
+/// `adb-IR7XZT6DZPT44L99-0T2B7U._adb-tls-connect._tcp`.
+const WIRELESS_SUFFIX: &str = "._adb-tls-connect._tcp";
+
+/// True for a phone connected over Wi-Fi (mDNS name, or `ip:port`).
+pub fn is_wireless(serial: &str) -> bool {
+    serial.ends_with(WIRELESS_SUFFIX) || serial.parse::<std::net::SocketAddr>().is_ok()
+}
+
+/// Hardware serial inside a Wi-Fi serial (`IR7XZT6DZPT44L99` above), to
+/// recognize the same phone plugged in over USB too.
+pub fn wireless_hardware_serial(serial: &str) -> Option<&str> {
+    let name = serial.strip_suffix(WIRELESS_SUFFIX)?.strip_prefix("adb-")?;
+    let (hardware, _random) = name.rsplit_once('-')?;
+    (!hardware.is_empty()).then_some(hardware)
+}
+
+/// Keeps one entry per phone: a phone both plugged in and connected over
+/// Wi-Fi is listed once, by USB (faster, and it charges).
+pub fn merge_transports(devices: Vec<DeviceInfo>) -> Vec<DeviceInfo> {
+    let usb: Vec<String> = devices
+        .iter()
+        .filter(|d| !is_wireless(&d.serial))
+        .map(|d| d.serial.clone())
+        .collect();
+    devices
+        .into_iter()
+        .filter(|d| {
+            wireless_hardware_serial(&d.serial).is_none_or(|hw| !usb.iter().any(|u| u == hw))
+        })
+        .collect()
+}
+
 /// Parses the output of `adb devices -l`.
 pub fn parse_devices(output: &str) -> Vec<DeviceInfo> {
     output
@@ -323,6 +428,60 @@ fn parse_product_info(output: &str) -> ProductInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Real outputs of adb 37.0.1 with a Xiaomi paired over Wi-Fi.
+    const MDNS: &str = "List of discovered mdns services\n\
+        adb-IR7XZT6DZPT44L99-0T2B7U\t_adb-tls-connect._tcp\t192.168.1.45:39435\n\
+        adb-IR7XZT6DZPT44L99\t_adb._tcp\t192.168.1.45:5555\n\
+        \n";
+    const WIFI: &str = "adb-IR7XZT6DZPT44L99-0T2B7U._adb-tls-connect._tcp";
+
+    #[test]
+    fn mdns_services_are_parsed() {
+        let services = parse_mdns_services(MDNS);
+        assert_eq!(services.len(), 2);
+        assert_eq!(services[0].instance, "adb-IR7XZT6DZPT44L99-0T2B7U");
+        assert_eq!(services[0].service, "_adb-tls-connect._tcp");
+        assert_eq!(services[0].address, "192.168.1.45:39435");
+    }
+
+    #[test]
+    fn wireless_serials_are_recognized() {
+        assert!(is_wireless(WIFI));
+        assert!(is_wireless("192.168.1.45:5555"));
+        assert!(!is_wireless("IR7XZT6DZPT44L99"));
+        assert_eq!(wireless_hardware_serial(WIFI), Some("IR7XZT6DZPT44L99"));
+        assert_eq!(wireless_hardware_serial("IR7XZT6DZPT44L99"), None);
+    }
+
+    #[test]
+    fn a_phone_on_usb_and_wifi_is_listed_once() {
+        let out = format!(
+            "List of devices attached\n\
+             IR7XZT6DZPT44L99       device product:rodin_eea model:2412DPC0AG device:rodin transport_id:5\n\
+             {WIFI} device product:rodin_eea model:2412DPC0AG device:rodin transport_id:6\n"
+        );
+        let both = parse_devices(&out);
+        assert_eq!(both.len(), 2);
+        let merged = merge_transports(both.clone());
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].serial, "IR7XZT6DZPT44L99", "USB first");
+        // Cable unplugged: the Wi-Fi connection takes over.
+        let wifi_only = merge_transports(vec![both[1].clone()]);
+        assert_eq!(wifi_only[0].serial, WIFI);
+    }
+
+    #[test]
+    fn pairing_errors() {
+        assert!(matches!(
+            pair_error("Failed: Wrong password or connection was dropped."),
+            PairError::WrongCode
+        ));
+        assert!(matches!(
+            pair_error("error: unable to connect"),
+            PairError::Other(_)
+        ));
+    }
 
     #[test]
     fn parses_typical_output() {

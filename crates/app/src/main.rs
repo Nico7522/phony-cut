@@ -27,6 +27,7 @@ use screens::live::{LiveScreen, MirrorRequest};
 use screens::onboarding::{Onboarding, OnboardingAction};
 use screens::record::{RecordAction, RecordPanel};
 use screens::settings::SettingsAction;
+use screens::wireless::{WirelessAction, WirelessDialog};
 use settings::Settings;
 
 /// Upper bound on how long closing the window may wait for the core to clean up.
@@ -130,6 +131,8 @@ struct PhonyCutApp {
     record: RecordPanel,
     clips: ClipsScreen,
     onboarding: Onboarding,
+    /// Pairing a phone over Wi-Fi.
+    wireless: WirelessDialog,
     /// The first-launch check for the assistant was done.
     onboarding_checked: bool,
     /// Video settings changed during a recording: restart the mirror after it.
@@ -152,6 +155,7 @@ impl PhonyCutApp {
             record: RecordPanel::default(),
             clips: ClipsScreen::default(),
             onboarding: Onboarding::default(),
+            wireless: WirelessDialog::default(),
             onboarding_checked: false,
             restart_after_recording: false,
             folder_picker: None,
@@ -164,6 +168,16 @@ impl PhonyCutApp {
             let serial = device.serial.clone();
             tracing::info!("video settings changed, restarting the preview");
             self.send(Some(MirrorRequest::Start(serial)));
+        }
+    }
+
+    fn handle_wireless(&mut self, actions: Vec<WirelessAction>) {
+        for action in actions {
+            self.command(match action {
+                WirelessAction::Start => Command::StartPairing,
+                WirelessAction::PairWithCode(code) => Command::PairWithCode { code },
+                WirelessAction::Cancel => Command::CancelPairing,
+            });
         }
     }
 
@@ -185,6 +199,10 @@ impl PhonyCutApp {
                     self.handle_record(Some(RecordAction::OpenFolder(folder)), ctx);
                 }
                 SettingsAction::OpenAssistant => self.onboarding.open(ctx),
+                SettingsAction::OpenWireless => {
+                    let action = self.wireless.open();
+                    self.handle_wireless(vec![action]);
+                }
                 SettingsAction::LanguageChanged => {
                     texts::set_language(self.settings.language.resolve());
                     tracing::info!(language = ?texts::language(), "language changed");
@@ -414,6 +432,9 @@ impl PhonyCutApp {
             ui.label(RichText::new("●").color(Color32::from_rgb(46, 160, 67)));
             if let Some(device) = self.home.ready_device() {
                 ui.label(RichText::new(texts::device(device).title).strong());
+                if phonycut_core::adb::is_wireless(&device.serial) {
+                    ui.label(RichText::new(texts::wireless::wifi_tag()).weak());
+                }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(texts::live_badge());
@@ -472,6 +493,7 @@ impl eframe::App for PhonyCutApp {
             match event {
                 Event::Mirror(state) => self.live.apply(state),
                 Event::Sound(state) => self.live.set_sound(state),
+                Event::Pairing(state) => self.wireless.apply(state),
                 Event::Recording(state) => {
                     if matches!(state, RecordingState::Finished { .. }) {
                         self.clips.invalidate(); // a new video exists
@@ -517,6 +539,21 @@ impl eframe::App for PhonyCutApp {
             .live
             .plan(self.home.devices(), self.home.ready_device());
         self.send(request);
+
+        // Wi-Fi pairing window, over every screen. Closes by itself once the
+        // newly paired phone shows up over Wi-Fi.
+        if self.wireless.is_open() {
+            let wifi_phone = self
+                .home
+                .ready_device()
+                .is_some_and(|d| phonycut_core::adb::is_wireless(&d.serial));
+            if self.wireless.is_paired() && wifi_phone {
+                let action = self.wireless.close();
+                self.handle_wireless(vec![action]);
+            }
+            let actions = self.wireless.show(&ctx);
+            self.handle_wireless(actions);
+        }
 
         // First launch: the connection assistant.
         if !self.onboarding_checked {
@@ -577,6 +614,7 @@ impl eframe::App for PhonyCutApp {
         } else {
             let mut retry = None;
             let mut help = false;
+            let mut wifi = false;
             egui::CentralPanel::default().show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     self.home.show(ui);
@@ -587,10 +625,20 @@ impl eframe::App for PhonyCutApp {
                             egui::Button::new(RichText::new(texts::connection_help()).size(18.0))
                                 .min_size(egui::vec2(240.0, 44.0));
                         help = ui.add(button).clicked();
+                        ui.add_space(8.0);
+                        let button = egui::Button::new(
+                            RichText::new(texts::wireless::open_button()).size(18.0),
+                        )
+                        .min_size(egui::vec2(240.0, 44.0));
+                        wifi = ui.add(button).clicked();
                     }
                 });
             });
             self.send(retry);
+            if wifi {
+                let action = self.wireless.open();
+                self.handle_wireless(vec![action]);
+            }
             if help {
                 self.onboarding.open(&ctx);
             }

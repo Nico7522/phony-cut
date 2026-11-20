@@ -4,3 +4,4 @@ pub mod live;
 pub mod onboarding;
 pub mod record;
 pub mod settings;
+pub mod wireless;

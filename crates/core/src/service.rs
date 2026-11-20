@@ -11,10 +11,11 @@ use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use crate::adb::{Adb, AdbError, ProductInfo};
 use crate::api::{
     AdbProblem, AdbStatus, Command, DeviceInfo, DeviceState, Event, ExportProblem, ExportState,
-    FrameSlot, MirrorEnd, MirrorState, RecordingProblem, RecordingState, SoundOptions,
-    VideoQuality,
+    FrameSlot, MirrorEnd, MirrorState, PairingProblem, PairingState, RecordingProblem,
+    RecordingState, SoundOptions, VideoQuality,
 };
 use crate::export::ExportJob;
+use crate::pairing::PairingJob;
 use crate::platform;
 use crate::player::{Control, Player, PlayerSetup};
 use crate::record::{list_recordings, recording_file_name, unique_path};
@@ -120,6 +121,8 @@ struct Worker {
     player_frames: Arc<FrameSlot>,
     player: Option<Player>,
     export: Option<ExportJob>,
+    /// Wi-Fi pairing in progress (dropping it stops the search).
+    pairing: Option<PairingJob>,
 }
 
 impl Worker {
@@ -139,6 +142,7 @@ impl Worker {
             player_frames,
             player: None,
             export: None,
+            pairing: None,
             adb: None,
             server_running: false,
             owns_server: false,
@@ -182,6 +186,9 @@ impl Worker {
                     self.start_mirror(serial, quality, sound);
                 }
                 Ok(Command::StopMirror) => self.stop_mirror(),
+                Ok(Command::StartPairing) => self.start_pairing(None),
+                Ok(Command::PairWithCode { code }) => self.start_pairing(Some(code)),
+                Ok(Command::CancelPairing) => self.pairing = None,
                 Ok(Command::StartRecording { folder }) => self.start_recording(&folder),
                 Ok(Command::StopRecording) => {
                     if let Some(mirror) = &self.mirror {
@@ -357,7 +364,9 @@ impl Worker {
         }
 
         match adb.devices() {
-            Ok((mut devices, output)) => {
+            Ok((devices, output)) => {
+                // One entry per phone, even when plugged in and on Wi-Fi.
+                let mut devices = crate::adb::merge_transports(devices);
                 if output.reports_version_conflict() {
                     self.report_conflict();
                 }
@@ -395,6 +404,27 @@ impl Worker {
                 if info.model.is_some() {
                     device.model.clone_from(&info.model);
                 }
+            }
+        }
+    }
+
+    /// QR code pairing, or with the code typed by the user.
+    fn start_pairing(&mut self, code: Option<String>) {
+        self.pairing = None;
+        let Some(adb) = self.adb.clone() else {
+            self.send(Event::Pairing(PairingState::Failed(PairingProblem::Failed)));
+            return;
+        };
+        let (events, notify) = (self.events.clone(), Arc::clone(&self.notify));
+        let job = match code {
+            None => PairingJob::with_qr(adb, events, notify),
+            Some(code) => PairingJob::with_code(adb, code, events, notify),
+        };
+        match job {
+            Ok(job) => self.pairing = Some(job),
+            Err(err) => {
+                tracing::error!(%err, "could not start pairing");
+                self.send(Event::Pairing(PairingState::Failed(PairingProblem::Failed)));
             }
         }
     }

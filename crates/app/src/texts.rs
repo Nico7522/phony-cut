@@ -96,6 +96,94 @@ pub fn connection_help() -> &'static str {
     tr("Aide à la connexion", "Connection help")
 }
 
+/// Wi-Fi pairing window (Android 11+ "Wireless debugging").
+pub mod wireless {
+    use super::tr;
+    use phonycut_core::api::{PairingProblem, PairingState};
+
+    pub fn open_button() -> &'static str {
+        tr("Se connecter en Wi-Fi", "Connect over Wi-Fi")
+    }
+    pub fn title() -> &'static str {
+        tr("Connexion en Wi-Fi", "Wi-Fi connection")
+    }
+    pub fn intro() -> &'static str {
+        tr(
+            "Une seule fois : associez le téléphone à ce PC. Ensuite, PhonyCut s'y reconnecte \
+             tout seul dès que le téléphone et le PC sont sur le même Wi-Fi. Android 11 ou plus.",
+            "Only once: pair the phone with this PC. Then PhonyCut reconnects by itself whenever \
+             the phone and the PC are on the same Wi-Fi. Android 11 or later.",
+        )
+    }
+    pub fn steps() -> [&'static str; 3] {
+        [
+            tr(
+                "Mettez le téléphone et le PC sur le même réseau Wi-Fi.",
+                "Put the phone and the PC on the same Wi-Fi network.",
+            ),
+            tr(
+                "Sur le téléphone : Paramètres → Options pour les développeurs → « Débogage sans \
+                 fil » : activez-le (acceptez « Toujours autoriser sur ce réseau »).",
+                "On the phone: Settings → Developer options → \"Wireless debugging\": turn it on \
+                 (accept \"Always allow on this network\").",
+            ),
+            tr(
+                "Touchez « Associer l'appareil avec un code QR » et scannez ce code :",
+                "Tap \"Pair device with QR code\" and scan this code:",
+            ),
+        ]
+    }
+    pub fn or_code() -> &'static str {
+        tr(
+            "Ou touchez « Associer l'appareil avec un code d'association » et tapez les 6 chiffres :",
+            "Or tap \"Pair device with pairing code\" and type the 6 digits:",
+        )
+    }
+    pub fn pair_button() -> &'static str {
+        tr("Associer", "Pair")
+    }
+    pub fn retry() -> &'static str {
+        tr("Réessayer", "Try again")
+    }
+    pub fn close() -> &'static str {
+        tr("Fermer", "Close")
+    }
+    pub fn state(state: &PairingState) -> &'static str {
+        match state {
+            PairingState::WaitingForPhone { .. } => {
+                tr("En attente du téléphone…", "Waiting for the phone…")
+            }
+            PairingState::Pairing => tr("Association en cours…", "Pairing…"),
+            PairingState::Paired => tr(
+                "Téléphone associé ! Il s'affiche dans quelques secondes. Vous pouvez débrancher \
+                 le câble : la prochaine fois, il se reconnectera tout seul en Wi-Fi.",
+                "Phone paired! It shows up in a few seconds. You can unplug the cable: next time \
+                 it reconnects by itself over Wi-Fi.",
+            ),
+            PairingState::Failed(PairingProblem::WrongCode) => tr(
+                "Code refusé : vérifiez les 6 chiffres affichés sur le téléphone, puis réessayez.",
+                "Code refused: check the 6 digits shown on the phone, then try again.",
+            ),
+            PairingState::Failed(PairingProblem::PhoneNotFound) => tr(
+                "Téléphone introuvable. Vérifiez qu'il est sur le même Wi-Fi que le PC et que la \
+                 fenêtre d'association est ouverte sur le téléphone, puis réessayez.",
+                "Phone not found. Check that it is on the same Wi-Fi as the PC and that the \
+                 pairing window is open on the phone, then try again.",
+            ),
+            PairingState::Failed(PairingProblem::Failed) => tr(
+                "L'association a échoué. Réessayez ; si ça continue, désactivez puis réactivez le \
+                 débogage sans fil sur le téléphone.",
+                "Pairing failed. Try again; if it keeps failing, turn wireless debugging off and \
+                 on again on the phone.",
+            ),
+        }
+    }
+    /// Small tag after a phone connected over Wi-Fi.
+    pub fn wifi_tag() -> &'static str {
+        tr("(Wi-Fi)", "(Wi-Fi)")
+    }
+}
+
 pub fn adb_problem(problem: AdbProblem) -> Message {
     match problem {
         AdbProblem::AdbMissing => Message::new(

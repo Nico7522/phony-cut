@@ -58,7 +58,8 @@ impl HomeScreen {
             | Event::Player(_)
             | Event::CutsSaveFailed { .. }
             | Event::Export(_)
-            | Event::Sound(_) => {}
+            | Event::Sound(_)
+            | Event::Pairing(_) => {}
         }
     }
 

@@ -19,6 +19,8 @@ pub enum SettingsAction {
     PickFolder,
     OpenFolder(PathBuf),
     OpenAssistant,
+    /// Pair a phone over Wi-Fi.
+    OpenWireless,
     OpenLicenses,
     /// The interface language changed (already written into the settings).
     LanguageChanged,
@@ -121,6 +123,16 @@ pub fn show(
                 .clicked()
             {
                 actions.push(SettingsAction::OpenAssistant);
+            }
+            ui.add_space(16.0);
+
+            section(ui, texts::wireless::title());
+            ui.label(RichText::new(texts::wireless::intro()).weak());
+            if ui
+                .button(RichText::new(texts::wireless::open_button()).size(16.0))
+                .clicked()
+            {
+                actions.push(SettingsAction::OpenWireless);
             }
             ui.add_space(16.0);
 
