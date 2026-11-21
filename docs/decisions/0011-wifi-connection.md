@@ -43,3 +43,21 @@ Date: 2026-11-20 — Status: accepted, done
   serial contains the hardware serial (`adb-<serial>-<random>._adb-tls-connect._tcp`).
   Unplugging hands over to Wi-Fi (the mirror restarts on the Wi-Fi serial).
 - Messages for a phone not answering over Wi-Fi talk about the Wi-Fi, not the cable.
+
+## "Switch to Wi-Fi" for every Android version (`adb tcpip`)
+
+Added later at the owner's request (any Android version, like scrcpy's `--tcpip`).
+
+- With the phone plugged in: read its Wi-Fi address (`ip route`, `src` of `dev wlan…`),
+  `adb tcpip 5555` (adbd restarts: the USB preview drops for a moment and is restarted),
+  then `adb connect <ip>:5555`. The phone listens until it restarts.
+- `adb connect` exits with 0 in every case; its answer is read (adb 37.0.1, real phone):
+  `connected to …` / `already connected to …`, `failed to authenticate to …` (the phone
+  asks to allow the PC: it connects once accepted), `cannot connect to …: … (10060)`.
+- Addresses that worked are remembered (`%APPDATA%\PhonyCut\wifi-phones.json`, 5 at most)
+  and connected to again every 10 s while missing (Wi-Fi drop, PhonyCut restart). After a
+  phone restart the cable is needed once; the home screen says so.
+- Not encrypted, but a PC still has to be allowed on the phone ("Allow debugging").
+- One entry per phone: an `ip:port` connection is matched to its phone with
+  `ro.serialno`; USB first, then the first Wi-Fi connection (wireless debugging and tcpip
+  can both be up).
