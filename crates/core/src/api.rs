@@ -37,6 +37,11 @@ pub enum Command {
     },
     /// Stop looking for a phone to pair.
     CancelPairing,
+    /// Switch this plugged-in phone to Wi-Fi (`adb tcpip`, any Android);
+    /// answered with `Event::WifiSwitch`.
+    SwitchToWifi {
+        serial: String,
+    },
     /// Ask GitHub whether a newer version is published (answered with
     /// `Event::UpdateAvailable` only when there is one).
     CheckForUpdate,
@@ -156,6 +161,27 @@ pub enum PhoneButton {
     Power,
 }
 
+/// "Switch to Wi-Fi" of a plugged-in phone (`adb tcpip`, any Android).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WifiSwitchState {
+    Switching,
+    /// Connected at `address` (`ip:5555`): the cable can be unplugged.
+    Done {
+        address: String,
+    },
+    Failed(WifiSwitchProblem),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WifiSwitchProblem {
+    /// The phone is not connected to a Wi-Fi network.
+    NoWifi,
+    /// The phone asks to allow this PC (a window on its screen).
+    Unauthorized,
+    /// The PC could not reach the phone (other network, firewall…).
+    Unreachable,
+}
+
 /// Pairing a phone over Wi-Fi (Android 11+ "Wireless debugging").
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PairingState {
@@ -247,6 +273,11 @@ pub enum Event {
     AdbConflict,
     /// Progress of a Wi-Fi pairing.
     Pairing(PairingState),
+    /// Progress of "Switch to Wi-Fi".
+    WifiSwitch(WifiSwitchState),
+    /// Whether phones switched to Wi-Fi are remembered (sent at start and when
+    /// it changes): with none connected, the UI explains how to get them back.
+    KnownWifiPhones(bool),
     /// A newer version than this one is published (e.g. `0.4.0`).
     UpdateAvailable {
         version: String,

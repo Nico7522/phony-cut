@@ -16,6 +16,7 @@ use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::{self, Color32, RichText};
 use phonycut_core::api::{
     Command, Event, ExportState, FrameSlot, PhoneButton, PhoneInput, RecordingState, SoundState,
+    WifiSwitchState,
 };
 use phonycut_core::platform;
 use phonycut_core::service::Core;
@@ -133,6 +134,10 @@ struct PhonyCutApp {
     onboarding: Onboarding,
     /// Pairing a phone over Wi-Fi.
     wireless: WirelessDialog,
+    /// Last "Switch to Wi-Fi" state, shown in the status bar.
+    wifi_switch: Option<WifiSwitchState>,
+    /// Phones switched to Wi-Fi before are remembered (home screen hint).
+    known_wifi_phones: bool,
     /// The first-launch check for the assistant was done.
     onboarding_checked: bool,
     /// The daily update check was considered for this launch.
@@ -160,6 +165,8 @@ impl PhonyCutApp {
             clips: ClipsScreen::default(),
             onboarding: Onboarding::default(),
             wireless: WirelessDialog::default(),
+            wifi_switch: None,
+            known_wifi_phones: false,
             onboarding_checked: false,
             update_checked: false,
             update_available: None,
@@ -473,14 +480,38 @@ impl PhonyCutApp {
     }
 
     /// Phone name, phone buttons, and how to control the phone.
-    fn status_bar(&self, ui: &mut egui::Ui) -> Option<PhoneButton> {
+    /// Returns a phone button pressed, and the serial to switch to Wi-Fi.
+    fn status_bar(&self, ui: &mut egui::Ui) -> (Option<PhoneButton>, Option<String>) {
         let mut pressed = None;
+        let mut switch_to_wifi = None;
         ui.horizontal(|ui| {
             ui.label(RichText::new("●").color(Color32::from_rgb(46, 160, 67)));
             if let Some(device) = self.home.ready_device() {
                 ui.label(RichText::new(texts::device(device).title).strong());
                 if phonycut_core::adb::is_wireless(&device.serial) {
                     ui.label(RichText::new(texts::wireless::wifi_tag()).weak());
+                } else {
+                    // Plugged in: offer to go on over Wi-Fi (any Android).
+                    let busy = self.wifi_switch == Some(WifiSwitchState::Switching);
+                    let button = egui::Button::new(texts::wireless::switch_button());
+                    if ui
+                        .add_enabled(!busy, button)
+                        .on_hover_text(texts::wireless::switch_hint())
+                        .clicked()
+                    {
+                        switch_to_wifi = Some(device.serial.clone());
+                    }
+                }
+                if let Some(state) = &self.wifi_switch {
+                    if *state == WifiSwitchState::Switching {
+                        ui.spinner();
+                    }
+                    let text = RichText::new(texts::wireless::switch_state(state));
+                    let text = match state {
+                        WifiSwitchState::Failed(_) => text.color(Color32::from_rgb(214, 120, 0)),
+                        _ => text.weak(),
+                    };
+                    ui.add(egui::Label::new(text).truncate());
                 }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -529,7 +560,7 @@ impl PhonyCutApp {
             };
             ui.add(egui::Label::new(hint).truncate());
         });
-        pressed
+        (pressed, switch_to_wifi)
     }
 }
 
@@ -541,6 +572,15 @@ impl eframe::App for PhonyCutApp {
                 Event::Mirror(state) => self.live.apply(state),
                 Event::Sound(state) => self.live.set_sound(state),
                 Event::Pairing(state) => self.wireless.apply(state),
+                Event::WifiSwitch(state) => {
+                    // `adb tcpip` restarts the phone's adb: the USB preview
+                    // stopped, start it again (unplugging then hands over to Wi-Fi).
+                    if matches!(state, WifiSwitchState::Done { .. }) {
+                        self.restart_mirror();
+                    }
+                    self.wifi_switch = Some(state);
+                }
+                Event::KnownWifiPhones(known) => self.known_wifi_phones = known,
                 Event::UpdateAvailable { version } => self.update_available = Some(version),
                 Event::Recording(state) => {
                     if matches!(state, RecordingState::Finished { .. }) {
@@ -650,7 +690,11 @@ impl eframe::App for PhonyCutApp {
 
         if self.live.has_video() {
             let mut button = None;
-            egui::Panel::top("status").show(ui, |ui| button = self.status_bar(ui));
+            let mut switch = None;
+            egui::Panel::top("status").show(ui, |ui| (button, switch) = self.status_bar(ui));
+            if let Some(serial) = switch {
+                self.command(Command::SwitchToWifi { serial });
+            }
             if let Some(button) = button {
                 self.command(Command::PhoneInput(PhoneInput::Button(button)));
             }
@@ -681,6 +725,15 @@ impl eframe::App for PhonyCutApp {
                         )
                         .min_size(egui::vec2(240.0, 44.0));
                         wifi = ui.add(button).clicked();
+                        if self.known_wifi_phones {
+                            ui.add_space(12.0);
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(texts::wireless::known_phones_hint()).weak(),
+                                )
+                                .wrap(),
+                            );
+                        }
                     }
                 });
             });

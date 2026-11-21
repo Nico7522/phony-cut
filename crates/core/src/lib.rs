@@ -20,6 +20,7 @@ pub mod preview;
 pub mod record;
 pub mod scrcpy;
 pub mod service;
+pub mod tcpip;
 pub mod update;
 
 /// Application name, used for folders and window titles.

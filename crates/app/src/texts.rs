@@ -178,6 +178,57 @@ pub mod wireless {
             ),
         }
     }
+    /// Button of a phone plugged in over USB (`adb tcpip`, any Android).
+    pub fn switch_button() -> &'static str {
+        tr("Passer en Wi-Fi", "Switch to Wi-Fi")
+    }
+    pub fn switch_hint() -> &'static str {
+        tr(
+            "Continuer sans câble, sur le même Wi-Fi (toutes versions d'Android). À refaire \
+             après un redémarrage du téléphone.",
+            "Go on without the cable, on the same Wi-Fi (any Android version). To do again \
+             after the phone restarts.",
+        )
+    }
+    pub fn switch_state(state: &phonycut_core::api::WifiSwitchState) -> &'static str {
+        use phonycut_core::api::{WifiSwitchProblem, WifiSwitchState};
+        match state {
+            WifiSwitchState::Switching => tr("Passage en Wi-Fi…", "Switching to Wi-Fi…"),
+            WifiSwitchState::Done { .. } => tr(
+                "Wi-Fi activé : vous pouvez débrancher le câble.",
+                "Wi-Fi on: you can unplug the cable.",
+            ),
+            WifiSwitchState::Failed(WifiSwitchProblem::NoWifi) => tr(
+                "Le téléphone n'est pas connecté à un Wi-Fi : connectez-le au même Wi-Fi que le \
+                 PC, puis réessayez.",
+                "The phone is not on a Wi-Fi network: connect it to the same Wi-Fi as the PC, \
+                 then try again.",
+            ),
+            WifiSwitchState::Failed(WifiSwitchProblem::Unauthorized) => tr(
+                "Acceptez « Autoriser le débogage » sur le téléphone : la connexion Wi-Fi se fera \
+                 toute seule ensuite.",
+                "Accept \"Allow debugging\" on the phone: the Wi-Fi connection then happens by \
+                 itself.",
+            ),
+            WifiSwitchState::Failed(WifiSwitchProblem::Unreachable) => tr(
+                "Le PC n'arrive pas à joindre le téléphone en Wi-Fi : vérifiez qu'ils sont sur le \
+                 même réseau, puis réessayez.",
+                "The PC cannot reach the phone over Wi-Fi: check that both are on the same \
+                 network, then try again.",
+            ),
+        }
+    }
+    /// Home screen, no phone, but a phone was switched to Wi-Fi before.
+    pub fn known_phones_hint() -> &'static str {
+        tr(
+            "Vous utilisez le Wi-Fi ? PhonyCut retrouve tout seul le téléphone s'il est sur le \
+             même réseau. S'il a redémarré, branchez le câble une fois puis cliquez sur « Passer \
+             en Wi-Fi ».",
+            "Using Wi-Fi? PhonyCut finds the phone by itself when it is on the same network. If \
+             it restarted, plug in the cable once, then click \"Switch to Wi-Fi\".",
+        )
+    }
+
     /// Small tag after a phone connected over Wi-Fi.
     pub fn wifi_tag() -> &'static str {
         tr("(Wi-Fi)", "(Wi-Fi)")

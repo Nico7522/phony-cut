@@ -60,7 +60,9 @@ impl HomeScreen {
             | Event::Export(_)
             | Event::Sound(_)
             | Event::Pairing(_)
-            | Event::UpdateAvailable { .. } => {}
+            | Event::UpdateAvailable { .. }
+            | Event::WifiSwitch(_)
+            | Event::KnownWifiPhones(_) => {}
         }
     }
 

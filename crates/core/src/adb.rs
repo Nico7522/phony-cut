@@ -21,6 +21,8 @@ pub const ADB_PATH_ENV: &str = "PHONYCUT_ADB";
 const START_SERVER_TIMEOUT: Duration = Duration::from_secs(20);
 const QUICK_TIMEOUT: Duration = Duration::from_secs(5);
 const PUSH_TIMEOUT: Duration = Duration::from_secs(30);
+/// `adb connect` to an unreachable address gives up after about 20 s.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(25);
 /// `adb pair` runs a TLS handshake over the network.
 const PAIR_TIMEOUT: Duration = Duration::from_secs(20);
 const POLL_STEP: Duration = Duration::from_millis(20);
@@ -179,7 +181,7 @@ impl Adb {
                 serial,
                 "shell",
                 "getprop ro.product.manufacturer; getprop ro.product.model; \
-                 getprop ro.product.marketname",
+                 getprop ro.product.marketname; getprop ro.serialno",
             ],
             QUICK_TIMEOUT,
         )?;
@@ -202,6 +204,28 @@ impl Adb {
     pub fn mdns_services(&self) -> Result<Vec<MdnsService>, AdbError> {
         let out = self.run(&["mdns", "services"], QUICK_TIMEOUT)?;
         Ok(parse_mdns_services(&out.stdout))
+    }
+
+    /// IPv4 address of the phone on its Wi-Fi (`ip route`), if connected.
+    pub fn wifi_address(&self, serial: &str) -> Option<String> {
+        let out = self
+            .run(&["-s", serial, "shell", "ip route"], QUICK_TIMEOUT)
+            .ok()?;
+        parse_wifi_address(&out.stdout)
+    }
+
+    /// `adb tcpip <port>`: the phone also listens on the network (until it
+    /// restarts). Its USB connection drops for a moment.
+    pub fn tcpip(&self, serial: &str, port: u16) -> Result<(), AdbError> {
+        self.run(&["-s", serial, "tcpip", &port.to_string()], QUICK_TIMEOUT)
+            .map(|_| ())
+    }
+
+    /// `adb connect <ip:port>`. adb exits with 0 even when it fails: its
+    /// answer is read instead.
+    pub fn connect(&self, address: &str) -> Result<ConnectResult, AdbError> {
+        let out = self.run(&["connect", address], CONNECT_TIMEOUT)?;
+        Ok(parse_connect(&format!("{}{}", out.stdout, out.stderr)))
     }
 
     /// Pairs with a phone offering Wi-Fi pairing at `address` (`ip:port`).
@@ -265,6 +289,9 @@ pub struct ProductInfo {
     /// Commercial name when the phone exposes one (`ro.product.marketname`,
     /// e.g. "POCO X7 Pro"), otherwise the model reference ("2412DPC0AG").
     pub model: Option<String>,
+    /// Hardware serial (`ro.serialno`): the USB serial of the same phone,
+    /// to recognize it when it is also connected over Wi-Fi as `ip:port`.
+    pub serial_no: Option<String>,
 }
 
 fn read_in_background<R: Read + Send + 'static>(pipe: Option<R>) -> Receiver<String> {
@@ -298,6 +325,41 @@ fn pair_error(output: &str) -> PairError {
     } else {
         PairError::Other(output.to_owned())
     }
+}
+
+/// Answer of `adb connect`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConnectResult {
+    /// `connected to …` or `already connected to …`.
+    Connected,
+    /// `failed to authenticate to …`: the phone asks to allow this PC.
+    Unauthorized,
+    /// Unreachable (`cannot connect to …: … (10060)`) or refused.
+    Failed(String),
+}
+
+fn parse_connect(output: &str) -> ConnectResult {
+    let text = output.trim();
+    if text.starts_with("connected to") || text.starts_with("already connected to") {
+        ConnectResult::Connected
+    } else if text.contains("failed to authenticate") {
+        ConnectResult::Unauthorized
+    } else {
+        ConnectResult::Failed(text.to_owned())
+    }
+}
+
+/// Address on the Wi-Fi interface in `ip route` (`… dev wlan0 … src 192.168.1.45`).
+fn parse_wifi_address(output: &str) -> Option<String> {
+    output
+        .lines()
+        .filter(|line| line.contains("dev wlan"))
+        .find_map(|line| {
+            let mut tokens = line.split_whitespace();
+            tokens.find(|t| *t == "src")?;
+            let ip = tokens.next()?;
+            ip.parse::<std::net::Ipv4Addr>().ok().map(|_| ip.to_owned())
+        })
 }
 
 /// A service seen by adb on the local network.
@@ -350,18 +412,45 @@ pub fn wireless_hardware_serial(serial: &str) -> Option<&str> {
     (!hardware.is_empty()).then_some(hardware)
 }
 
-/// Keeps one entry per phone: a phone both plugged in and connected over
-/// Wi-Fi is listed once, by USB (faster, and it charges).
-pub fn merge_transports(devices: Vec<DeviceInfo>) -> Vec<DeviceInfo> {
+/// Keeps one entry per phone, whatever its connections (USB, wireless
+/// debugging, `adb tcpip`): by USB when plugged in (faster, and it charges),
+/// otherwise its first Wi-Fi connection.
+///
+/// `hardware_serial` tells the serial of an `ip:port` connection (`adb
+/// tcpip`, read from the phone); mDNS names carry it already. A connection
+/// whose phone is unknown is always kept.
+pub fn merge_transports(
+    devices: Vec<DeviceInfo>,
+    hardware_serial: impl Fn(&str) -> Option<String>,
+) -> Vec<DeviceInfo> {
+    let phone_of = |d: &DeviceInfo| -> Option<String> {
+        if !is_wireless(&d.serial) {
+            return Some(d.serial.clone());
+        }
+        wireless_hardware_serial(&d.serial)
+            .map(str::to_owned)
+            .or_else(|| hardware_serial(&d.serial))
+    };
     let usb: Vec<String> = devices
         .iter()
         .filter(|d| !is_wireless(&d.serial))
         .map(|d| d.serial.clone())
         .collect();
+    let mut seen: Vec<String> = Vec::new();
     devices
         .into_iter()
         .filter(|d| {
-            wireless_hardware_serial(&d.serial).is_none_or(|hw| !usb.iter().any(|u| u == hw))
+            let Some(phone) = phone_of(d) else {
+                return true;
+            };
+            if is_wireless(&d.serial) && usb.contains(&phone) {
+                return false; // the USB connection is listed instead
+            }
+            if seen.contains(&phone) {
+                return false; // another Wi-Fi connection of the same phone
+            }
+            seen.push(phone);
+            true
         })
         .collect()
 }
@@ -419,9 +508,11 @@ fn parse_product_info(output: &str) -> ProductInfo {
     let manufacturer = lines.next().flatten();
     let model = lines.next().flatten();
     let market_name = lines.next().flatten();
+    let serial_no = lines.next().flatten();
     ProductInfo {
         manufacturer,
         model: market_name.or(model),
+        serial_no,
     }
 }
 
@@ -463,12 +554,63 @@ mod tests {
         );
         let both = parse_devices(&out);
         assert_eq!(both.len(), 2);
-        let merged = merge_transports(both.clone());
+        let merged = merge_transports(both.clone(), |_| None);
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].serial, "IR7XZT6DZPT44L99", "USB first");
         // Cable unplugged: the Wi-Fi connection takes over.
-        let wifi_only = merge_transports(vec![both[1].clone()]);
+        let wifi_only = merge_transports(vec![both[1].clone()], |_| None);
+        // ip:port (adb tcpip): its serial is read from the phone.
+        let tcp = DeviceInfo {
+            serial: "192.168.1.45:5555".into(),
+            ..both[0].clone()
+        };
+        let merged_tcp = merge_transports(vec![both[0].clone(), tcp.clone()], |s| {
+            (s == "192.168.1.45:5555").then(|| "IR7XZT6DZPT44L99".to_owned())
+        });
+        assert_eq!(merged_tcp.len(), 1, "same phone by USB and tcpip");
+        // Unplugged, but on Wi-Fi twice (wireless debugging and tcpip).
+        let two_wifi = merge_transports(vec![both[1].clone(), tcp.clone()], |s| {
+            (s == "192.168.1.45:5555").then(|| "IR7XZT6DZPT44L99".to_owned())
+        });
+        assert_eq!(two_wifi.len(), 1, "one entry per phone");
+        assert_eq!(two_wifi[0].serial, WIFI);
+        assert_eq!(merge_transports(vec![tcp], |_| None).len(), 1);
         assert_eq!(wifi_only[0].serial, WIFI);
+    }
+
+    #[test]
+    fn connect_answers() {
+        // Real answers of adb 37.0.1 (it exits with 0 in every case).
+        assert_eq!(
+            parse_connect("connected to 192.168.1.45:5555\n"),
+            ConnectResult::Connected
+        );
+        assert_eq!(
+            parse_connect("already connected to 192.168.1.45:5555\n"),
+            ConnectResult::Connected
+        );
+        assert_eq!(
+            parse_connect("failed to authenticate to 192.168.1.45:5555\n"),
+            ConnectResult::Unauthorized
+        );
+        assert!(matches!(
+            parse_connect(
+                "cannot connect to 192.168.1.250:5555: Une tentative de connexion a échoué (10060)"
+            ),
+            ConnectResult::Failed(_)
+        ));
+    }
+
+    #[test]
+    fn wifi_address_from_ip_route() {
+        let out = "10.30.0.0/16 dev rmnet_data1 proto kernel scope link src 10.30.1.2\n\
+                   192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.45\n";
+        assert_eq!(parse_wifi_address(out).as_deref(), Some("192.168.1.45"));
+        assert_eq!(
+            parse_wifi_address("10.0.0.0/8 dev rmnet0 src 10.0.0.2\n"),
+            None,
+            "mobile data only"
+        );
     }
 
     #[test]
@@ -534,15 +676,17 @@ mod tests {
             ProductInfo {
                 manufacturer: Some("samsung".into()),
                 model: Some("SM-G973F".into()),
+                serial_no: None,
             }
         );
         assert_eq!(parse_product_info(""), ProductInfo::default());
         // The commercial name wins when present.
         assert_eq!(
-            parse_product_info("Xiaomi\n2412DPC0AG\nPOCO X7 Pro\n"),
+            parse_product_info("Xiaomi\n2412DPC0AG\nPOCO X7 Pro\nIR7XZT6DZPT44L99\n"),
             ProductInfo {
                 manufacturer: Some("Xiaomi".into()),
                 model: Some("POCO X7 Pro".into()),
+                serial_no: Some("IR7XZT6DZPT44L99".into()),
             }
         );
         assert_eq!(
@@ -550,6 +694,7 @@ mod tests {
             ProductInfo {
                 manufacturer: None,
                 model: Some("Pixel 7".into()),
+                serial_no: None,
             }
         );
     }

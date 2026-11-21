@@ -16,6 +16,10 @@ use crate::api::{
 };
 use crate::export::ExportJob;
 use crate::pairing::PairingJob;
+use crate::tcpip::KnownPhones;
+
+/// How often remembered Wi-Fi phones (`adb tcpip`) are connected to again.
+const RECONNECT_INTERVAL: Duration = Duration::from_secs(10);
 use crate::platform;
 use crate::player::{Control, Player, PlayerSetup};
 use crate::record::{list_recordings, recording_file_name, unique_path};
@@ -123,6 +127,10 @@ struct Worker {
     export: Option<ExportJob>,
     /// Wi-Fi pairing in progress (dropping it stops the search).
     pairing: Option<PairingJob>,
+    /// Phones switched to Wi-Fi with `adb tcpip`, connected to again.
+    known_phones: Arc<KnownPhones>,
+    known_phones_sent: Option<bool>,
+    next_reconnect: Instant,
 }
 
 impl Worker {
@@ -143,6 +151,9 @@ impl Worker {
             player: None,
             export: None,
             pairing: None,
+            known_phones: Arc::new(KnownPhones::load()),
+            known_phones_sent: None,
+            next_reconnect: Instant::now(),
             adb: None,
             server_running: false,
             owns_server: false,
@@ -190,6 +201,17 @@ impl Worker {
                 Ok(Command::PairWithCode { code }) => self.start_pairing(Some(code)),
                 Ok(Command::CancelPairing) => self.pairing = None,
                 Ok(Command::CheckForUpdate) => self.check_for_update(),
+                Ok(Command::SwitchToWifi { serial }) => {
+                    if let Some(adb) = self.adb.clone() {
+                        crate::tcpip::switch_to_wifi(
+                            adb,
+                            serial,
+                            Arc::clone(&self.known_phones),
+                            self.events.clone(),
+                            Arc::clone(&self.notify),
+                        );
+                    }
+                }
                 Ok(Command::StartRecording { folder }) => self.start_recording(&folder),
                 Ok(Command::StopRecording) => {
                     if let Some(mirror) = &self.mirror {
@@ -365,20 +387,39 @@ impl Worker {
         }
 
         match adb.devices() {
-            Ok((devices, output)) => {
-                // One entry per phone, even when plugged in and on Wi-Fi.
-                let mut devices = crate::adb::merge_transports(devices);
+            Ok((mut devices, output)) => {
                 if output.reports_version_conflict() {
                     self.report_conflict();
                 }
                 self.set_status(AdbStatus::Ready);
                 self.fill_product_info(&adb, &mut devices);
+                self.reconnect_wifi_phones(&adb, &devices);
+                // One entry per phone, even when plugged in and on Wi-Fi.
+                let products = &self.products;
+                let devices = crate::adb::merge_transports(devices, |serial| {
+                    products.get(serial).and_then(|p| p.serial_no.clone())
+                });
                 self.set_devices(devices);
             }
             Err(err) => {
                 self.server_running = false;
                 self.on_adb_failure(&err);
             }
+        }
+    }
+
+    /// Phones switched to Wi-Fi earlier: connect again every 10 s while they
+    /// are missing (Wi-Fi drop, PhonyCut restart; not a phone restart).
+    fn reconnect_wifi_phones(&mut self, adb: &Adb, devices: &[DeviceInfo]) {
+        let known = !self.known_phones.is_empty();
+        if self.known_phones_sent != Some(known) {
+            self.known_phones_sent = Some(known);
+            self.send(Event::KnownWifiPhones(known));
+        }
+        if known && Instant::now() >= self.next_reconnect {
+            self.next_reconnect = Instant::now() + RECONNECT_INTERVAL;
+            let serials: Vec<String> = devices.iter().map(|d| d.serial.clone()).collect();
+            self.known_phones.reconnect(adb, &serials);
         }
     }
 
