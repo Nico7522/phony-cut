@@ -34,6 +34,16 @@ use settings::Settings;
 /// Upper bound on how long closing the window may wait for the core to clean up.
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(8);
 
+/// A roomy window for the phone picture (1280×880), never larger than 90 %
+/// of the desktop (small laptop screens).
+fn initial_window_size() -> [f32; 2] {
+    const WANTED: (f32, f32) = (1280.0, 880.0);
+    match platform::work_area() {
+        Some((w, h)) => [WANTED.0.min(w * 0.9), WANTED.1.min(h * 0.9)],
+        None => [WANTED.0, WANTED.1],
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     // Before logging: the log file lives in the settings folder.
     let migration = phonycut_core::paths::migrate_legacy_app_data();
@@ -77,7 +87,7 @@ fn main() -> anyhow::Result<()> {
                 width: icon::WINDOW_ICON_SIZE,
                 height: icon::WINDOW_ICON_SIZE,
             })
-            .with_inner_size([1000.0, 700.0])
+            .with_inner_size(initial_window_size())
             .with_min_inner_size([480.0, 360.0]),
         ..Default::default()
     };
@@ -134,6 +144,8 @@ struct PhonyCutApp {
     onboarding: Onboarding,
     /// Pairing a phone over Wi-Fi.
     wireless: WirelessDialog,
+    /// Only the phone picture, on the whole screen (live preview).
+    fullscreen: bool,
     /// Last "Switch to Wi-Fi" state, shown in the status bar.
     wifi_switch: Option<WifiSwitchState>,
     /// Phones switched to Wi-Fi before are remembered (home screen hint).
@@ -165,6 +177,7 @@ impl PhonyCutApp {
             clips: ClipsScreen::default(),
             onboarding: Onboarding::default(),
             wireless: WirelessDialog::default(),
+            fullscreen: false,
             wifi_switch: None,
             known_wifi_phones: false,
             onboarding_checked: false,
@@ -389,6 +402,39 @@ impl PhonyCutApp {
 
     /// After a successful export: show the support link at most once a week
     /// (remembered in the settings).
+    fn set_fullscreen(&mut self, ctx: &egui::Context, on: bool) {
+        if self.fullscreen != on {
+            self.fullscreen = on;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(on));
+        }
+    }
+
+    /// Full screen: the phone picture, and one thin bar to record, mark a cut
+    /// and leave.
+    fn fullscreen_view(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let mut action = None;
+        let mut leave = false;
+        egui::Panel::top("fullscreen-bar").show(ui, |ui| {
+            ui.horizontal(|ui| {
+                action = self.record.show_compact(ui, true);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    leave = ui.button(texts::exit_fullscreen()).clicked();
+                });
+            });
+        });
+        self.handle_record(action, ctx);
+        if leave {
+            self.set_fullscreen(ctx, false);
+        }
+        let mut inputs = Vec::new();
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(Color32::BLACK))
+            .show(ui, |ui| inputs = self.live.show_video(ui));
+        for input in inputs {
+            self.command(Command::PhoneInput(input));
+        }
+    }
+
     /// At launch, at most once a day, unless turned off in the settings.
     fn check_for_update_once(&mut self) {
         if std::mem::replace(&mut self.update_checked, true) || !self.settings.check_updates {
@@ -481,9 +527,10 @@ impl PhonyCutApp {
 
     /// Phone name, phone buttons, and how to control the phone.
     /// Returns a phone button pressed, and the serial to switch to Wi-Fi.
-    fn status_bar(&self, ui: &mut egui::Ui) -> (Option<PhoneButton>, Option<String>) {
+    fn status_bar(&self, ui: &mut egui::Ui) -> (Option<PhoneButton>, Option<String>, bool) {
         let mut pressed = None;
         let mut switch_to_wifi = None;
+        let mut fullscreen = false;
         ui.horizontal(|ui| {
             ui.label(RichText::new("●").color(Color32::from_rgb(46, 160, 67)));
             if let Some(device) = self.home.ready_device() {
@@ -515,6 +562,10 @@ impl PhonyCutApp {
                 }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                fullscreen = ui
+                    .button(texts::fullscreen())
+                    .on_hover_text(texts::fullscreen_hint())
+                    .clicked();
                 ui.label(texts::live_badge());
                 let sound = texts::sound_status(self.live.sound(), self.settings.record_sound);
                 if !sound.is_empty() {
@@ -560,7 +611,7 @@ impl PhonyCutApp {
             };
             ui.add(egui::Label::new(hint).truncate());
         });
-        (pressed, switch_to_wifi)
+        (pressed, switch_to_wifi, fullscreen)
     }
 }
 
@@ -614,6 +665,17 @@ impl eframe::App for PhonyCutApp {
         if self.record.can_mark_cut() && !typing && ui.input(|i| i.key_pressed(egui::Key::M)) {
             self.command(Command::MarkCut);
         }
+        let live_video = self.tab == Tab::Live && self.live.has_video();
+        if live_video && ui.input(|i| i.key_pressed(egui::Key::F11)) {
+            self.set_fullscreen(&ctx, !self.fullscreen);
+        }
+        if self.fullscreen
+            && (!live_video
+                || (!self.live.keyboard_active() && ui.input(|i| i.key_pressed(egui::Key::Escape))))
+        {
+            // Leaving, or the preview stopped (phone unplugged…).
+            self.set_fullscreen(&ctx, false);
+        }
         if let Some(frame) = self.frames.take() {
             // Off screen: drop it (no texture upload).
             if self.tab == Tab::Live {
@@ -659,6 +721,10 @@ impl eframe::App for PhonyCutApp {
             return;
         }
 
+        if self.fullscreen {
+            self.fullscreen_view(ui, &ctx);
+            return;
+        }
         self.check_for_update_once();
         self.update_banner(ui);
         egui::Panel::top("tabs").show(ui, |ui| self.tab_bar(ui));
@@ -691,7 +757,13 @@ impl eframe::App for PhonyCutApp {
         if self.live.has_video() {
             let mut button = None;
             let mut switch = None;
-            egui::Panel::top("status").show(ui, |ui| (button, switch) = self.status_bar(ui));
+            let mut fullscreen = false;
+            egui::Panel::top("status").show(ui, |ui| {
+                (button, switch, fullscreen) = self.status_bar(ui);
+            });
+            if fullscreen {
+                self.set_fullscreen(&ctx, true);
+            }
             if let Some(serial) = switch {
                 self.command(Command::SwitchToWifi { serial });
             }

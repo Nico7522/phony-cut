@@ -169,6 +169,40 @@ impl RecordPanel {
         action
     }
 
+    /// One-line version for the full-screen bar: record / stop, mark a cut,
+    /// and the live duration.
+    pub fn show_compact(&mut self, ui: &mut egui::Ui, can_record: bool) -> Option<RecordAction> {
+        let mut action = None;
+        if self.is_recording() {
+            if ui.button(texts::record_stop()).clicked() {
+                action = Some(RecordAction::Stop);
+            }
+        } else {
+            let record =
+                egui::Button::new(RichText::new(texts::record_start()).color(Color32::WHITE))
+                    .fill(RED);
+            if ui.add_enabled(can_record, record).clicked() {
+                self.starting = true;
+                self.notice = None;
+                action = Some(RecordAction::Start);
+            }
+        }
+        if ui
+            .add_enabled(self.can_mark_cut(), egui::Button::new(texts::mark_cut()))
+            .clicked()
+        {
+            action = Some(RecordAction::MarkCut);
+        }
+        if self.is_recording() {
+            ui.add_space(8.0);
+            self.live_indicator(ui);
+            if let Some(last) = self.last_cut {
+                ui.label(texts::cuts_summary(self.cuts, last));
+            }
+        }
+        action
+    }
+
     fn live_indicator(&self, ui: &mut egui::Ui) {
         match &self.state {
             Some(RecordingState::Recording(info)) => {

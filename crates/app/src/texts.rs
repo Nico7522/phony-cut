@@ -380,6 +380,19 @@ pub fn mirror_interrupted_hint() -> &'static str {
 pub fn mirror_retry() -> &'static str {
     tr("Relancer l'aperçu", "Restart preview")
 }
+pub fn fullscreen() -> &'static str {
+    tr("Plein écran", "Full screen")
+}
+pub fn fullscreen_hint() -> &'static str {
+    tr(
+        "Afficher seulement l'écran du téléphone (touche F11)",
+        "Show only the phone's screen (F11 key)",
+    )
+}
+pub fn exit_fullscreen() -> &'static str {
+    tr("Quitter le plein écran (Échap)", "Exit full screen (Esc)")
+}
+
 pub fn live_badge() -> &'static str {
     tr("Aperçu en direct", "Live preview")
 }

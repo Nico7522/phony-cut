@@ -55,6 +55,32 @@ pub fn system_prefers_french() -> bool {
         .is_some_and(|lang| lang.starts_with("fr"))
 }
 
+/// Size of the desktop without the taskbar (in the units windows are sized
+/// with before DPI awareness is set, i.e. scaled points), to open the window
+/// at a size that fits.
+#[cfg(windows)]
+pub fn work_area() -> Option<(f32, f32)> {
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetSystemMetrics(index: i32) -> i32;
+    }
+    const SM_CXFULLSCREEN: i32 = 16;
+    const SM_CYFULLSCREEN: i32 = 17;
+    // SAFETY: plain queries, no pointers.
+    let (w, h) = unsafe {
+        (
+            GetSystemMetrics(SM_CXFULLSCREEN),
+            GetSystemMetrics(SM_CYFULLSCREEN),
+        )
+    };
+    (w > 0 && h > 0).then_some((w as f32, h as f32))
+}
+
+#[cfg(not(windows))]
+pub fn work_area() -> Option<(f32, f32)> {
+    None
+}
+
 /// Name of the mutex marking a running PhonyCut. The installer checks the same
 /// name (`AppMutex` in `installer/phonycut.iss`) before updating or removing
 /// the program.
