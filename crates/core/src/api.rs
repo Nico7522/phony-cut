@@ -44,6 +44,11 @@ pub enum Command {
     SwitchToWifi {
         serial: String,
     },
+    /// Filming mode (`None`: off): applied to the phone while its preview
+    /// runs, and always put back afterwards.
+    SetFilming {
+        options: Option<FilmingOptions>,
+    },
     /// Change the instant replay of the running mirror without restarting it
     /// (`None`: off). What is kept stays when the length grows.
     SetReplay {
@@ -249,6 +254,17 @@ pub enum SoundState {
     /// The phone did not share its sound (refused, or Android 11 started
     /// while locked).
     Unavailable,
+}
+
+/// What the filming mode changes on the phone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FilmingOptions {
+    /// 12:00, full battery and signal, no notification icons.
+    pub clean_status_bar: bool,
+    /// A dot where the finger touches the screen.
+    pub show_touches: bool,
+    /// No notification during the video.
+    pub do_not_disturb: bool,
 }
 
 /// What to do with the phone's sound.

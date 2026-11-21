@@ -24,6 +24,8 @@ pub enum SettingsAction {
     OpenWireless,
     /// A setting without other effect changed: just save.
     Save,
+    /// The filming mode changed: applied to the running preview.
+    FilmingChanged,
     /// The instant replay changed: applied to the preview without restarting
     /// it (what is kept stays).
     ReplayChanged,
@@ -131,6 +133,27 @@ pub fn show(
             {
                 actions.push(SettingsAction::OpenAssistant);
             }
+            ui.add_space(16.0);
+
+            section(ui, t::filming_title());
+            let label = RichText::new(t::filming_enabled()).size(16.0);
+            if ui.checkbox(&mut settings.filming, label).changed() {
+                actions.push(SettingsAction::FilmingChanged);
+            }
+            ui.indent("filming-options", |ui| {
+                ui.add_enabled_ui(settings.filming, |ui| {
+                    for (value, text) in [
+                        (&mut settings.filming_status_bar, t::filming_status_bar()),
+                        (&mut settings.filming_touches, t::filming_touches()),
+                        (&mut settings.filming_dnd, t::filming_dnd()),
+                    ] {
+                        if ui.checkbox(value, text).changed() {
+                            actions.push(SettingsAction::FilmingChanged);
+                        }
+                    }
+                });
+                ui.label(RichText::new(t::filming_hint()).weak());
+            });
             ui.add_space(16.0);
 
             section(ui, t::replay_title());

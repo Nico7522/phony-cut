@@ -35,6 +35,12 @@ pub struct Settings {
     pub replay_seconds: u32,
     /// Keyboard shortcut to save the replay (Ctrl+R by default).
     pub replay_shortcut: Shortcut,
+    /// Filming mode: the phone looks clean on video while the preview runs.
+    pub filming: bool,
+    /// What it changes on the phone.
+    pub filming_status_bar: bool,
+    pub filming_touches: bool,
+    pub filming_dnd: bool,
     /// Ask GitHub, at most once a day, whether a newer version exists.
     pub check_updates: bool,
     /// Last time it was asked (Unix seconds).
@@ -78,6 +84,10 @@ impl Default for Settings {
             replay_enabled: true,
             replay_seconds: 30,
             replay_shortcut: Shortcut::replay_default(),
+            filming: false,
+            filming_status_bar: true,
+            filming_touches: true,
+            filming_dnd: true,
             check_updates: true,
             update_checked_at: None,
             support_shown_at: None,
@@ -125,6 +135,17 @@ impl Settings {
     pub fn replay_duration(&self) -> Option<std::time::Duration> {
         self.replay_enabled
             .then(|| std::time::Duration::from_secs(u64::from(self.replay_seconds.clamp(5, 600))))
+    }
+
+    /// Filming mode options, `None` when off (or nothing chosen).
+    pub fn filming_options(&self) -> Option<phonycut_core::api::FilmingOptions> {
+        let options = phonycut_core::api::FilmingOptions {
+            clean_status_bar: self.filming_status_bar,
+            show_touches: self.filming_touches,
+            do_not_disturb: self.filming_dnd,
+        };
+        let any = options.clean_status_bar || options.show_touches || options.do_not_disturb;
+        (self.filming && any).then_some(options)
     }
 
     /// What to do with the phone's sound.
@@ -324,6 +345,10 @@ mod tests {
             replay_enabled: false,
             replay_seconds: 60,
             replay_shortcut: Shortcut::replay_default(),
+            filming: true,
+            filming_status_bar: false,
+            filming_touches: true,
+            filming_dnd: false,
             check_updates: false,
             update_checked_at: Some(1_700_000_000),
             support_shown_at: Some(1_700_000_000),

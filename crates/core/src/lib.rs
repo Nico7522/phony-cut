@@ -9,6 +9,7 @@ pub mod audio;
 pub mod audio_out;
 pub mod decode;
 pub mod export;
+pub mod filming;
 pub mod image;
 pub mod markers;
 pub mod normalize;

@@ -393,6 +393,18 @@ pub fn exit_fullscreen() -> &'static str {
     tr("Quitter le plein écran (Échap)", "Exit full screen (Esc)")
 }
 
+pub fn filming_toggle() -> &'static str {
+    tr("🎬 Mode tournage", "🎬 Filming mode")
+}
+pub fn filming_toggle_hint() -> &'static str {
+    tr(
+        "Un téléphone propre à l'écran : barre d'état nette (12:00, batterie pleine), \
+         touches affichées, Ne pas déranger. Tout est remis comme avant à l'arrêt. \
+         Choix dans les Réglages.",
+        "A clean phone on screen: tidy status bar (12:00, full battery), touches shown, \
+         Do not disturb. Everything is put back when it stops. Options in the Settings.",
+    )
+}
 pub fn live_badge() -> &'static str {
     tr("Aperçu en direct", "Live preview")
 }
@@ -1232,6 +1244,45 @@ pub mod settings {
     }
     pub fn shortcut_replay() -> &'static str {
         tr("Sauver le replay :", "Save the replay:")
+    }
+    pub fn filming_title() -> &'static str {
+        tr("Mode tournage", "Filming mode")
+    }
+    pub fn filming_enabled() -> &'static str {
+        tr(
+            "Préparer le téléphone pour la vidéo pendant l'aperçu",
+            "Get the phone ready for video during the preview",
+        )
+    }
+    pub fn filming_status_bar() -> &'static str {
+        tr(
+            "Barre d'état propre (12:00, batterie et réseau pleins, sans icônes de notification)",
+            "Clean status bar (12:00, full battery and signal, no notification icons)",
+        )
+    }
+    pub fn filming_touches() -> &'static str {
+        tr(
+            "Afficher les touches du doigt (un rond suit le doigt)",
+            "Show finger touches (a circle follows the finger)",
+        )
+    }
+    pub fn filming_dnd() -> &'static str {
+        tr(
+            "Ne pas déranger (aucune notification pendant la vidéo)",
+            "Do not disturb (no notification during the video)",
+        )
+    }
+    pub fn filming_hint() -> &'static str {
+        tr(
+            "Tout est remis comme avant quand l'aperçu s'arrête ou que PhonyCut se ferme \
+             (ou au prochain branchement, si le téléphone a été débranché entre-temps). \
+             Selon les téléphones, la barre d'état propre ou les touches affichées peuvent \
+             ne pas marcher (les touches, par exemple, sur certains Xiaomi).",
+            "Everything is put back when the preview stops or PhonyCut closes (or the next \
+             time the phone is connected, if it was unplugged meanwhile). Depending on the \
+             phone, the clean status bar or the touches may not work (the touches, for \
+             example, on some Xiaomi phones).",
+        )
     }
     pub fn replay_title() -> &'static str {
         tr("Replay instantané", "Instant replay")

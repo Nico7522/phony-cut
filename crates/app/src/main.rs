@@ -229,6 +229,14 @@ impl PhonyCutApp {
                     self.handle_record(Some(RecordAction::OpenFolder(folder)), ctx);
                 }
                 SettingsAction::OpenAssistant => self.onboarding.open(ctx),
+                SettingsAction::FilmingChanged => {
+                    if let Err(err) = self.settings.save() {
+                        tracing::warn!(%err, "cannot save settings");
+                    }
+                    self.command(Command::SetFilming {
+                        options: self.settings.filming_options(),
+                    });
+                }
                 SettingsAction::ReplayChanged => {
                     if let Err(err) = self.settings.save() {
                         tracing::warn!(%err, "cannot save settings");
@@ -499,12 +507,18 @@ impl PhonyCutApp {
 
     fn send(&self, request: Option<MirrorRequest>) {
         match request {
-            Some(MirrorRequest::Start(serial)) => self.command(Command::StartMirror {
-                serial,
-                quality: self.settings.video_quality(),
-                sound: self.settings.sound_options(),
-                replay: self.settings.replay_duration(),
-            }),
+            Some(MirrorRequest::Start(serial)) => {
+                // Before the start: the mode is applied once the preview runs.
+                self.command(Command::SetFilming {
+                    options: self.settings.filming_options(),
+                });
+                self.command(Command::StartMirror {
+                    serial,
+                    quality: self.settings.video_quality(),
+                    sound: self.settings.sound_options(),
+                    replay: self.settings.replay_duration(),
+                });
+            }
             None => {}
         }
     }
@@ -543,10 +557,11 @@ impl PhonyCutApp {
 
     /// Phone name, phone buttons, and how to control the phone.
     /// Returns a phone button pressed, and the serial to switch to Wi-Fi.
-    fn status_bar(&self, ui: &mut egui::Ui) -> (Option<PhoneButton>, Option<String>, bool) {
+    fn status_bar(&mut self, ui: &mut egui::Ui) -> (Option<PhoneButton>, Option<String>, bool) {
         let mut pressed = None;
         let mut switch_to_wifi = None;
         let mut fullscreen = false;
+        let mut filming = self.settings.filming;
         ui.horizontal(|ui| {
             ui.label(RichText::new("●").color(Color32::from_rgb(46, 160, 67)));
             if let Some(device) = self.home.ready_device() {
@@ -582,6 +597,8 @@ impl PhonyCutApp {
                     .button(texts::fullscreen())
                     .on_hover_text(texts::fullscreen_hint())
                     .clicked();
+                ui.toggle_value(&mut filming, texts::filming_toggle())
+                    .on_hover_text(texts::filming_toggle_hint());
                 ui.label(texts::live_badge());
                 let sound = texts::sound_status(self.live.sound(), self.settings.record_sound);
                 if !sound.is_empty() {
@@ -627,6 +644,15 @@ impl PhonyCutApp {
             };
             ui.add(egui::Label::new(hint).truncate());
         });
+        if filming != self.settings.filming {
+            self.settings.filming = filming;
+            if let Err(err) = self.settings.save() {
+                tracing::warn!(%err, "cannot save settings");
+            }
+            self.command(Command::SetFilming {
+                options: self.settings.filming_options(),
+            });
+        }
         (pressed, switch_to_wifi, fullscreen)
     }
 }

@@ -131,6 +131,7 @@ struct Worker {
     known_phones: Arc<KnownPhones>,
     known_phones_sent: Option<bool>,
     next_reconnect: Instant,
+    filming: crate::filming::FilmingControl,
 }
 
 impl Worker {
@@ -154,6 +155,7 @@ impl Worker {
             known_phones: Arc::new(KnownPhones::load()),
             known_phones_sent: None,
             next_reconnect: Instant::now(),
+            filming: crate::filming::FilmingControl::new(),
             adb: None,
             server_running: false,
             owns_server: false,
@@ -196,6 +198,20 @@ impl Worker {
                     replay,
                 }) => {
                     self.start_mirror(serial, quality, sound, replay);
+                }
+                Ok(Command::SetFilming { options }) => {
+                    if let Some(adb) = self.adb.clone() {
+                        let mirrored = self.mirror.as_ref().map(|m| {
+                            let serial = m.serial().to_owned();
+                            let hardware = self.hardware_serial(&serial);
+                            (serial, hardware)
+                        });
+                        self.filming.set(
+                            &adb,
+                            options,
+                            mirrored.as_ref().map(|(s, h)| (s.as_str(), h.as_str())),
+                        );
+                    }
                 }
                 Ok(Command::SetReplay { replay }) => {
                     if let Some(mirror) = &self.mirror {
@@ -266,6 +282,10 @@ impl Worker {
 
         self.player = None;
         self.export = None;
+        // The phone is put back before the mirror's end would queue it.
+        if let Some(adb) = self.adb.clone() {
+            self.filming.shutdown(&adb);
+        }
         self.stop_mirror();
         self.cleanup();
         tracing::info!("core service stopped");
@@ -286,6 +306,7 @@ impl Worker {
             }));
             return;
         };
+        let adb_for_filming = adb.clone();
         let ctx = SessionContext {
             adb,
             serial: serial.clone(),
@@ -297,7 +318,12 @@ impl Worker {
             notify: Arc::clone(&self.notify),
         };
         match MirrorSession::start(ctx) {
-            Ok(session) => self.mirror = Some(session),
+            Ok(session) => {
+                self.mirror = Some(session);
+                let hardware = self.hardware_serial(&serial);
+                self.filming
+                    .mirror_started(&adb_for_filming, &serial, &hardware);
+            }
             Err(err) => {
                 tracing::error!(%err, "could not start mirror thread");
                 self.send(Event::Mirror(MirrorState::Stopped {
@@ -373,6 +399,9 @@ impl Worker {
         if let Some(session) = self.mirror.take() {
             tracing::info!(serial = %session.serial(), "stopping mirror");
             session.stop();
+            if let Some(adb) = &self.adb {
+                self.filming.mirror_stopped(adb);
+            }
         }
     }
 
@@ -413,6 +442,10 @@ impl Worker {
                 self.set_status(AdbStatus::Ready);
                 self.fill_product_info(&adb, &mut devices);
                 self.reconnect_wifi_phones(&adb, &devices);
+                for device in devices.iter().filter(|d| d.state == DeviceState::Ready) {
+                    let hardware = self.hardware_serial(&device.serial);
+                    self.filming.phone_seen(&adb, &device.serial, &hardware);
+                }
                 // One entry per phone, even when plugged in and on Wi-Fi.
                 let products = &self.products;
                 let devices = crate::adb::merge_transports(devices, |serial| {
@@ -440,6 +473,15 @@ impl Worker {
             let serials: Vec<String> = devices.iter().map(|d| d.serial.clone()).collect();
             self.known_phones.reconnect(adb, &serials);
         }
+    }
+
+    /// The phone's hardware serial (the same over USB and Wi-Fi), or the adb
+    /// serial when it is not known.
+    fn hardware_serial(&self, serial: &str) -> String {
+        self.products
+            .get(serial)
+            .and_then(|p| p.serial_no.clone())
+            .unwrap_or_else(|| serial.to_owned())
     }
 
     fn fill_product_info(&mut self, adb: &Adb, devices: &mut [DeviceInfo]) {
