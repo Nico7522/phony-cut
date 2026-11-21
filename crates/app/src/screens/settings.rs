@@ -24,6 +24,9 @@ pub enum SettingsAction {
     OpenWireless,
     /// A setting without other effect changed: just save.
     Save,
+    /// The instant replay changed: applied to the preview without restarting
+    /// it (what is kept stays).
+    ReplayChanged,
     OpenLicenses,
     /// The interface language changed (already written into the settings).
     LanguageChanged,
@@ -130,10 +133,44 @@ pub fn show(
             }
             ui.add_space(16.0);
 
+            section(ui, t::replay_title());
+            let label = RichText::new(t::replay_enabled()).size(16.0);
+            if ui.checkbox(&mut settings.replay_enabled, label).changed() {
+                actions.push(SettingsAction::ReplayChanged);
+            }
+            ui.add_enabled_ui(settings.replay_enabled, |ui| {
+                ui.horizontal(|ui| {
+                    for seconds in [15, 30, 60, 120] {
+                        let text = RichText::new(t::replay_length(seconds)).size(16.0);
+                        if ui
+                            .radio_value(&mut settings.replay_seconds, seconds, text)
+                            .changed()
+                        {
+                            actions.push(SettingsAction::ReplayChanged);
+                        }
+                    }
+                });
+            });
+            ui.indent("replay-hint", |ui| {
+                ui.label(RichText::new(t::replay_hint()).weak());
+            });
+            ui.add_space(16.0);
+
             section(ui, t::shortcut_title());
-            if editor.show(ui, &mut settings.cut_shortcut) {
+            let other = settings.replay_shortcut.clone();
+            if editor.show(ui, ShortcutTarget::Cut, &mut settings.cut_shortcut, &other) {
                 actions.push(SettingsAction::Save);
             }
+            let other = settings.cut_shortcut.clone();
+            if editor.show(
+                ui,
+                ShortcutTarget::Replay,
+                &mut settings.replay_shortcut,
+                &other,
+            ) {
+                actions.push(SettingsAction::Save);
+            }
+            ui.label(RichText::new(t::shortcut_hint()).weak());
             ui.add_space(16.0);
 
             section(ui, t::updates());
@@ -192,44 +229,71 @@ pub fn show(
 
 /// Changing the "mark a cut" shortcut: waits for the next combination and
 /// keeps it only if it is allowed (see [`Shortcut::from_keys`]).
+/// Which shortcut is being changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ShortcutTarget {
+    Cut,
+    Replay,
+}
+
 #[derive(Default)]
 pub struct ShortcutEditor {
-    capturing: bool,
-    problem: Option<ShortcutProblem>,
+    capturing: Option<ShortcutTarget>,
+    problem: Option<(ShortcutTarget, ShortcutProblem)>,
 }
 
 impl ShortcutEditor {
-    /// While capturing, the cut shortcut must not fire.
+    /// While capturing, the shortcuts must not fire.
     pub fn is_capturing(&self) -> bool {
-        self.capturing
+        self.capturing.is_some()
     }
 
     /// Returns `true` when the shortcut changed (to save).
-    fn show(&mut self, ui: &mut egui::Ui, shortcut: &mut Shortcut) -> bool {
+    fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        target: ShortcutTarget,
+        shortcut: &mut Shortcut,
+        other: &Shortcut,
+    ) -> bool {
+        let default = match target {
+            ShortcutTarget::Cut => Shortcut::default(),
+            ShortcutTarget::Replay => Shortcut::replay_default(),
+        };
+        let capturing = self.capturing == Some(target);
         let mut changed = false;
         ui.horizontal(|ui| {
-            ui.label(RichText::new(t::shortcut_cut()).size(16.0));
+            ui.label(
+                RichText::new(match target {
+                    ShortcutTarget::Cut => t::shortcut_cut(),
+                    ShortcutTarget::Replay => t::shortcut_replay(),
+                })
+                .size(16.0),
+            );
             ui.label(
                 RichText::new(shortcut.label())
                     .size(16.0)
                     .strong()
                     .monospace(),
             );
-            if self.capturing {
+            if capturing {
                 ui.label(RichText::new(t::shortcut_press()).color(Color32::from_rgb(77, 145, 230)));
-            } else {
+            } else if self.capturing.is_none() {
                 if ui.button(t::shortcut_change()).clicked() {
-                    self.capturing = true;
+                    self.capturing = Some(target);
                     self.problem = None;
                 }
-                if *shortcut != Shortcut::default() && ui.button(t::shortcut_reset()).clicked() {
-                    *shortcut = Shortcut::default();
+                if *shortcut != default
+                    && default != *other
+                    && ui.button(t::shortcut_reset()).clicked()
+                {
+                    *shortcut = default.clone();
                     self.problem = None;
                     changed = true;
                 }
             }
         });
-        if self.capturing {
+        if capturing {
             let pressed = ui.input(|i| {
                 i.events.iter().find_map(|event| match event {
                     egui::Event::Key {
@@ -243,24 +307,28 @@ impl ShortcutEditor {
             });
             if let Some((key, modifiers)) = pressed {
                 if key == egui::Key::Escape && !modifiers.any() {
-                    self.capturing = false;
+                    self.capturing = None;
                 } else {
                     match Shortcut::from_keys(key, modifiers) {
+                        Ok(new) if new == *other => {
+                            self.problem = Some((target, ShortcutProblem::InUse));
+                        }
                         Ok(new) => {
                             *shortcut = new;
-                            self.capturing = false;
+                            self.capturing = None;
                             self.problem = None;
                             changed = true;
                         }
-                        Err(problem) => self.problem = Some(problem),
+                        Err(problem) => self.problem = Some((target, problem)),
                     }
                 }
             }
         }
-        if let Some(problem) = self.problem {
-            ui.colored_label(Color32::from_rgb(214, 120, 0), t::shortcut_problem(problem));
+        if let Some((problem_target, problem)) = self.problem {
+            if problem_target == target {
+                ui.colored_label(Color32::from_rgb(214, 120, 0), t::shortcut_problem(problem));
+            }
         }
-        ui.label(RichText::new(t::shortcut_hint()).weak());
         changed
     }
 }

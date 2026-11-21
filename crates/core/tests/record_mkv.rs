@@ -393,3 +393,71 @@ fn rotation_fix_keeps_one_frame_size() {
     assert_eq!(frames, expected.frames, "every frame kept");
     let _ = fs::remove_file(&path);
 }
+
+/// Instant replay of the real capture with sound: the last ~3 s are written
+/// to a file that FFmpeg reads, starting on a key frame, with sound.
+#[test]
+fn instant_replay_of_a_real_capture() {
+    use phonycut_core::replay::ReplayBuffer;
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let video = common::capture_packets(
+        fs::read(dir.join("xiaomi-poco-android16-sound.bin")).unwrap(),
+        false,
+    );
+    let audio = common::capture_packets(
+        fs::read(dir.join("xiaomi-poco-android16-sound.audio.bin")).unwrap(),
+        true,
+    );
+    let mut buffer = ReplayBuffer::new(Duration::from_secs(3), 214, 480);
+    buffer.set_audio_config(audio[0].data.clone());
+    let t0 = Instant::now();
+    let first = video.iter().find_map(|p| p.pts_us).unwrap();
+    let mut a = audio.iter().skip(1).peekable();
+    for packet in &video {
+        if let Some(pts) = packet.pts_us {
+            while a.peek().is_some_and(|p| p.pts_us.unwrap() <= pts) {
+                buffer.push_audio(a.next().unwrap());
+            }
+            buffer.push_video(packet, t0 + Duration::from_micros(pts - first));
+        } else {
+            buffer.push_video(packet, t0);
+        }
+    }
+    let kept = buffer.kept();
+    assert!(
+        kept >= Duration::from_millis(2_500) && kept <= Duration::from_secs(5),
+        "{kept:?}"
+    );
+
+    let path = temp_file("replay.mkv");
+    let snapshot = buffer.snapshot(Instant::now()).unwrap();
+    snapshot.write(&path).unwrap();
+
+    let mut input = ffmpeg::format::input(&path).unwrap();
+    assert!(
+        input.streams().best(ffmpeg::media::Type::Audio).is_some(),
+        "sound kept"
+    );
+    let stream = input.streams().best(ffmpeg::media::Type::Video).unwrap();
+    let index = stream.index();
+    let mut decoder = ffmpeg::codec::Context::from_parameters(stream.parameters())
+        .unwrap()
+        .decoder()
+        .video()
+        .unwrap();
+    let mut frame = ffmpeg::util::frame::Video::empty();
+    let (mut frames, mut first_key) = (0, None);
+    for (s, packet) in input.packets() {
+        if s.index() != index {
+            continue;
+        }
+        first_key.get_or_insert(packet.is_key());
+        decoder.send_packet(&packet).unwrap();
+        while decoder.receive_frame(&mut frame).is_ok() {
+            frames += 1;
+        }
+    }
+    assert_eq!(first_key, Some(true), "starts on a key frame");
+    assert!(frames > 10, "{frames} pictures decoded");
+    let _ = fs::remove_file(&path);
+}

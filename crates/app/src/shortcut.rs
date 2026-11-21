@@ -38,9 +38,19 @@ pub enum ShortcutProblem {
     Reserved,
     /// Not a letter, a digit or a function key.
     UnsupportedKey,
+    /// Already the shortcut of the other action.
+    InUse,
 }
 
 impl Shortcut {
+    /// Ctrl+R: save the instant replay.
+    pub fn replay_default() -> Self {
+        Self {
+            key: "R".into(),
+            ..Self::default()
+        }
+    }
+
     /// The combination pressed, if it can be the shortcut.
     pub fn from_keys(key: Key, modifiers: Modifiers) -> Result<Self, ShortcutProblem> {
         let name = key.name();

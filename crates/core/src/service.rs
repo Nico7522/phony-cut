@@ -12,7 +12,7 @@ use crate::adb::{Adb, AdbError, ProductInfo};
 use crate::api::{
     AdbProblem, AdbStatus, Command, DeviceInfo, DeviceState, Event, ExportProblem, ExportState,
     FrameSlot, MirrorEnd, MirrorState, PairingProblem, PairingState, RecordingProblem,
-    RecordingState, SoundOptions, VideoQuality,
+    RecordingState, ReplayProblem, ReplayResult, SoundOptions, VideoQuality,
 };
 use crate::export::ExportJob;
 use crate::pairing::PairingJob;
@@ -193,9 +193,21 @@ impl Worker {
                     serial,
                     quality,
                     sound,
+                    replay,
                 }) => {
-                    self.start_mirror(serial, quality, sound);
+                    self.start_mirror(serial, quality, sound, replay);
                 }
+                Ok(Command::SetReplay { replay }) => {
+                    if let Some(mirror) = &self.mirror {
+                        mirror.set_replay(replay);
+                    }
+                }
+                Ok(Command::SaveReplay { folder }) => match &self.mirror {
+                    Some(mirror) => mirror.save_replay(&folder),
+                    None => self.send(Event::Replay(ReplayResult::Failed(
+                        ReplayProblem::NotAvailable,
+                    ))),
+                },
                 Ok(Command::StopMirror) => self.stop_mirror(),
                 Ok(Command::StartPairing) => self.start_pairing(None),
                 Ok(Command::PairWithCode { code }) => self.start_pairing(Some(code)),
@@ -259,7 +271,13 @@ impl Worker {
         tracing::info!("core service stopped");
     }
 
-    fn start_mirror(&mut self, serial: String, quality: VideoQuality, sound: SoundOptions) {
+    fn start_mirror(
+        &mut self,
+        serial: String,
+        quality: VideoQuality,
+        sound: SoundOptions,
+        replay: Option<Duration>,
+    ) {
         self.stop_mirror();
         let Some(adb) = self.adb.clone() else {
             self.send(Event::Mirror(MirrorState::Stopped {
@@ -273,6 +291,7 @@ impl Worker {
             serial: serial.clone(),
             options: ServerOptions::from(quality),
             sound,
+            replay,
             frames: Arc::clone(&self.frames),
             events: self.events.clone(),
             notify: Arc::clone(&self.notify),

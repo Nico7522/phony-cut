@@ -229,6 +229,14 @@ impl PhonyCutApp {
                     self.handle_record(Some(RecordAction::OpenFolder(folder)), ctx);
                 }
                 SettingsAction::OpenAssistant => self.onboarding.open(ctx),
+                SettingsAction::ReplayChanged => {
+                    if let Err(err) = self.settings.save() {
+                        tracing::warn!(%err, "cannot save settings");
+                    }
+                    self.command(Command::SetReplay {
+                        replay: self.settings.replay_duration(),
+                    });
+                }
                 SettingsAction::Save => {
                     if let Err(err) = self.settings.save() {
                         tracing::warn!(%err, "cannot save settings");
@@ -495,6 +503,7 @@ impl PhonyCutApp {
                 serial,
                 quality: self.settings.video_quality(),
                 sound: self.settings.sound_options(),
+                replay: self.settings.replay_duration(),
             }),
             None => {}
         }
@@ -513,6 +522,9 @@ impl PhonyCutApp {
             }),
             Some(RecordAction::Stop) => self.command(Command::StopRecording),
             Some(RecordAction::MarkCut) => self.command(Command::MarkCut),
+            Some(RecordAction::SaveReplay) => self.command(Command::SaveReplay {
+                folder: self.settings.output_dir.clone(),
+            }),
             Some(RecordAction::OpenFolder(folder)) => {
                 // The default folder may not exist before the first recording.
                 let opened = std::fs::create_dir_all(&folder)
@@ -627,6 +639,12 @@ impl eframe::App for PhonyCutApp {
                 Event::Mirror(state) => self.live.apply(state),
                 Event::Sound(state) => self.live.set_sound(state),
                 Event::Pairing(state) => self.wireless.apply(state),
+                Event::Replay(result) => {
+                    if matches!(result, phonycut_core::api::ReplayResult::Saved { .. }) {
+                        self.clips.invalidate(); // a new video exists
+                    }
+                    self.record.replay_saved(result);
+                }
                 Event::WifiSwitch(state) => {
                     // `adb tcpip` restarts the phone's adb: the USB preview
                     // stopped, start it again (unplugging then hands over to Wi-Fi).
@@ -667,11 +685,27 @@ impl eframe::App for PhonyCutApp {
         // The cut shortcut (Ctrl+M by default). Taken before the phone gets
         // the keys, so it works even while the phone has the keyboard.
         self.record.set_shortcut(self.settings.cut_shortcut.label());
-        if self.record.can_mark_cut() && !self.shortcut_editor.is_capturing() {
-            if let Some(shortcut) = self.settings.cut_shortcut.keyboard_shortcut() {
-                if ui.input_mut(|i| i.consume_shortcut(&shortcut)) {
-                    self.command(Command::MarkCut);
-                }
+        self.record.set_replay_shortcut(
+            self.settings
+                .replay_enabled
+                .then(|| self.settings.replay_shortcut.label()),
+        );
+        if !self.shortcut_editor.is_capturing() {
+            let pressed = |shortcut: &shortcut::Shortcut| {
+                shortcut
+                    .keyboard_shortcut()
+                    .is_some_and(|s| ui.input_mut(|i| i.consume_shortcut(&s)))
+            };
+            if self.record.can_mark_cut() && pressed(&self.settings.cut_shortcut) {
+                self.command(Command::MarkCut);
+            }
+            if self.settings.replay_enabled
+                && self.live.has_video()
+                && pressed(&self.settings.replay_shortcut)
+            {
+                self.command(Command::SaveReplay {
+                    folder: self.settings.output_dir.clone(),
+                });
             }
         }
         let live_video = self.tab == Tab::Live && self.live.has_video();

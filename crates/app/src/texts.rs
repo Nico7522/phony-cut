@@ -518,6 +518,41 @@ pub fn record_waiting_asleep() -> &'static str {
 pub fn record_live() -> &'static str {
     "● REC"
 }
+pub fn save_replay(shortcut: &str) -> String {
+    match language() {
+        Language::French => format!("Sauver le replay  ({shortcut})"),
+        Language::English => format!("Save the replay  ({shortcut})"),
+    }
+}
+pub fn save_replay_hint() -> &'static str {
+    tr(
+        "Enregistre les dernières secondes, avec le son, même sans enregistrement en cours.",
+        "Saves the last seconds, with the sound, even without a recording running.",
+    )
+}
+pub fn replay_saved(seconds: u64) -> String {
+    match language() {
+        Language::French => format!("Replay enregistré ({seconds} s) :"),
+        Language::English => format!("Replay saved ({seconds} s):"),
+    }
+}
+pub fn replay_problem(problem: phonycut_core::api::ReplayProblem) -> &'static str {
+    use phonycut_core::api::ReplayProblem;
+    match problem {
+        ReplayProblem::NotAvailable => tr(
+            "Le replay est désactivé (Réglages → Replay instantané).",
+            "The replay is turned off (Settings → Instant replay).",
+        ),
+        ReplayProblem::NotReady => tr(
+            "Rien à sauver pour l'instant : l'aperçu vient de démarrer.",
+            "Nothing to save yet: the preview just started.",
+        ),
+        ReplayProblem::WriteFailed => tr(
+            "Impossible d'écrire le replay. Vérifiez le dossier des vidéos et l'espace libre.",
+            "Could not write the replay. Check the videos folder and the free space.",
+        ),
+    }
+}
 pub fn mark_cut(shortcut: &str) -> String {
     match language() {
         Language::French => format!("Marquer un cut  ({shortcut})"),
@@ -1195,6 +1230,35 @@ pub mod settings {
     pub fn shortcut_title() -> &'static str {
         tr("Raccourci clavier", "Keyboard shortcut")
     }
+    pub fn shortcut_replay() -> &'static str {
+        tr("Sauver le replay :", "Save the replay:")
+    }
+    pub fn replay_title() -> &'static str {
+        tr("Replay instantané", "Instant replay")
+    }
+    pub fn replay_enabled() -> &'static str {
+        tr(
+            "Garder les dernières secondes pour pouvoir les sauvegarder",
+            "Keep the last seconds so you can save them",
+        )
+    }
+    pub fn replay_hint() -> &'static str {
+        tr(
+            "Un moment à garder ? Le raccourci (ou le bouton « Sauver le replay ») enregistre ce \
+             qui vient de se passer, avec le son, même sans enregistrement en cours. Utilise un \
+             peu de mémoire (environ 1 Mo par seconde en qualité Standard).",
+            "A moment to keep? The shortcut (or the \"Save the replay\" button) saves what just \
+             happened, with the sound, even without a recording running. Uses some memory \
+             (about 1 MB per second at the Standard quality).",
+        )
+    }
+    pub fn replay_length(seconds: u32) -> String {
+        match (language(), seconds) {
+            (Language::French, s) if s >= 60 => format!("{} min", s / 60),
+            (Language::English, s) if s >= 60 => format!("{} min", s / 60),
+            (_, s) => format!("{s} s"),
+        }
+    }
     pub fn shortcut_cut() -> &'static str {
         tr("Marquer un cut :", "Mark a cut:")
     }
@@ -1234,6 +1298,10 @@ pub mod settings {
             ShortcutProblem::UnsupportedKey => tr(
                 "Choisissez une lettre, un chiffre ou une touche F1 à F12.",
                 "Choose a letter, a digit or a key from F1 to F12.",
+            ),
+            ShortcutProblem::InUse => tr(
+                "Ce raccourci sert déjà à l'autre action.",
+                "This shortcut is already used by the other action.",
             ),
         }
     }

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText};
-use phonycut_core::api::{RecordingEnd, RecordingInfo, RecordingState};
+use phonycut_core::api::{RecordingEnd, RecordingInfo, RecordingState, ReplayResult};
 
 use crate::texts;
 
@@ -15,6 +15,8 @@ pub enum RecordAction {
     Start,
     Stop,
     MarkCut,
+    /// Save the last seconds (instant replay).
+    SaveReplay,
     OpenFolder(PathBuf),
     /// Open the system "choose a folder" dialog.
     PickFolder,
@@ -42,6 +44,10 @@ pub struct RecordPanel {
     waiting_since: Option<Instant>,
     /// Shortcut to mark a cut, shown on the button (e.g. "Ctrl+M").
     shortcut: String,
+    /// Shortcut of the instant replay; `None` when it is turned off.
+    replay_shortcut: Option<String>,
+    /// Last replay save.
+    replay_result: Option<ReplayResult>,
 }
 
 /// After this, a recording still waiting for an image explains why (the
@@ -63,6 +69,40 @@ impl RecordPanel {
 
     pub fn set_shortcut(&mut self, label: String) {
         self.shortcut = label;
+    }
+
+    pub fn set_replay_shortcut(&mut self, label: Option<String>) {
+        self.replay_shortcut = label;
+    }
+
+    pub fn replay_saved(&mut self, result: ReplayResult) {
+        self.replay_result = Some(result);
+    }
+
+    /// The last replay result, under the buttons.
+    fn replay_line(&self, ui: &mut egui::Ui) -> Option<RecordAction> {
+        let mut action = None;
+        match &self.replay_result {
+            Some(ReplayResult::Saved { path, duration }) => {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(texts::replay_saved(duration.as_secs())).strong());
+                    ui.label(
+                        path.file_name()
+                            .map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
+                    );
+                    if ui.button(texts::open_folder()).clicked() {
+                        if let Some(folder) = path.parent() {
+                            action = Some(RecordAction::OpenFolder(folder.to_path_buf()));
+                        }
+                    }
+                });
+            }
+            Some(ReplayResult::Failed(problem)) => {
+                ui.colored_label(RED, texts::replay_problem(*problem));
+            }
+            None => {}
+        }
+        action
     }
 
     pub fn cut_marked(&mut self, time: Duration, count: usize) {
@@ -147,6 +187,18 @@ impl RecordPanel {
             {
                 action = Some(RecordAction::MarkCut);
             }
+            if let Some(replay) = &self.replay_shortcut {
+                let button =
+                    egui::Button::new(RichText::new(texts::save_replay(replay)).size(18.0))
+                        .min_size(big);
+                if ui
+                    .add_enabled(can_record, button)
+                    .on_hover_text(texts::save_replay_hint())
+                    .clicked()
+                {
+                    action = Some(RecordAction::SaveReplay);
+                }
+            }
             let clips =
                 egui::Button::new(RichText::new(texts::open_clips()).size(18.0)).min_size(big);
             if ui.add(clips).clicked() {
@@ -164,6 +216,9 @@ impl RecordPanel {
         }
         if let Some(result) = self.result(ui) {
             action = Some(result);
+        }
+        if let Some(replay) = self.replay_line(ui) {
+            action = Some(replay);
         }
         if let Some(notice) = self.notice {
             ui.colored_label(RED, notice);
@@ -202,6 +257,18 @@ impl RecordPanel {
             .clicked()
         {
             action = Some(RecordAction::MarkCut);
+        }
+        if let Some(replay) = &self.replay_shortcut {
+            if ui
+                .button(texts::save_replay(replay))
+                .on_hover_text(texts::save_replay_hint())
+                .clicked()
+            {
+                action = Some(RecordAction::SaveReplay);
+            }
+        }
+        if let Some(ReplayResult::Saved { duration, .. }) = &self.replay_result {
+            ui.label(RichText::new(texts::replay_saved(duration.as_secs())).weak());
         }
         if self.is_recording() {
             ui.add_space(8.0);

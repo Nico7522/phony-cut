@@ -29,6 +29,12 @@ pub struct Settings {
     pub listen_sound: bool,
     /// Keyboard shortcut to mark a cut (Ctrl+M by default).
     pub cut_shortcut: Shortcut,
+    /// Keep the last seconds for an instant replay.
+    pub replay_enabled: bool,
+    /// Its length in seconds (15, 30, 60 or 120).
+    pub replay_seconds: u32,
+    /// Keyboard shortcut to save the replay (Ctrl+R by default).
+    pub replay_shortcut: Shortcut,
     /// Ask GitHub, at most once a day, whether a newer version exists.
     pub check_updates: bool,
     /// Last time it was asked (Unix seconds).
@@ -69,6 +75,9 @@ impl Default for Settings {
             record_sound: true,
             listen_sound: true,
             cut_shortcut: Shortcut::default(),
+            replay_enabled: true,
+            replay_seconds: 30,
+            replay_shortcut: Shortcut::replay_default(),
             check_updates: true,
             update_checked_at: None,
             support_shown_at: None,
@@ -112,6 +121,12 @@ pub fn support_due(last_shown: Option<u64>, now: u64) -> bool {
 }
 
 impl Settings {
+    /// Instant replay length, `None` when turned off.
+    pub fn replay_duration(&self) -> Option<std::time::Duration> {
+        self.replay_enabled
+            .then(|| std::time::Duration::from_secs(u64::from(self.replay_seconds.clamp(5, 600))))
+    }
+
     /// What to do with the phone's sound.
     pub fn sound_options(&self) -> SoundOptions {
         SoundOptions {
@@ -306,6 +321,9 @@ mod tests {
                 shift: false,
                 key: "K".into(),
             },
+            replay_enabled: false,
+            replay_seconds: 60,
+            replay_shortcut: Shortcut::replay_default(),
             check_updates: false,
             update_checked_at: Some(1_700_000_000),
             support_shown_at: Some(1_700_000_000),

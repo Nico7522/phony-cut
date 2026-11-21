@@ -18,6 +18,7 @@ pub mod platform;
 pub mod player;
 pub mod preview;
 pub mod record;
+pub mod replay;
 pub mod scrcpy;
 pub mod service;
 pub mod tcpip;

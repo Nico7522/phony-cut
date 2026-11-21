@@ -24,6 +24,8 @@ pub enum Command {
         serial: String,
         quality: VideoQuality,
         sound: SoundOptions,
+        /// Keep the last seconds for an instant replay (`None`: off).
+        replay: Option<Duration>,
     },
     /// Stop the running mirror, if any.
     StopMirror,
@@ -41,6 +43,16 @@ pub enum Command {
     /// answered with `Event::WifiSwitch`.
     SwitchToWifi {
         serial: String,
+    },
+    /// Change the instant replay of the running mirror without restarting it
+    /// (`None`: off). What is kept stays when the length grows.
+    SetReplay {
+        replay: Option<Duration>,
+    },
+    /// Save the last seconds kept for the instant replay into a new file in
+    /// `folder` (answered with `Event::Replay`).
+    SaveReplay {
+        folder: PathBuf,
     },
     /// Ask GitHub whether a newer version is published (answered with
     /// `Event::UpdateAvailable` only when there is one).
@@ -161,6 +173,23 @@ pub enum PhoneButton {
     Power,
 }
 
+/// Result of `Command::SaveReplay`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReplayResult {
+    Saved { path: PathBuf, duration: Duration },
+    Failed(ReplayProblem),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReplayProblem {
+    /// No preview running, or the replay is turned off.
+    NotAvailable,
+    /// Nothing kept yet (the preview just started).
+    NotReady,
+    /// The file could not be written.
+    WriteFailed,
+}
+
 /// "Switch to Wi-Fi" of a plugged-in phone (`adb tcpip`, any Android).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WifiSwitchState {
@@ -273,6 +302,8 @@ pub enum Event {
     AdbConflict,
     /// Progress of a Wi-Fi pairing.
     Pairing(PairingState),
+    /// Result of an instant replay save.
+    Replay(ReplayResult),
     /// Progress of "Switch to Wi-Fi".
     WifiSwitch(WifiSwitchState),
     /// Whether phones switched to Wi-Fi are remembered (sent at start and when

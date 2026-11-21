@@ -62,7 +62,8 @@ impl HomeScreen {
             | Event::Pairing(_)
             | Event::UpdateAvailable { .. }
             | Event::WifiSwitch(_)
-            | Event::KnownWifiPhones(_) => {}
+            | Event::KnownWifiPhones(_)
+            | Event::Replay(_) => {}
         }
     }
 

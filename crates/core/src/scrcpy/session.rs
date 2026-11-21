@@ -3,7 +3,7 @@
 
 use std::io::{BufReader, Read, Write};
 use std::net::{Shutdown, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
@@ -15,12 +15,13 @@ use crate::adb::Adb;
 use crate::api::{
     Event, FrameSlot, MirrorEnd, MirrorState, Notifier, RecordingEnd, RecordingProblem,
 };
-use crate::api::{PhoneInput, SoundOptions, SoundState};
+use crate::api::{PhoneInput, ReplayProblem, ReplayResult, SoundOptions, SoundState};
 use crate::audio::AacDecoder;
 use crate::audio_out::AudioOutput;
 use crate::decode::{DecodeError, H264Decoder};
 use crate::preview::{LagGuard, PreviewConverter};
 use crate::record::{Recorder, RecorderSetup};
+use crate::replay::ReplayBuffer;
 use crate::scrcpy::control::{self, ControlMessage};
 use crate::scrcpy::protocol::{self, AudioCodec, ProtocolError, StreamItem, VideoCodec};
 use crate::scrcpy::server::{AudioSource, RunningServer, ServerError, ServerOptions};
@@ -63,6 +64,8 @@ struct Shared {
     /// AAC configuration once the sound stream is open (recordings then get
     /// a sound track).
     audio_config: Mutex<Option<Vec<u8>>>,
+    /// The last seconds, for an instant replay (`None`: turned off).
+    replay: Mutex<Option<ReplayBuffer>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -84,6 +87,8 @@ pub struct SessionContext {
     pub serial: String,
     pub options: ServerOptions,
     pub sound: SoundOptions,
+    /// Instant replay length (`None`: off).
+    pub replay: Option<Duration>,
     pub frames: Arc<FrameSlot>,
     pub events: Sender<Event>,
     pub notify: Notifier,
@@ -159,6 +164,74 @@ impl MirrorSession {
             for message in control::translate(input) {
                 let _ = control.send(message);
             }
+        }
+    }
+
+    /// Turns the instant replay on or off, or changes its length, live.
+    pub fn set_replay(&self, replay: Option<Duration>) {
+        let mut slot = lock(&self.shared.replay);
+        match (replay, slot.as_mut()) {
+            (None, _) => *slot = None,
+            (Some(duration), Some(buffer)) => buffer.set_duration(duration),
+            (Some(duration), None) => {
+                let stream = lock(&self.shared.stream).clone();
+                if let Some((width, height)) = stream.size {
+                    let mut buffer = ReplayBuffer::new(duration, width, height);
+                    if let Some(config) = stream.config {
+                        buffer.set_video_config(config);
+                    }
+                    if let Some(config) = lock(&self.shared.audio_config).clone() {
+                        buffer.set_audio_config(config);
+                    }
+                    *slot = Some(buffer);
+                }
+            }
+        }
+    }
+
+    /// Saves the instant replay into a new file of `folder`, on its own
+    /// thread; the result comes as `Event::Replay`.
+    pub fn save_replay(&self, folder: &Path) {
+        let snapshot = lock(&self.shared.replay)
+            .as_ref()
+            .map(|buffer| buffer.snapshot(Instant::now()));
+        let send = {
+            let (events, notify) = (self.events.clone(), Arc::clone(&self.notify));
+            move |result: ReplayResult| {
+                if events.send(Event::Replay(result)).is_ok() {
+                    notify();
+                }
+            }
+        };
+        let snapshot = match snapshot {
+            None => return send(ReplayResult::Failed(ReplayProblem::NotAvailable)),
+            Some(None) => return send(ReplayResult::Failed(ReplayProblem::NotReady)),
+            Some(Some(snapshot)) => snapshot,
+        };
+        let path = crate::record::unique_path(
+            folder,
+            &crate::replay::replay_file_name(crate::platform::local_now()),
+        );
+        let duration = snapshot.duration();
+        let spawned = thread::Builder::new()
+            .name("replay-save".into())
+            .spawn(move || {
+                let written = std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))
+                    .map_err(|e| e.to_string())
+                    .and_then(|()| snapshot.write(&path).map_err(|e| e.to_string()));
+                match written {
+                    Ok(path) => {
+                        tracing::info!(path = %path.display(), ?duration, "instant replay saved");
+                        send(ReplayResult::Saved { path, duration });
+                    }
+                    Err(err) => {
+                        tracing::error!(%err, "cannot save the instant replay");
+                        send(ReplayResult::Failed(ReplayProblem::WriteFailed));
+                    }
+                }
+            });
+        if let Err(err) = spawned {
+            tracing::error!(%err, "cannot start the replay save");
         }
     }
 
@@ -310,6 +383,9 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
         sound_reporter(ctx)(problem);
     }
     lock(&shared.stream).size = Some((session.width, session.height));
+    if let Some(duration) = ctx.replay {
+        *lock(&shared.replay) = Some(ReplayBuffer::new(duration, session.width, session.height));
+    }
 
     let mut decoder = H264Decoder::new()?;
     let mut stats = Stats::new();
@@ -338,6 +414,9 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
                 if let Some(recorder) = lock(&shared.recorder).as_ref() {
                     recorder.resized(session.width, session.height);
                 }
+                if let Some(replay) = lock(&shared.replay).as_mut() {
+                    replay.reset(session.width, session.height);
+                }
             }
             StreamItem::Packet(packet) => {
                 if packet.config {
@@ -345,6 +424,9 @@ fn stream(ctx: &SessionContext, shared: &Arc<Shared>) -> Result<(), SessionError
                 }
                 if let Some(recorder) = lock(&shared.recorder).as_ref() {
                     recorder.push(&packet);
+                }
+                if let Some(replay) = lock(&shared.replay).as_mut() {
+                    replay.push_video(&packet, Instant::now());
                 }
                 // Behind on a slow PC: skip to the next key frame (the
                 // recording above still got the packet).
@@ -436,6 +518,9 @@ fn read_audio(
     }
     tracing::info!(config = ?config.data, "sound stream open");
     *lock(&shared.audio_config) = Some(config.data.clone());
+    if let Some(replay) = lock(&shared.replay).as_mut() {
+        replay.set_audio_config(config.data.clone());
+    }
 
     let output = if listen {
         match AudioOutput::start() {
@@ -471,6 +556,9 @@ fn read_audio(
         let packet = protocol::read_audio_packet(&mut reader)?;
         if let Some(recorder) = lock(&shared.recorder).as_ref() {
             recorder.push_audio(&packet);
+        }
+        if let Some(replay) = lock(&shared.replay).as_mut() {
+            replay.push_audio(&packet);
         }
         if let Some((output, decoder)) = &mut player {
             samples.clear();
