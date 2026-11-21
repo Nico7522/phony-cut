@@ -518,16 +518,27 @@ pub fn record_waiting_asleep() -> &'static str {
 pub fn record_live() -> &'static str {
     "● REC"
 }
-pub fn mark_cut() -> &'static str {
-    tr("Marquer un cut  (M)", "Mark a cut  (M)")
+pub fn mark_cut(shortcut: &str) -> String {
+    match language() {
+        Language::French => format!("Marquer un cut  ({shortcut})"),
+        Language::English => format!("Mark a cut  ({shortcut})"),
+    }
 }
-pub fn mark_cut_hint() -> &'static str {
-    tr(
-        "Pose un repère à cet instant. Vous pourrez ensuite découper la vidéo à ces repères \
-         dans « Mes clips ». Raccourci : touche M.",
-        "Puts a marker at this moment. You can then cut the video at these markers in \"My \
-         clips\". Shortcut: M key.",
-    )
+pub fn mark_cut_hint(shortcut: &str) -> String {
+    match language() {
+        Language::French => format!(
+            "Pose un repère à cet instant. Vous pourrez ensuite découper la vidéo à ces \
+             repères dans « Mes clips ». Raccourci : {shortcut} (modifiable dans les Réglages)."
+        ),
+        Language::English => format!(
+            "Puts a marker at this moment. You can then cut the video at these markers in \
+             \"My clips\". Shortcut: {shortcut} (can be changed in the Settings)."
+        ),
+    }
+}
+/// Name of the Shift key in shortcuts.
+pub fn shift_key() -> &'static str {
+    tr("Maj", "Shift")
 }
 pub fn record_saved() -> &'static str {
     tr("Vidéo enregistrée :", "Video saved:")
@@ -1180,6 +1191,51 @@ pub mod settings {
             "Écouter le son sur le PC pendant l'aperçu",
             "Listen on the PC during the preview",
         )
+    }
+    pub fn shortcut_title() -> &'static str {
+        tr("Raccourci clavier", "Keyboard shortcut")
+    }
+    pub fn shortcut_cut() -> &'static str {
+        tr("Marquer un cut :", "Mark a cut:")
+    }
+    pub fn shortcut_change() -> &'static str {
+        tr("Modifier", "Change")
+    }
+    pub fn shortcut_reset() -> &'static str {
+        tr("Par défaut", "Default")
+    }
+    pub fn shortcut_hint() -> &'static str {
+        tr(
+            "Fonctionne même quand le téléphone a le clavier. Doit contenir Ctrl ou Alt.",
+            "Works even while the phone has the keyboard. Must include Ctrl or Alt.",
+        )
+    }
+    pub fn shortcut_press() -> &'static str {
+        tr(
+            "Appuyez sur la nouvelle combinaison… (Échap pour annuler)",
+            "Press the new combination… (Esc to cancel)",
+        )
+    }
+    pub fn shortcut_problem(problem: crate::shortcut::ShortcutProblem) -> &'static str {
+        use crate::shortcut::ShortcutProblem;
+        match problem {
+            ShortcutProblem::NeedsCtrlOrAlt => tr(
+                "Ajoutez Ctrl ou Alt : une touche seule servirait à écrire sur le téléphone.",
+                "Add Ctrl or Alt: a key alone would type on the phone.",
+            ),
+            ShortcutProblem::AltGr => tr(
+                "Pas Ctrl+Alt ensemble : c'est AltGr, qui sert à taper €, @…",
+                "Not Ctrl+Alt together: it is AltGr, used to type €, @…",
+            ),
+            ShortcutProblem::Reserved => tr(
+                "Cette combinaison est déjà utilisée (copier, coller, annuler, plein écran…).",
+                "This combination is already used (copy, paste, undo, full screen…).",
+            ),
+            ShortcutProblem::UnsupportedKey => tr(
+                "Choisissez une lettre, un chiffre ou une touche F1 à F12.",
+                "Choose a letter, a digit or a key from F1 to F12.",
+            ),
+        }
     }
     pub fn updates() -> &'static str {
         tr("Mises à jour", "Updates")

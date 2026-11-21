@@ -5,6 +5,7 @@ mod icon;
 mod logging;
 mod screens;
 mod settings;
+mod shortcut;
 mod texts;
 mod widgets;
 
@@ -27,7 +28,7 @@ use screens::home::HomeScreen;
 use screens::live::{LiveScreen, MirrorRequest};
 use screens::onboarding::{Onboarding, OnboardingAction};
 use screens::record::{RecordAction, RecordPanel};
-use screens::settings::SettingsAction;
+use screens::settings::{SettingsAction, ShortcutEditor};
 use screens::wireless::{WirelessAction, WirelessDialog};
 use settings::Settings;
 
@@ -144,6 +145,8 @@ struct PhonyCutApp {
     onboarding: Onboarding,
     /// Pairing a phone over Wi-Fi.
     wireless: WirelessDialog,
+    /// Changing the cut shortcut in the settings.
+    shortcut_editor: ShortcutEditor,
     /// Only the phone picture, on the whole screen (live preview).
     fullscreen: bool,
     /// Last "Switch to Wi-Fi" state, shown in the status bar.
@@ -178,6 +181,7 @@ impl PhonyCutApp {
             onboarding: Onboarding::default(),
             wireless: WirelessDialog::default(),
             fullscreen: false,
+            shortcut_editor: ShortcutEditor::default(),
             wifi_switch: None,
             known_wifi_phones: false,
             onboarding_checked: false,
@@ -660,10 +664,15 @@ impl eframe::App for PhonyCutApp {
         }
         self.poll_folder_picker();
         let ctx = ui.ctx().clone();
-        // Keyboard shortcut: M marks a cut (unless typing in a text field).
-        let typing = ctx.memory(|m| m.focused().is_some());
-        if self.record.can_mark_cut() && !typing && ui.input(|i| i.key_pressed(egui::Key::M)) {
-            self.command(Command::MarkCut);
+        // The cut shortcut (Ctrl+M by default). Taken before the phone gets
+        // the keys, so it works even while the phone has the keyboard.
+        self.record.set_shortcut(self.settings.cut_shortcut.label());
+        if self.record.can_mark_cut() && !self.shortcut_editor.is_capturing() {
+            if let Some(shortcut) = self.settings.cut_shortcut.keyboard_shortcut() {
+                if ui.input_mut(|i| i.consume_shortcut(&shortcut)) {
+                    self.command(Command::MarkCut);
+                }
+            }
         }
         let live_video = self.tab == Tab::Live && self.live.has_video();
         if live_video && ui.input(|i| i.key_pressed(egui::Key::F11)) {
@@ -736,7 +745,12 @@ impl eframe::App for PhonyCutApp {
             }
             Tab::Settings => {
                 let picking = self.folder_picker.is_some();
-                let actions = screens::settings::show(ui, &mut self.settings, picking);
+                let actions = screens::settings::show(
+                    ui,
+                    &mut self.settings,
+                    picking,
+                    &mut self.shortcut_editor,
+                );
                 self.handle_settings(actions, &ctx);
                 return;
             }

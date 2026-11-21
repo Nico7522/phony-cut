@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use phonycut_core::api::{SoundOptions, VideoQuality};
 
+use crate::shortcut::Shortcut;
 use crate::texts::Language;
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +27,8 @@ pub struct Settings {
     pub record_sound: bool,
     /// Play it on the PC during the live preview.
     pub listen_sound: bool,
+    /// Keyboard shortcut to mark a cut (Ctrl+M by default).
+    pub cut_shortcut: Shortcut,
     /// Ask GitHub, at most once a day, whether a newer version exists.
     pub check_updates: bool,
     /// Last time it was asked (Unix seconds).
@@ -65,6 +68,7 @@ impl Default for Settings {
             language: LanguageChoice::default(),
             record_sound: true,
             listen_sound: true,
+            cut_shortcut: Shortcut::default(),
             check_updates: true,
             update_checked_at: None,
             support_shown_at: None,
@@ -296,6 +300,12 @@ mod tests {
             language: LanguageChoice::English,
             record_sound: false,
             listen_sound: false,
+            cut_shortcut: Shortcut {
+                ctrl: false,
+                alt: true,
+                shift: false,
+                key: "K".into(),
+            },
             check_updates: false,
             update_checked_at: Some(1_700_000_000),
             support_shown_at: Some(1_700_000_000),

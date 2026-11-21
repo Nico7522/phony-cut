@@ -40,6 +40,8 @@ pub struct RecordPanel {
     notice: Option<&'static str>,
     /// When the recording started waiting for its first key frame.
     waiting_since: Option<Instant>,
+    /// Shortcut to mark a cut, shown on the button (e.g. "Ctrl+M").
+    shortcut: String,
 }
 
 /// After this, a recording still waiting for an image explains why (the
@@ -57,6 +59,10 @@ impl RecordPanel {
             self.waiting_since = None;
         }
         self.state = Some(state);
+    }
+
+    pub fn set_shortcut(&mut self, label: String) {
+        self.shortcut = label;
     }
 
     pub fn cut_marked(&mut self, time: Duration, count: usize) {
@@ -131,11 +137,12 @@ impl RecordPanel {
                     action = Some(RecordAction::Start);
                 }
             }
-            let cut = egui::Button::new(RichText::new(texts::mark_cut()).size(18.0)).min_size(big);
+            let cut = egui::Button::new(RichText::new(texts::mark_cut(&self.shortcut)).size(18.0))
+                .min_size(big);
             if ui
                 .add_enabled(self.can_mark_cut(), cut)
-                .on_hover_text(texts::mark_cut_hint())
-                .on_disabled_hover_text(texts::mark_cut_hint())
+                .on_hover_text(texts::mark_cut_hint(&self.shortcut))
+                .on_disabled_hover_text(texts::mark_cut_hint(&self.shortcut))
                 .clicked()
             {
                 action = Some(RecordAction::MarkCut);
@@ -188,7 +195,10 @@ impl RecordPanel {
             }
         }
         if ui
-            .add_enabled(self.can_mark_cut(), egui::Button::new(texts::mark_cut()))
+            .add_enabled(
+                self.can_mark_cut(),
+                egui::Button::new(texts::mark_cut(&self.shortcut)),
+            )
             .clicked()
         {
             action = Some(RecordAction::MarkCut);
