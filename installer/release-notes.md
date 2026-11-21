@@ -1,3 +1,14 @@
+## Nouveautés de la 0.4.1 / What's new in 0.4.1
+
+- **« Passer en Wi-Fi » pour toutes les versions d'Android** : téléphone branché, un clic
+  en haut de l'aperçu, puis débranchez le câble. PhonyCut s'y reconnecte tout seul sur le
+  même Wi-Fi (après un redémarrage du téléphone, rebranchez le câble une fois). /
+  **"Switch to Wi-Fi" for every Android version**: with the phone plugged in, one click at
+  the top of the preview, then unplug the cable. PhonyCut connects to it again by itself
+  on the same Wi-Fi (after the phone restarts, plug in the cable once).
+- Un téléphone connecté de plusieurs façons n'apparaît qu'une fois. / A phone connected in
+  several ways is listed once.
+
 ## Nouveautés de la 0.4.0 / What's new in 0.4.0
 
 - **Prévenu des nouvelles versions** : un bandeau discret indique quand une version plus
