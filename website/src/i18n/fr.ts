@@ -38,7 +38,7 @@ export const fr: Dict = {
     features: [
       {
         title: "L'écran du téléphone en direct",
-        text: "Branchez votre téléphone avec un câble USB, ou connectez-le en Wi-Fi : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier.",
+        text: "Branchez votre téléphone avec un câble USB, ou connectez-le en Wi-Fi : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier, et l'afficher en plein écran.",
       },
       {
         title: "Un enregistrement sans perte de qualité",
@@ -46,7 +46,7 @@ export const fr: Dict = {
       },
       {
         title: "Des cuts pendant l'enregistrement, des clips à l'arrivée",
-        text: "Appuyez sur <kbd>M</kbd> (ou sur le bouton « Marquer un cut ») à chaque bon moment pendant l'enregistrement. Dans « Mes clips », ajustez le début et la fin, nommez les clips et exportez-les en MP4, lisibles partout.",
+        text: "Appuyez sur <kbd>Ctrl</kbd>+<kbd>M</kbd> (ou sur le bouton « Marquer un cut ») à chaque bon moment pendant l'enregistrement. Dans « Mes clips », ajustez le début et la fin, nommez les clips et exportez-les en MP4, lisibles partout. Un moment raté ? <kbd>Ctrl</kbd>+<kbd>R</kbd> sauve les dernières secondes à tout moment.",
       },
     ],
     demoTitle: "PhonyCut en action",
@@ -304,7 +304,15 @@ export const fr: Dict = {
         items: [
           {
             q: "Comment marquer un cut ?",
-            a: "<p>Pendant l'enregistrement, cliquez sur « Marquer un cut » ou appuyez sur la touche <kbd>M</kbd>. Un repère est posé à cet instant. Vous pourrez ensuite découper la vidéo à ces repères dans « Mes clips ».</p>",
+            a: "<p>Pendant l'enregistrement, cliquez sur « Marquer un cut » ou appuyez sur <kbd>Ctrl</kbd>+<kbd>M</kbd> (ça marche même quand le téléphone a le clavier ; modifiable dans <em>Réglages → Raccourci clavier</em>). Un repère est posé à cet instant. Vous pourrez ensuite découper la vidéo à ces repères dans « Mes clips ».</p>",
+          },
+          {
+            q: "Il vient de se passer quelque chose et je n'enregistrais pas. Puis-je le garder ?",
+            a: "<p>Oui, avec le <strong>replay instantané</strong>. Pendant l'aperçu, PhonyCut garde toujours les 30 dernières secondes en mémoire (de 15 s à 2 min, dans <em>Réglages → Replay instantané</em>). Appuyez sur <kbd>Ctrl</kbd>+<kbd>R</kbd> ou cliquez sur « Sauver le replay » : ces secondes sont enregistrées avec le son dans une nouvelle vidéo, prête dans « Mes clips ». Ça marche avec ou sans enregistrement en cours.</p>",
+          },
+          {
+            q: "À quoi sert le mode tournage ?",
+            a: "<p>Le bouton <strong>🎬 Mode tournage</strong>, au-dessus de l'aperçu, prépare le téléphone pour la vidéo : barre d'état propre (12:00, batterie et réseau pleins, sans icônes de notification), <em>Ne pas déranger</em> et touches du doigt affichées. Choisissez ce qu'il change dans les Réglages. Tout est remis comme avant quand vous l'éteignez, arrêtez l'aperçu ou fermez PhonyCut (ou au prochain branchement, si le téléphone a été débranché entre-temps). Selon les téléphones, la barre d'état ou les touches peuvent ne pas changer (les touches, par exemple, sur certains Xiaomi).</p>",
           },
           {
             q: "Export rapide ou précis : lequel choisir ?",
@@ -341,7 +349,7 @@ export const fr: Dict = {
         items: [
           {
             q: "Peut-on piloter le téléphone avec la souris et le clavier ?",
-            a: "<p>Oui, dans l'aperçu en direct :</p><ul><li><strong>Clic gauche</strong> : toucher l'écran (maintenez et déplacez pour faire glisser).</li><li><strong>Clic droit</strong> : retour.</li><li><strong>Clic molette</strong> : accueil.</li><li><strong>Molette</strong> : défiler.</li><li><strong>Clavier</strong> : cliquez sur l'image du téléphone, puis tapez. Cliquez à côté de l'image pour arrêter. <kbd>Ctrl</kbd>+<kbd>V</kbd> colle le texte copié sur le PC.</li></ul><p>Des boutons au-dessus de l'image donnent aussi Retour, Accueil, Applis récentes et Volume −/+. Quand le clavier écrit sur le téléphone, <kbd>M</kbd> tape la lettre « m » au lieu de marquer un cut.</p>",
+            a: "<p>Oui, dans l'aperçu en direct :</p><ul><li><strong>Clic gauche</strong> : toucher l'écran (maintenez et déplacez pour faire glisser).</li><li><strong>Clic droit</strong> : retour.</li><li><strong>Clic molette</strong> : accueil.</li><li><strong>Molette</strong> : défiler.</li><li><strong>Clavier</strong> : cliquez sur l'image du téléphone, puis tapez. Cliquez à côté de l'image pour arrêter. <kbd>Ctrl</kbd>+<kbd>V</kbd> colle le texte copié sur le PC.</li></ul><p>Des boutons au-dessus de l'image donnent aussi Retour, Accueil, Applis récentes et Volume −/+. Les raccourcis (<kbd>Ctrl</kbd>+<kbd>M</kbd> pour un cut, <kbd>Ctrl</kbd>+<kbd>R</kbd> pour le replay) marchent même quand le clavier écrit sur le téléphone. Pour une image plus grande, cliquez sur « Plein écran » ou appuyez sur <kbd>F11</kbd> (<kbd>Échap</kbd> pour sortir).</p>",
           },
         ],
       },

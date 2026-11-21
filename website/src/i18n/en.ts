@@ -39,7 +39,7 @@ export const en = {
     features: [
       {
         title: "Mirror your phone live",
-        text: "Plug your phone in with a USB cable, or connect it over Wi-Fi, and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard.",
+        text: "Plug your phone in with a USB cable, or connect it over Wi-Fi, and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard, and show it full screen.",
       },
       {
         title: "Record without quality loss",
@@ -47,7 +47,7 @@ export const en = {
       },
       {
         title: "Mark cuts, export clips",
-        text: "Press <kbd>M</kbd> (or the “Mark a cut” button) at each good moment while you record. In “My clips”, adjust the start and end, name the clips and export them as MP4 files that play everywhere.",
+        text: "Press <kbd>Ctrl</kbd>+<kbd>M</kbd> (or the “Mark a cut” button) at each good moment while you record. In “My clips”, adjust the start and end, name the clips and export them as MP4 files that play everywhere. Missed a moment? <kbd>Ctrl</kbd>+<kbd>R</kbd> saves the last seconds at any time.",
       },
     ],
     demoTitle: "See it in action",
@@ -304,7 +304,15 @@ export const en = {
         items: [
           {
             q: "How do I mark a cut?",
-            a: "<p>While recording, click “Mark a cut” or press the <kbd>M</kbd> key. It puts a marker at this moment. You can then cut the video at these markers in “My clips”.</p>",
+            a: "<p>While recording, click “Mark a cut” or press <kbd>Ctrl</kbd>+<kbd>M</kbd> (it works even while the phone has the keyboard; you can change it in <em>Settings → Keyboard shortcut</em>). It puts a marker at this moment. You can then cut the video at these markers in “My clips”.</p>",
+          },
+          {
+            q: "Something great just happened and I wasn't recording. Can I keep it?",
+            a: "<p>Yes, with the <strong>instant replay</strong>. During the preview, PhonyCut always keeps the last 30 seconds in memory (15 s to 2 min, in <em>Settings → Instant replay</em>). Press <kbd>Ctrl</kbd>+<kbd>R</kbd> or click “Save the replay”: those seconds are saved with the sound as a new video, ready in “My clips”. It works with or without a recording running.</p>",
+          },
+          {
+            q: "What is the filming mode?",
+            a: "<p>The <strong>🎬 Filming mode</strong> button, above the preview, gets the phone ready for video: a clean status bar (12:00, full battery and signal, no notification icons), <em>Do not disturb</em> and finger touches shown. Choose what it changes in the Settings. Everything is put back when you turn it off, stop the preview or close PhonyCut (or the next time the phone is connected, if it was unplugged meanwhile). Depending on the phone, the status bar or the touches may not change (the touches, for example, on some Xiaomi phones).</p>",
           },
           {
             q: "Fast or precise export: which one should I choose?",
@@ -341,7 +349,7 @@ export const en = {
         items: [
           {
             q: "Can I control the phone with my mouse and keyboard?",
-            a: "<p>Yes, in the live preview:</p><ul><li><strong>Left click</strong>: touch the screen (hold and move to swipe).</li><li><strong>Right click</strong>: Back.</li><li><strong>Middle click</strong>: Home.</li><li><strong>Mouse wheel</strong>: scroll.</li><li><strong>Keyboard</strong>: click the picture of the phone, then type. Click outside the picture to stop. <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes the text copied on the PC.</li></ul><p>Buttons above the picture also give you Back, Home, Recent apps and Volume −/+. While the keyboard types on the phone, <kbd>M</kbd> types the letter “m” instead of marking a cut.</p>",
+            a: "<p>Yes, in the live preview:</p><ul><li><strong>Left click</strong>: touch the screen (hold and move to swipe).</li><li><strong>Right click</strong>: Back.</li><li><strong>Middle click</strong>: Home.</li><li><strong>Mouse wheel</strong>: scroll.</li><li><strong>Keyboard</strong>: click the picture of the phone, then type. Click outside the picture to stop. <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes the text copied on the PC.</li></ul><p>Buttons above the picture also give you Back, Home, Recent apps and Volume −/+. The shortcuts (<kbd>Ctrl</kbd>+<kbd>M</kbd> for a cut, <kbd>Ctrl</kbd>+<kbd>R</kbd> for the replay) work even while the keyboard types on the phone. For a bigger picture, click “Full screen” or press <kbd>F11</kbd> (<kbd>Esc</kbd> to leave).</p>",
           },
         ],
       },
