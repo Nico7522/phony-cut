@@ -274,6 +274,11 @@ impl Adb {
         .map(|_| ())
     }
 
+    /// Starts `adb <args…>` with piped output (the caller waits for it).
+    pub fn spawn(&self, args: &[&str]) -> Result<Child, AdbError> {
+        Ok(self.command(args).spawn()?)
+    }
+
     /// Starts a long-running `adb -s <serial> shell <args…>` with piped output.
     pub fn spawn_shell(&self, serial: &str, args: &[&str]) -> Result<Child, AdbError> {
         let mut full = vec!["-s", serial, "shell"];
@@ -292,6 +297,11 @@ pub struct ProductInfo {
     /// Hardware serial (`ro.serialno`): the USB serial of the same phone,
     /// to recognize it when it is also connected over Wi-Fi as `ip:port`.
     pub serial_no: Option<String>,
+}
+
+/// Reads a child's pipe to the end on its own thread.
+pub(crate) fn read_pipe<R: Read + Send + 'static>(pipe: Option<R>) -> Receiver<String> {
+    read_in_background(pipe)
 }
 
 fn read_in_background<R: Read + Send + 'static>(pipe: Option<R>) -> Receiver<String> {

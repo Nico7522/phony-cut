@@ -35,6 +35,8 @@ pub struct Settings {
     pub replay_seconds: u32,
     /// Keyboard shortcut to save the replay (Ctrl+R by default).
     pub replay_shortcut: Shortcut,
+    /// Last PC folder files of the phone were copied to.
+    pub files_folder: PathBuf,
     /// Filming mode: the phone looks clean on video while the preview runs.
     pub filming: bool,
     /// What it changes on the phone.
@@ -84,6 +86,7 @@ impl Default for Settings {
             replay_enabled: true,
             replay_seconds: 30,
             replay_shortcut: Shortcut::replay_default(),
+            files_folder: default_files_folder(),
             filming: false,
             filming_status_bar: true,
             filming_touches: true,
@@ -177,6 +180,17 @@ impl Settings {
 /// `Videos\PhonyCut` (the user's Videos folder, wherever it is). Someone who
 /// recorded with a version named PhoneCut keeps `Videos\PhoneCut`, so their
 /// recordings stay in "My clips".
+/// Where files of the phone are copied the first time: Downloads.
+pub fn default_files_folder() -> PathBuf {
+    directories::UserDirs::new()
+        .and_then(|dirs| {
+            dirs.download_dir()
+                .map(Path::to_path_buf)
+                .or_else(|| Some(dirs.home_dir().join("Downloads")))
+        })
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
 pub fn default_output_dir() -> PathBuf {
     let videos = directories::UserDirs::new()
         .and_then(|dirs| {
@@ -345,6 +359,7 @@ mod tests {
             replay_enabled: false,
             replay_seconds: 60,
             replay_shortcut: Shortcut::replay_default(),
+            files_folder: PathBuf::from("D:/Phone"),
             filming: true,
             filming_status_bar: false,
             filming_touches: true,

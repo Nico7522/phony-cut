@@ -128,6 +128,7 @@ fn main() -> anyhow::Result<()> {
 enum Tab {
     Live,
     Clips,
+    Files,
     Settings,
 }
 
@@ -142,6 +143,7 @@ struct PhonyCutApp {
     live: LiveScreen,
     record: RecordPanel,
     clips: ClipsScreen,
+    files: screens::files::FilesScreen,
     onboarding: Onboarding,
     /// Pairing a phone over Wi-Fi.
     wireless: WirelessDialog,
@@ -178,6 +180,7 @@ impl PhonyCutApp {
             live: LiveScreen::default(),
             record: RecordPanel::default(),
             clips: ClipsScreen::default(),
+            files: screens::files::FilesScreen::default(),
             onboarding: Onboarding::default(),
             wireless: WirelessDialog::default(),
             fullscreen: false,
@@ -305,6 +308,10 @@ impl PhonyCutApp {
         if tab == Tab::Clips && self.clips.needs_listing() {
             self.handle_clips(vec![ClipsAction::Refresh]);
         }
+        if tab == Tab::Files {
+            let action = self.files.opened();
+            self.handle_files(action.into_iter().collect());
+        }
     }
 
     /// Opens a recording in "Mes clips".
@@ -312,6 +319,41 @@ impl PhonyCutApp {
         self.switch_tab(Tab::Clips);
         let actions = self.clips.open(path);
         self.handle_clips(actions);
+    }
+
+    fn handle_files(&mut self, actions: Vec<screens::files::FilesAction>) {
+        use screens::files::FilesAction;
+        for action in actions {
+            match action {
+                FilesAction::List { serial, dir } => {
+                    self.command(Command::ListPhoneFiles { serial, dir });
+                }
+                FilesAction::CopyToPc {
+                    serial,
+                    paths,
+                    folder,
+                } => self.command(Command::CopyFromPhone {
+                    serial,
+                    paths,
+                    folder,
+                }),
+                FilesAction::CopyToPhone { serial, files, dir } => {
+                    self.command(Command::CopyToPhone { serial, files, dir });
+                }
+                FilesAction::Cancel => self.command(Command::CancelTransfer),
+                FilesAction::OpenFolder(folder) => {
+                    if let Err(err) = platform::open_in_file_manager(&folder) {
+                        tracing::warn!(%err, "cannot open folder");
+                    }
+                }
+                FilesAction::RememberFolder(folder) => {
+                    self.settings.files_folder = folder;
+                    if let Err(err) = self.settings.save() {
+                        tracing::warn!(%err, "cannot save settings");
+                    }
+                }
+            }
+        }
     }
 
     fn handle_clips(&mut self, actions: Vec<ClipsAction>) {
@@ -347,6 +389,7 @@ impl PhonyCutApp {
             let tabs = [
                 (Tab::Live, live),
                 (Tab::Clips, texts::tab_clips().to_owned()),
+                (Tab::Files, texts::tab_files().to_owned()),
                 (Tab::Settings, texts::tab_settings().to_owned()),
             ];
             for (tab, label) in tabs {
@@ -665,6 +708,11 @@ impl eframe::App for PhonyCutApp {
                 Event::Mirror(state) => self.live.apply(state),
                 Event::Sound(state) => self.live.set_sound(state),
                 Event::Pairing(state) => self.wireless.apply(state),
+                Event::PhoneFiles { dir, result } => self.files.apply_listing(dir, result),
+                Event::Transfer(state) => {
+                    let action = self.files.apply_transfer(state);
+                    self.handle_files(action.into_iter().collect());
+                }
                 Event::Replay(result) => {
                     if matches!(result, phonycut_core::api::ReplayResult::Saved { .. }) {
                         self.clips.invalidate(); // a new video exists
@@ -801,6 +849,13 @@ impl eframe::App for PhonyCutApp {
             Tab::Clips => {
                 let actions = self.clips.show(ui);
                 self.handle_clips(actions);
+                return;
+            }
+            Tab::Files => {
+                let serial = self.home.ready_device().map(|d| d.serial.clone());
+                let folder = self.settings.files_folder.clone();
+                let actions = self.files.show(ui, serial.as_deref(), &folder);
+                self.handle_files(actions);
                 return;
             }
             Tab::Settings => {

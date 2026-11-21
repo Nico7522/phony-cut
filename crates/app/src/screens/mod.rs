@@ -1,4 +1,5 @@
 pub mod clips;
+pub mod files;
 pub mod home;
 pub mod live;
 pub mod onboarding;

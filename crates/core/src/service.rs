@@ -11,8 +11,9 @@ use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use crate::adb::{Adb, AdbError, ProductInfo};
 use crate::api::{
     AdbProblem, AdbStatus, Command, DeviceInfo, DeviceState, Event, ExportProblem, ExportState,
-    FrameSlot, MirrorEnd, MirrorState, PairingProblem, PairingState, RecordingProblem,
-    RecordingState, ReplayProblem, ReplayResult, SoundOptions, VideoQuality,
+    FrameSlot, MirrorEnd, MirrorState, PairingProblem, PairingState, PhoneFilesProblem,
+    RecordingProblem, RecordingState, ReplayProblem, ReplayResult, SoundOptions, TransferDirection,
+    TransferProblem, TransferState, VideoQuality,
 };
 use crate::export::ExportJob;
 use crate::pairing::PairingJob;
@@ -132,6 +133,8 @@ struct Worker {
     known_phones_sent: Option<bool>,
     next_reconnect: Instant,
     filming: crate::filming::FilmingControl,
+    /// Copy between the phone and the PC in progress.
+    transfer: Option<crate::phone_files::TransferJob>,
 }
 
 impl Worker {
@@ -156,6 +159,7 @@ impl Worker {
             known_phones_sent: None,
             next_reconnect: Instant::now(),
             filming: crate::filming::FilmingControl::new(),
+            transfer: None,
             adb: None,
             server_running: false,
             owns_server: false,
@@ -198,6 +202,30 @@ impl Worker {
                     replay,
                 }) => {
                     self.start_mirror(serial, quality, sound, replay);
+                }
+                Ok(Command::ListPhoneFiles { serial, dir }) => self.list_phone_files(serial, dir),
+                Ok(Command::CopyFromPhone {
+                    serial,
+                    paths,
+                    folder,
+                }) => {
+                    self.start_transfer(|adb, events, notify| {
+                        crate::phone_files::TransferJob::to_pc(
+                            adb, serial, paths, folder, events, notify,
+                        )
+                    });
+                }
+                Ok(Command::CopyToPhone { serial, files, dir }) => {
+                    self.start_transfer(|adb, events, notify| {
+                        crate::phone_files::TransferJob::to_phone(
+                            adb, serial, files, dir, events, notify,
+                        )
+                    });
+                }
+                Ok(Command::CancelTransfer) => {
+                    if let Some(job) = &self.transfer {
+                        job.cancel();
+                    }
                 }
                 Ok(Command::SetFilming { options }) => {
                     if let Some(adb) = self.adb.clone() {
@@ -282,6 +310,7 @@ impl Worker {
 
         self.player = None;
         self.export = None;
+        self.transfer = None;
         // The phone is put back before the mirror's end would queue it.
         if let Some(adb) = self.adb.clone() {
             self.filming.shutdown(&adb);
@@ -472,6 +501,57 @@ impl Worker {
             self.next_reconnect = Instant::now() + RECONNECT_INTERVAL;
             let serials: Vec<String> = devices.iter().map(|d| d.serial.clone()).collect();
             self.known_phones.reconnect(adb, &serials);
+        }
+    }
+
+    /// Lists a folder of the phone on its own thread (a few seconds for a
+    /// big folder over Wi-Fi).
+    fn list_phone_files(&self, serial: String, dir: String) {
+        let Some(adb) = self.adb.clone() else {
+            self.send(Event::PhoneFiles {
+                dir,
+                result: Err(PhoneFilesProblem::Failed),
+            });
+            return;
+        };
+        let (events, notify) = (self.events.clone(), Arc::clone(&self.notify));
+        let spawned = thread::Builder::new()
+            .name("phone-list".into())
+            .spawn(move || {
+                let result = crate::phone_files::list(&adb, &serial, &dir);
+                if events.send(Event::PhoneFiles { dir, result }).is_ok() {
+                    notify();
+                }
+            });
+        if let Err(err) = spawned {
+            tracing::warn!(%err, "cannot list the phone's files");
+        }
+    }
+
+    /// One copy at a time: a new one waits for nothing, it is refused while
+    /// another runs (the UI disables its buttons meanwhile).
+    fn start_transfer(
+        &mut self,
+        start: impl FnOnce(
+            Adb,
+            Sender<Event>,
+            Notifier,
+        ) -> std::io::Result<crate::phone_files::TransferJob>,
+    ) {
+        if self.transfer.as_ref().is_some_and(|job| !job.is_finished()) {
+            tracing::info!("copy ignored: another one is running");
+            return;
+        }
+        let Some(adb) = self.adb.clone() else { return };
+        match start(adb, self.events.clone(), Arc::clone(&self.notify)) {
+            Ok(job) => self.transfer = Some(job),
+            Err(err) => {
+                tracing::error!(%err, "cannot start the copy");
+                self.send(Event::Transfer(TransferState::Failed {
+                    direction: TransferDirection::ToPc,
+                    problem: TransferProblem::Failed,
+                }));
+            }
         }
     }
 

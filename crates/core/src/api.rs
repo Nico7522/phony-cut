@@ -44,6 +44,25 @@ pub enum Command {
     SwitchToWifi {
         serial: String,
     },
+    /// List a folder of the phone (answered with `Event::PhoneFiles`).
+    ListPhoneFiles {
+        serial: String,
+        dir: String,
+    },
+    /// Copy files or folders of the phone into a folder of the PC.
+    CopyFromPhone {
+        serial: String,
+        paths: Vec<String>,
+        folder: PathBuf,
+    },
+    /// Copy files or folders of the PC into a folder of the phone.
+    CopyToPhone {
+        serial: String,
+        files: Vec<PathBuf>,
+        dir: String,
+    },
+    /// Stop the running copy (the file being copied is removed).
+    CancelTransfer,
     /// Filming mode (`None`: off): applied to the phone while its preview
     /// runs, and always put back afterwards.
     SetFilming {
@@ -256,6 +275,74 @@ pub enum SoundState {
     Unavailable,
 }
 
+/// A file or folder of the phone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteEntry {
+    pub name: String,
+    /// Full path on the phone, e.g. `/sdcard/DCIM/Camera`.
+    pub path: String,
+    pub is_dir: bool,
+    /// Bytes (meaningless for a folder).
+    pub size: u64,
+    /// Last change, Unix seconds.
+    pub modified: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhoneFilesProblem {
+    /// The folder does not exist (any more).
+    NotFound,
+    /// Android does not let this folder be read.
+    Denied,
+    /// The phone did not answer.
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferDirection {
+    ToPc,
+    ToPhone,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TransferState {
+    Running {
+        direction: TransferDirection,
+        /// Bytes copied and to copy.
+        done: u64,
+        total: u64,
+        /// Name of the file being copied.
+        file: String,
+    },
+    Done {
+        direction: TransferDirection,
+        /// Files copied.
+        count: usize,
+        /// PC folder they went to (copies to the PC).
+        folder: Option<PathBuf>,
+    },
+    Cancelled {
+        direction: TransferDirection,
+    },
+    Failed {
+        direction: TransferDirection,
+        problem: TransferProblem,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferProblem {
+    /// Unplugged or not answering any more.
+    PhoneGone,
+    /// The phone or the PC is full.
+    NoSpace,
+    /// Android refuses to write there.
+    Denied,
+    /// The PC folder cannot be written.
+    PcFolder,
+    Failed,
+}
+
 /// What the filming mode changes on the phone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FilmingOptions {
@@ -320,6 +407,13 @@ pub enum Event {
     Pairing(PairingState),
     /// Result of an instant replay save.
     Replay(ReplayResult),
+    /// Content of a folder of the phone.
+    PhoneFiles {
+        dir: String,
+        result: Result<Vec<RemoteEntry>, PhoneFilesProblem>,
+    },
+    /// Progress of a copy between the phone and the PC.
+    Transfer(TransferState),
     /// Progress of "Switch to Wi-Fi".
     WifiSwitch(WifiSwitchState),
     /// Whether phones switched to Wi-Fi are remembered (sent at start and when

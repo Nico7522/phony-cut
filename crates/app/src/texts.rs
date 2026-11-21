@@ -480,6 +480,9 @@ pub fn tab_live() -> &'static str {
 pub fn tab_clips() -> &'static str {
     tr("Mes clips", "My clips")
 }
+pub fn tab_files() -> &'static str {
+    tr("Fichiers", "Files")
+}
 pub fn tab_settings() -> &'static str {
     tr("Réglages", "Settings")
 }
@@ -921,6 +924,14 @@ pub fn file_size(bytes: u64) -> String {
     decimal(text)
 }
 
+/// `21/11/2026 13:05` / `2026-11-21 13:05`.
+pub fn date_time(year: i64, month: u32, day: u32, hour: i64, minute: i64) -> String {
+    match language() {
+        Language::French => format!("{day:02}/{month:02}/{year} {hour:02}:{minute:02}"),
+        Language::English => format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}"),
+    }
+}
+
 /// Decimal comma in French.
 fn decimal(text: String) -> String {
     match language() {
@@ -1203,6 +1214,177 @@ pub mod onboarding {
 // --- Settings ----------------------------------------------------------------------------
 
 /// Texts of the settings screen.
+pub mod files {
+    use super::{file_size, language, tr, Language};
+    use phonycut_core::api::{PhoneFilesProblem, TransferDirection, TransferProblem};
+
+    pub fn no_phone() -> &'static str {
+        tr("Aucun téléphone connecté", "No phone connected")
+    }
+    pub fn no_phone_hint() -> &'static str {
+        tr(
+            "Branchez votre téléphone (ou connectez-le en Wi-Fi) pour voir ses fichiers.",
+            "Plug in your phone (or connect it over Wi-Fi) to see its files.",
+        )
+    }
+    pub fn place_storage() -> &'static str {
+        tr("📱 Stockage", "📱 Storage")
+    }
+    pub fn place_camera() -> &'static str {
+        tr("📷 Photos et vidéos", "📷 Photos and videos")
+    }
+    pub fn place_screenshots() -> &'static str {
+        tr("🖼 Captures d'écran", "🖼 Screenshots")
+    }
+    pub fn place_downloads() -> &'static str {
+        tr("⬇ Téléchargements", "⬇ Downloads")
+    }
+    pub fn up() -> &'static str {
+        tr("⬆ Dossier parent", "⬆ Parent folder")
+    }
+    pub fn refresh() -> &'static str {
+        tr("⟳ Actualiser", "⟳ Refresh")
+    }
+    /// `/sdcard/DCIM` shown as `Téléphone/DCIM`.
+    pub fn shown_path(dir: &str) -> String {
+        let rest = dir
+            .strip_prefix(phonycut_core::phone_files::STORAGE_ROOT)
+            .unwrap_or(dir);
+        format!("{}{rest}", tr("Téléphone", "Phone"))
+    }
+    pub fn empty_folder() -> &'static str {
+        tr("Ce dossier est vide.", "This folder is empty.")
+    }
+    pub fn list_problem(problem: PhoneFilesProblem) -> &'static str {
+        match problem {
+            PhoneFilesProblem::NotFound => tr(
+                "Ce dossier n'existe pas sur ce téléphone. Choisissez-en un autre.",
+                "This folder does not exist on this phone. Choose another one.",
+            ),
+            PhoneFilesProblem::Denied => tr(
+                "Android ne permet pas d'ouvrir ce dossier.",
+                "Android does not allow opening this folder.",
+            ),
+            PhoneFilesProblem::Failed => tr(
+                "Le téléphone ne répond pas. Vérifiez la connexion, puis cliquez sur Actualiser.",
+                "The phone does not answer. Check the connection, then click Refresh.",
+            ),
+        }
+    }
+    pub fn copy_to_pc() -> &'static str {
+        tr("Copier vers le PC…", "Copy to the PC…")
+    }
+    pub fn copy_to_pc_hint() -> &'static str {
+        tr(
+            "Choisissez un dossier du PC : les éléments cochés y sont copiés (les dossiers avec \
+             tout leur contenu). Rien n'est supprimé du téléphone.",
+            "Choose a folder of the PC: the ticked items are copied there (folders with all \
+             their content). Nothing is deleted from the phone.",
+        )
+    }
+    pub fn pick_folder_title() -> &'static str {
+        tr("Copier dans quel dossier ?", "Copy into which folder?")
+    }
+    pub fn selection(count: usize, bytes: u64) -> String {
+        match (language(), count) {
+            (Language::French, 0) => "Cochez des fichiers ou des dossiers".to_owned(),
+            (Language::English, 0) => "Tick files or folders".to_owned(),
+            (_, _) if bytes == 0 => match language() {
+                Language::French => format!("{count} sélectionné(s)"),
+                Language::English => format!("{count} selected"),
+            },
+            (Language::French, _) => {
+                format!("{count} sélectionné(s), {} de fichiers", file_size(bytes))
+            }
+            (Language::English, _) => format!("{count} selected, {} of files", file_size(bytes)),
+        }
+    }
+    pub fn clear_selection() -> &'static str {
+        tr("Tout décocher", "Untick all")
+    }
+    pub fn drop_hint() -> &'static str {
+        tr(
+            "Pour envoyer des fichiers au téléphone : glissez-les depuis l'Explorateur sur cette \
+             fenêtre, ils arrivent dans le dossier ouvert.",
+            "To send files to the phone: drag them from File Explorer onto this window, they \
+             go into the open folder.",
+        )
+    }
+    pub fn drop_here(dir: &str) -> String {
+        match language() {
+            Language::French => format!("Lâchez pour copier dans {}", shown_path(dir)),
+            Language::English => format!("Drop to copy into {}", shown_path(dir)),
+        }
+    }
+    pub fn progress(direction: TransferDirection, done: u64, total: u64) -> String {
+        let way = match (language(), direction) {
+            (Language::French, TransferDirection::ToPc) => "Vers le PC",
+            (Language::French, TransferDirection::ToPhone) => "Vers le téléphone",
+            (Language::English, TransferDirection::ToPc) => "To the PC",
+            (Language::English, TransferDirection::ToPhone) => "To the phone",
+        };
+        format!("{way} : {} / {}", file_size(done), file_size(total)).replace(
+            " : ",
+            if language() == Language::French {
+                " : "
+            } else {
+                ": "
+            },
+        )
+    }
+    pub fn cancel() -> &'static str {
+        tr("Annuler", "Cancel")
+    }
+    pub fn done(direction: TransferDirection, count: usize) -> String {
+        match (language(), direction) {
+            (Language::French, TransferDirection::ToPc) => {
+                format!("✔ {count} fichier(s) copié(s) sur le PC.")
+            }
+            (Language::French, TransferDirection::ToPhone) => {
+                format!("✔ {count} fichier(s) copié(s) sur le téléphone.")
+            }
+            (Language::English, TransferDirection::ToPc) => {
+                format!("✔ {count} file(s) copied to the PC.")
+            }
+            (Language::English, TransferDirection::ToPhone) => {
+                format!("✔ {count} file(s) copied to the phone.")
+            }
+        }
+    }
+    pub fn cancelled() -> &'static str {
+        tr(
+            "Copie annulée (le fichier en cours a été retiré).",
+            "Copy cancelled (the file in progress was removed).",
+        )
+    }
+    pub fn transfer_problem(problem: TransferProblem) -> &'static str {
+        match problem {
+            TransferProblem::PhoneGone => tr(
+                "Le téléphone ne répond plus. Rebranchez-le, puis recommencez.",
+                "The phone no longer answers. Plug it in again, then try again.",
+            ),
+            TransferProblem::NoSpace => tr(
+                "Plus assez de place. Libérez de l'espace, puis recommencez.",
+                "Not enough space left. Free some space, then try again.",
+            ),
+            TransferProblem::Denied => tr(
+                "Android refuse d'écrire dans ce dossier. Choisissez-en un autre (Download, \
+                 DCIM, Documents…).",
+                "Android refuses to write in this folder. Choose another one (Download, DCIM, \
+                 Documents…).",
+            ),
+            TransferProblem::PcFolder => tr(
+                "Impossible d'écrire dans ce dossier du PC. Choisissez-en un autre.",
+                "Cannot write in this folder of the PC. Choose another one.",
+            ),
+            TransferProblem::Failed => tr(
+                "La copie a échoué. Vérifiez la connexion du téléphone, puis recommencez.",
+                "The copy failed. Check the phone's connection, then try again.",
+            ),
+        }
+    }
+}
+
 pub mod settings {
     use super::{language, tr, Language};
     use crate::settings::{Fps, LanguageChoice, QualityPreset};
