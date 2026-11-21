@@ -39,7 +39,7 @@ export const en = {
     features: [
       {
         title: "Mirror your phone live",
-        text: "Plug your phone in with a USB cable, or connect it over Wi-Fi (Android 11 or later), and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard.",
+        text: "Plug your phone in with a USB cable, or connect it over Wi-Fi, and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard.",
       },
       {
         title: "Record without quality loss",
@@ -324,7 +324,7 @@ export const en = {
           },
           {
             q: "Can I use it without a cable (over Wi-Fi)?",
-            a: "<p>Yes, with Android 11 or later. You pair the phone once: in PhonyCut, click <strong>Connect over Wi-Fi</strong> (on the home screen or in the Settings), then on the phone open <em>Developer options → Wireless debugging</em> and tap <strong>Pair device with QR code</strong> to scan the code PhonyCut shows (or use the 6-digit pairing code). Then PhonyCut reconnects by itself whenever the phone and the PC are on the same Wi-Fi and wireless debugging is on. Everything works the same as with a cable (preview, sound, mouse and keyboard, recording), with a little more delay depending on your Wi-Fi.</p>",
+            a: "<p>Yes, in two ways.</p><p><strong>Android 11 or later: wireless debugging.</strong> You pair the phone once: in PhonyCut, click <strong>Connect over Wi-Fi</strong> (on the home screen or in the Settings), then on the phone open <em>Developer options → Wireless debugging</em> and tap <strong>Pair device with QR code</strong> to scan the code PhonyCut shows (or use the 6-digit pairing code). Then PhonyCut reconnects by itself whenever the phone and the PC are on the same Wi-Fi and wireless debugging is on. </p><p><strong>Any Android version: Switch to Wi-Fi.</strong> With the phone plugged in, click <strong>Switch to Wi-Fi</strong> at the top of the preview, then unplug the cable. PhonyCut connects to it again by itself while it is on the same network; after the phone restarts, plug in the cable once and click the button again.</p><p>Everything works the same as with a cable (preview, sound, mouse and keyboard, recording), with a little more delay depending on your Wi-Fi.</p>",
           },
           {
             q: "Does PhonyCut connect to the internet?",
@@ -362,7 +362,7 @@ export const en = {
           },
           {
             q: "Does it work on Mac, on iPhone or without a cable?",
-            a: "<p>Not for now: PhonyCut works on Windows 10 and 11 with an Android phone, by USB or over Wi-Fi (Android 11 or later). A Mac version is planned. iPhones are not supported: Apple does not allow this kind of connection simply.</p>",
+            a: "<p>Not for now: PhonyCut works on Windows 10 and 11 with an Android phone, by USB or over Wi-Fi. A Mac version is planned. iPhones are not supported: Apple does not allow this kind of connection simply.</p>",
           },
           {
             q: "“PhonyCut is already open”",

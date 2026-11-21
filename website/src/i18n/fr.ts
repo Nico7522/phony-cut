@@ -38,7 +38,7 @@ export const fr: Dict = {
     features: [
       {
         title: "L'écran du téléphone en direct",
-        text: "Branchez votre téléphone avec un câble USB, ou connectez-le en Wi-Fi (Android 11 ou plus) : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier.",
+        text: "Branchez votre téléphone avec un câble USB, ou connectez-le en Wi-Fi : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier.",
       },
       {
         title: "Un enregistrement sans perte de qualité",
@@ -324,7 +324,7 @@ export const fr: Dict = {
           },
           {
             q: "Peut-on l'utiliser sans câble (en Wi-Fi) ?",
-            a: "<p>Oui, avec Android 11 ou plus. On associe le téléphone une seule fois : dans PhonyCut, cliquez sur <strong>Se connecter en Wi-Fi</strong> (sur l'écran d'accueil ou dans les Réglages), puis sur le téléphone ouvrez <em>Options pour les développeurs → Débogage sans fil</em> et touchez <strong>Associer l'appareil avec un code QR</strong> pour scanner le code affiché par PhonyCut (ou utilisez le code d'association à 6 chiffres). Ensuite, PhonyCut se reconnecte tout seul dès que le téléphone et le PC sont sur le même Wi-Fi et que le débogage sans fil est activé. Tout fonctionne comme avec un câble (aperçu, son, souris et clavier, enregistrement), avec un peu plus de délai selon votre Wi-Fi.</p>",
+            a: "<p>Oui, de deux façons.</p><p><strong>Android 11 ou plus : le débogage sans fil.</strong> On associe le téléphone une seule fois : dans PhonyCut, cliquez sur <strong>Se connecter en Wi-Fi</strong> (sur l'écran d'accueil ou dans les Réglages), puis sur le téléphone ouvrez <em>Options pour les développeurs → Débogage sans fil</em> et touchez <strong>Associer l'appareil avec un code QR</strong> pour scanner le code affiché par PhonyCut (ou utilisez le code d'association à 6 chiffres). Ensuite, PhonyCut se reconnecte tout seul dès que le téléphone et le PC sont sur le même Wi-Fi et que le débogage sans fil est activé. </p><p><strong>Toutes les versions d'Android : « Passer en Wi-Fi ».</strong> Téléphone branché, cliquez sur <strong>Passer en Wi-Fi</strong> en haut de l'aperçu, puis débranchez le câble. PhonyCut s'y reconnecte tout seul tant qu'il est sur le même réseau ; après un redémarrage du téléphone, rebranchez le câble une fois et cliquez à nouveau sur le bouton.</p><p>Tout fonctionne comme avec un câble (aperçu, son, souris et clavier, enregistrement), avec un peu plus de délai selon votre Wi-Fi.</p>",
           },
           {
             q: "PhonyCut se connecte-t-il à Internet ?",
@@ -362,7 +362,7 @@ export const fr: Dict = {
           },
           {
             q: "Ça marche sur Mac, sur iPhone ou sans câble ?",
-            a: "<p>Pas pour l'instant : PhonyCut fonctionne sous Windows 10 et 11, avec un téléphone Android en USB ou en Wi-Fi (Android 11 ou plus). Une version Mac est prévue. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.</p>",
+            a: "<p>Pas pour l'instant : PhonyCut fonctionne sous Windows 10 et 11, avec un téléphone Android, en USB ou en Wi-Fi. Une version Mac est prévue. Les iPhone ne sont pas pris en charge : Apple ne permet pas ce type de connexion simplement.</p>",
           },
           {
             q: "« PhonyCut est déjà ouvert »",
