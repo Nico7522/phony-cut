@@ -484,6 +484,68 @@ pub struct ExportRequest {
     /// Segments to export, in order (each becomes one `.mp4`).
     pub segments: Vec<Segment>,
     pub mode: ExportMode,
+    /// Picture size and layout (`Original` keeps the recording's).
+    pub style: ExportStyle,
+}
+
+/// Size of the exported clips, for the social networks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExportFormat {
+    /// The recording's own size.
+    #[default]
+    Original,
+    /// 9:16, 1080×1920: TikTok, Shorts, Reels.
+    Vertical,
+    /// 16:9, 1920×1080: YouTube.
+    Landscape,
+    /// 1:1, 1080×1080: Instagram, X.
+    Square,
+    /// 4:5, 1080×1350: Instagram feed.
+    Portrait,
+}
+
+impl ExportFormat {
+    /// Picture size, `None` for the original one.
+    pub fn size(self) -> Option<(u32, u32)> {
+        match self {
+            Self::Original => None,
+            Self::Vertical => Some((1080, 1920)),
+            Self::Landscape => Some((1920, 1080)),
+            Self::Square => Some((1080, 1080)),
+            Self::Portrait => Some((1080, 1350)),
+        }
+    }
+
+    /// Added to the clip names, e.g. `01 - Goal (9x16).mp4`.
+    pub fn tag(self) -> Option<&'static str> {
+        match self {
+            Self::Original => None,
+            Self::Vertical => Some("9x16"),
+            Self::Landscape => Some("16x9"),
+            Self::Square => Some("1x1"),
+            Self::Portrait => Some("4x5"),
+        }
+    }
+}
+
+/// How the phone's picture is placed in a social network format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExportStyle {
+    pub format: ExportFormat,
+    /// Around the picture: a blurred, darkened copy of it (else black).
+    pub blur_background: bool,
+    /// A plain dark phone frame around the picture.
+    pub phone_frame: bool,
+}
+
+impl Default for ExportStyle {
+    fn default() -> Self {
+        Self {
+            format: ExportFormat::Original,
+            blur_background: true,
+            phone_frame: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

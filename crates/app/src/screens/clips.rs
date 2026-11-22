@@ -6,7 +6,8 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText, TextureHandle};
 use phonycut_core::api::{
-    ExportMode, ExportRequest, ExportState, LoadedVideo, PlayerEvent, RecordingEntry, VideoFrame,
+    ExportFormat, ExportMode, ExportRequest, ExportState, ExportStyle, LoadedVideo, PlayerEvent,
+    RecordingEntry, VideoFrame,
 };
 use phonycut_core::markers::{default_segments, CutFile, Segment, MIN_SEGMENT_MS};
 
@@ -85,6 +86,8 @@ pub struct ClipsScreen {
     position_ms: u64,
     playing: bool,
     mode: ExportMode,
+    /// Social network format, background and phone frame.
+    style: ExportStyle,
     export: Option<ExportState>,
     exporting: bool,
     notice: Option<&'static str>,
@@ -404,13 +407,44 @@ impl ClipsScreen {
             video: editing.path.clone(),
             segments: editing.segments.clone(),
             mode: self.mode,
+            style: self.style,
         };
+        let social = self.style.format != ExportFormat::Original;
+        ui.horizontal_wrapped(|ui| {
+            ui.label(texts::export_format());
+            egui::ComboBox::from_id_salt("export-format")
+                .selected_text(texts::export_format_name(self.style.format))
+                .width(260.0)
+                .show_ui(ui, |ui| {
+                    for format in [
+                        ExportFormat::Original,
+                        ExportFormat::Vertical,
+                        ExportFormat::Landscape,
+                        ExportFormat::Square,
+                        ExportFormat::Portrait,
+                    ] {
+                        ui.selectable_value(
+                            &mut self.style.format,
+                            format,
+                            texts::export_format_name(format),
+                        );
+                    }
+                });
+            if social {
+                ui.checkbox(&mut self.style.blur_background, texts::export_blur())
+                    .on_hover_text(texts::export_blur_hint());
+                ui.checkbox(&mut self.style.phone_frame, texts::export_phone_frame())
+                    .on_hover_text(texts::export_phone_frame_hint());
+            }
+        });
         ui.horizontal(|ui| {
-            ui.label(texts::export_mode());
-            ui.radio_value(&mut self.mode, ExportMode::Fast, texts::export_fast())
-                .on_hover_text(texts::export_fast_hint());
-            ui.radio_value(&mut self.mode, ExportMode::Precise, texts::export_precise())
-                .on_hover_text(texts::export_precise_hint());
+            ui.add_enabled_ui(!social, |ui| {
+                ui.label(texts::export_mode());
+                ui.radio_value(&mut self.mode, ExportMode::Fast, texts::export_fast())
+                    .on_hover_text(texts::export_fast_hint());
+                ui.radio_value(&mut self.mode, ExportMode::Precise, texts::export_precise())
+                    .on_hover_text(texts::export_precise_hint());
+            });
             ui.add_space(12.0);
             if self.exporting {
                 if ui.button(texts::export_cancel()).clicked() {
@@ -432,9 +466,10 @@ impl ClipsScreen {
             }
         });
         ui.label(
-            RichText::new(match self.mode {
-                ExportMode::Fast => texts::export_fast_hint(),
-                ExportMode::Precise => texts::export_precise_hint(),
+            RichText::new(match (social, self.mode) {
+                (true, _) => texts::export_social_hint(),
+                (false, ExportMode::Fast) => texts::export_fast_hint(),
+                (false, ExportMode::Precise) => texts::export_precise_hint(),
             })
             .small(),
         );

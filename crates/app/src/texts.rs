@@ -753,6 +753,54 @@ pub fn segment_set_start() -> &'static str {
 pub fn segment_set_end() -> &'static str {
     tr("Fin ici", "End here")
 }
+pub fn export_format() -> &'static str {
+    tr("Format :", "Format:")
+}
+pub fn export_format_name(format: phonycut_core::api::ExportFormat) -> &'static str {
+    use phonycut_core::api::ExportFormat;
+    match format {
+        ExportFormat::Original => tr(
+            "Original (comme l'enregistrement)",
+            "Original (as recorded)",
+        ),
+        ExportFormat::Vertical => tr(
+            "Vertical 9:16 (TikTok, Shorts, Reels)",
+            "Vertical 9:16 (TikTok, Shorts, Reels)",
+        ),
+        ExportFormat::Landscape => tr("Horizontal 16:9 (YouTube)", "Landscape 16:9 (YouTube)"),
+        ExportFormat::Square => tr("Carré 1:1 (Instagram, X)", "Square 1:1 (Instagram, X)"),
+        ExportFormat::Portrait => tr(
+            "Vertical 4:5 (fil Instagram)",
+            "Portrait 4:5 (Instagram feed)",
+        ),
+    }
+}
+pub fn export_blur() -> &'static str {
+    tr("Fond flouté", "Blurred background")
+}
+pub fn export_blur_hint() -> &'static str {
+    tr(
+        "Autour de l'image : une copie floutée et assombrie de la vidéo. Décoché : fond noir.",
+        "Around the picture: a blurred, darkened copy of the video. Unticked: black background.",
+    )
+}
+pub fn export_phone_frame() -> &'static str {
+    tr("Cadre de téléphone", "Phone frame")
+}
+pub fn export_phone_frame_hint() -> &'static str {
+    tr(
+        "Une bordure sombre aux coins arrondis autour de l'écran, comme un téléphone.",
+        "A dark border with round corners around the screen, like a phone.",
+    )
+}
+pub fn export_social_hint() -> &'static str {
+    tr(
+        "Format réseaux : la vidéo est recompressée (plus lent) et commence exactement au \
+         début choisi. Les clips portent le format dans leur nom, par exemple « (9x16) ».",
+        "Social format: the video is re-encoded (slower) and starts exactly at the chosen \
+         start. The clips have the format in their name, for example \"(9x16)\".",
+    )
+}
 pub fn export_mode() -> &'static str {
     tr("Export :", "Export:")
 }

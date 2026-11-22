@@ -6,6 +6,10 @@
 //! - **Precise**: decode + re-encode (libopenh264, BSD) from the exact in point.
 //!   Slower; the whole clip is re-encoded (see docs/decisions/0005).
 //!
+//! - **Social network formats** (9:16, 16:9, 1:1, 4:5): re-encoded like
+//!   Precise, the picture fitted in the format over a blurred copy of itself
+//!   (or black), optionally inside a plain phone frame.
+//!
 //! MP4 is written with `+faststart` (index at the beginning) so the files play
 //! everywhere, including browsers and phones.
 
@@ -20,7 +24,10 @@ use ffmpeg::util::mathematics::Rescale;
 use ffmpeg::{codec, encoder, format, media, software::scaling, Dictionary, Rational};
 use ffmpeg_next as ffmpeg;
 
-use crate::api::{Event, ExportMode, ExportProblem, ExportRequest, ExportState, Notifier};
+use crate::api::{
+    Event, ExportFormat, ExportMode, ExportProblem, ExportRequest, ExportState, ExportStyle,
+    Notifier,
+};
 use crate::decode::{drain_frames, init_ffmpeg, DecodeError};
 use crate::markers::{file_safe_name, Segment};
 use crate::record::unique_path;
@@ -68,9 +75,13 @@ pub fn clips_folder(video: &Path) -> PathBuf {
         .join(format!("{stem} - clips"))
 }
 
-/// `01 - Mon clip.mp4`
-pub fn clip_file_name(index: usize, segment: &Segment) -> String {
-    format!("{:02} - {}.mp4", index + 1, file_safe_name(&segment.name))
+/// `01 - Mon clip.mp4`, `01 - Mon clip (9x16).mp4`
+pub fn clip_file_name(index: usize, segment: &Segment, format: ExportFormat) -> String {
+    let name = file_safe_name(&segment.name);
+    match format.tag() {
+        Some(tag) => format!("{:02} - {name} ({tag}).mp4", index + 1),
+        None => format!("{:02} - {name}.mp4", index + 1),
+    }
 }
 
 /// Reports progress (0..=1) and returns `false` to cancel.
@@ -324,6 +335,7 @@ pub fn export_precise(
     video: &Path,
     segment: &Segment,
     output: &Path,
+    style: ExportStyle,
     progress: Progress<'_>,
 ) -> Result<(), ExportError> {
     init_ffmpeg();
@@ -338,9 +350,19 @@ pub fn export_precise(
     let mut decoder = codec::Context::from_parameters(params)
         .and_then(|c| c.decoder().video())
         .map_err(ExportError::Read)?;
-    let bit_rate = match input.bit_rate() {
+    let mut bit_rate = match input.bit_rate() {
         rate if rate > 0 => usize::try_from(rate).unwrap_or(DEFAULT_BIT_RATE) * 5 / 4,
         _ => DEFAULT_BIT_RATE,
+    };
+    let target = style.format.size();
+    if let Some((w, h)) = target {
+        // About 4 bits per pixel and second: 8 Mb/s for 1080×1920.
+        let wanted = usize::try_from(u64::from(w) * u64::from(h) * 4).unwrap_or(DEFAULT_BIT_RATE);
+        bit_rate = bit_rate.max(wanted).min(20_000_000);
+    }
+    let layout = Layout {
+        blur: target.is_some() && style.blur_background,
+        frame: target.is_some() && style.phone_frame,
     };
 
     let (start_us, end_us) = segment_us(segment);
@@ -362,6 +384,8 @@ pub fn export_precise(
         start_us,
         end_us,
         bit_rate,
+        target,
+        layout,
         sink: None,
         audio,
         finished: false,
@@ -418,6 +442,9 @@ struct PreciseClip {
     start_us: i64,
     end_us: i64,
     bit_rate: usize,
+    /// Social network format size (`None`: the first frame's size).
+    target: Option<(u32, u32)>,
+    layout: Layout,
     /// Created on the first frame of the clip (its size).
     sink: Option<EncodeSink>,
     /// The recording's sound, copied.
@@ -452,8 +479,9 @@ impl PreciseClip {
             return Ok(());
         }
         if self.sink.is_none() {
-            let size = (frame.width(), frame.height());
-            self.sink = Some(EncodeSink::new(out, size, self.bit_rate).map_err(sink_error)?);
+            let size = self.target.unwrap_or((frame.width(), frame.height()));
+            let sink = EncodeSink::new(out, size, self.bit_rate).map_err(sink_error)?;
+            self.sink = Some(sink.with_layout(self.layout));
             if let Some(audio) = &mut self.audio {
                 audio.add_stream(out)?;
             }
@@ -526,6 +554,237 @@ pub(crate) struct EncodeSink {
     height: u32,
     /// Encoded packet waiting for the next one (to know its duration).
     pending: Option<ffmpeg::Packet>,
+    layout: Layout,
+    /// Blurred background, rebuilt when the input size changes.
+    background: Option<Background>,
+}
+
+/// What surrounds the picture in a social network format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct Layout {
+    /// Blurred, darkened copy of the picture behind it (else black).
+    pub blur: bool,
+    /// Plain dark phone frame around the picture.
+    pub frame: bool,
+}
+
+/// Where the picture and its frame go in the clip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Placement {
+    /// Picture size and position.
+    size: (u32, u32),
+    at: (u32, u32),
+    /// Frame thickness and outer corner radius (0 without a frame).
+    border: u32,
+    radius: u32,
+}
+
+/// Fits a picture of `src` in `clip`, leaving room for the frame.
+fn place(src: (u32, u32), clip: (u32, u32), frame: bool) -> Placement {
+    if !frame {
+        let (size, at) = fit_inside(src, clip);
+        return Placement {
+            size,
+            at,
+            border: 0,
+            radius: 0,
+        };
+    }
+    let short = clip.0.min(clip.1);
+    let margin = (short * 6 / 100) & !1;
+    let border = ((short * 18 / 1000).max(4)) & !1;
+    let room = |side: u32| side.saturating_sub(2 * (margin + border)).max(2);
+    let ((w, h), _) = fit_inside(src, (room(clip.0), room(clip.1)));
+    let at = (((clip.0 - w) / 2) & !1, ((clip.1 - h) / 2) & !1);
+    Placement {
+        size: (w, h),
+        at,
+        border,
+        radius: w.min(h) * 6 / 100 + border,
+    }
+}
+
+/// The picture scaled to cover a tiny frame, blurred, then scaled back up to
+/// the clip size: a soft, darkened background.
+struct Background {
+    input: ScalerInput,
+    cover: scaling::Context,
+    covered: ffmpeg::util::frame::Video,
+    small: ffmpeg::util::frame::Video,
+    /// Offset of the centered crop in `covered`.
+    crop: (u32, u32),
+    up: scaling::Context,
+    frame: ffmpeg::util::frame::Video,
+}
+
+impl Background {
+    fn new(input: ScalerInput, clip: (u32, u32)) -> Result<Self, SinkError> {
+        let even = |v: u32| (v & !1).max(2);
+        let small = (even(clip.0 / 24), even(clip.1 / 24));
+        let scale = (f64::from(small.0) / f64::from(input.width.max(1)))
+            .max(f64::from(small.1) / f64::from(input.height.max(1)));
+        let cover_size = (
+            even((f64::from(input.width) * scale).ceil() as u32 + 1).max(small.0),
+            even((f64::from(input.height) * scale).ceil() as u32 + 1).max(small.1),
+        );
+        let cover = scaling::Context::get(
+            input.format,
+            input.width,
+            input.height,
+            format::Pixel::YUV420P,
+            cover_size.0,
+            cover_size.1,
+            scaling::Flags::AREA,
+        )?;
+        let up = scaling::Context::get(
+            format::Pixel::YUV420P,
+            small.0,
+            small.1,
+            format::Pixel::YUV420P,
+            clip.0,
+            clip.1,
+            scaling::Flags::BICUBIC,
+        )?;
+        Ok(Self {
+            input,
+            cover,
+            covered: ffmpeg::util::frame::Video::empty(),
+            small: ffmpeg::util::frame::Video::new(format::Pixel::YUV420P, small.0, small.1),
+            crop: (
+                ((cover_size.0 - small.0) / 2) & !1,
+                ((cover_size.1 - small.1) / 2) & !1,
+            ),
+            up,
+            frame: ffmpeg::util::frame::Video::empty(),
+        })
+    }
+
+    /// Draws the background of `picture` into `canvas`.
+    fn draw(
+        &mut self,
+        picture: &ffmpeg::util::frame::Video,
+        canvas: &mut ffmpeg::util::frame::Video,
+    ) -> Result<(), SinkError> {
+        self.cover.run(picture, &mut self.covered)?;
+        let (w, h) = (self.small.width(), self.small.height());
+        copy_region(&self.covered, self.crop, &mut self.small, (0, 0), (w, h));
+        for plane in 0..3 {
+            box_blur(&mut self.small, plane);
+            box_blur(&mut self.small, plane);
+        }
+        self.up.run(&self.small, &mut self.frame)?;
+        copy_region(
+            &self.frame,
+            (0, 0),
+            canvas,
+            (0, 0),
+            (canvas.width(), canvas.height()),
+        );
+        // Darker, so the picture stands out.
+        for y in canvas.data_mut(0) {
+            *y = 16 + ((u16::from(y.saturating_sub(16)) * 11) / 20) as u8;
+        }
+        Ok(())
+    }
+}
+
+/// 3×3 box blur of one plane, in place.
+fn box_blur(frame: &mut ffmpeg::util::frame::Video, plane: usize) {
+    let shift = u32::from(plane > 0);
+    let (w, h) = (
+        (frame.width() >> shift) as usize,
+        (frame.height() >> shift) as usize,
+    );
+    let stride = frame.stride(plane);
+    let data = frame.data_mut(plane);
+    if w < 3 || h < 3 || data.len() < stride * h {
+        return;
+    }
+    let source: Vec<u8> = data.to_vec();
+    for y in 0..h {
+        for x in 0..w {
+            let mut sum = 0u32;
+            for dy in [-1i64, 0, 1] {
+                for dx in [-1i64, 0, 1] {
+                    let yy = (y as i64 + dy).clamp(0, h as i64 - 1) as usize;
+                    let xx = (x as i64 + dx).clamp(0, w as i64 - 1) as usize;
+                    sum += u32::from(source[yy * stride + xx]);
+                }
+            }
+            data[y * stride + x] = (sum / 9) as u8;
+        }
+    }
+}
+
+/// YUV (limited range) of the frame: near black, with a lighter edge.
+const FRAME_BODY: [u8; 3] = [26, 128, 128];
+const FRAME_EDGE: [u8; 3] = [70, 128, 128];
+
+/// Horizontal span `[from, to)` of row `y` (pixel centre) inside a rounded
+/// rectangle, in the same units.
+fn rounded_span(rect: (f64, f64, f64, f64), radius: f64, y: f64) -> Option<(f64, f64)> {
+    let (x0, y0, w, h) = rect;
+    if y < y0 || y >= y0 + h {
+        return None;
+    }
+    let r = radius.min(w / 2.0).min(h / 2.0);
+    let dy = if y < y0 + r {
+        y0 + r - y
+    } else if y > y0 + h - r {
+        y - (y0 + h - r)
+    } else {
+        0.0
+    };
+    let inset = r - (r * r - dy * dy).max(0.0).sqrt();
+    Some((x0 + inset, x0 + w - inset))
+}
+
+/// Paints a rounded rectangle (full-resolution coordinates) in every plane:
+/// inside it, or only between it and its bounding box (`outside`).
+fn paint_rounded(
+    frame: &mut ffmpeg::util::frame::Video,
+    rect: (u32, u32, u32, u32),
+    radius: u32,
+    color: [u8; 3],
+    outside: bool,
+) {
+    for (plane, value) in color.into_iter().enumerate() {
+        let shift = u32::from(plane > 0);
+        let scale = f64::from(1u32 << shift);
+        let (fw, fh) = (
+            (frame.width() >> shift) as usize,
+            (frame.height() >> shift) as usize,
+        );
+        let stride = frame.stride(plane);
+        let data = frame.data_mut(plane);
+        let r = (
+            f64::from(rect.0) / scale,
+            f64::from(rect.1) / scale,
+            f64::from(rect.2) / scale,
+            f64::from(rect.3) / scale,
+        );
+        let radius = f64::from(radius) / scale;
+        let first = (r.1.floor() as usize).min(fh);
+        let last = ((r.1 + r.3).ceil() as usize).min(fh);
+        for row in first..last {
+            let Some((from, to)) = rounded_span(r, radius, row as f64 + 0.5) else {
+                continue;
+            };
+            let clamp = |v: f64| (v.round().max(0.0) as usize).min(fw);
+            let line = &mut data[row * stride..row * stride + fw];
+            if outside {
+                let (left, right) = (clamp(r.0), clamp(r.0 + r.2));
+                let (a, b) = (clamp(from), clamp(to));
+                line[left..a.max(left)].fill(value);
+                line[b.min(right)..right].fill(value);
+            } else {
+                let (a, b) = (clamp(from), clamp(to));
+                if a < b {
+                    line[a..b].fill(value);
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -586,7 +845,15 @@ impl EncodeSink {
             width,
             height,
             pending: None,
+            layout: Layout::default(),
+            background: None,
         })
+    }
+
+    /// Blurred background and phone frame (social network formats).
+    pub(crate) fn with_layout(mut self, layout: Layout) -> Self {
+        self.layout = layout;
+        self
     }
 
     /// Encodes a frame at clip time `time_ms`. A frame of another size (a
@@ -602,7 +869,9 @@ impl EncodeSink {
             width: frame.width(),
             height: frame.height(),
         };
-        let ((w, h), (x, y)) = fit_inside((input.width, input.height), (self.width, self.height));
+        let clip = (self.width, self.height);
+        let placement = place((input.width, input.height), clip, self.layout.frame);
+        let ((w, h), (x, y)) = (placement.size, placement.at);
         let scaler = match &mut self.scaler {
             Some((current, scaler)) if *current == input => scaler,
             slot => {
@@ -622,8 +891,41 @@ impl EncodeSink {
             }
         };
         scaler.run(frame, &mut self.scaled)?;
-        paint_black(&mut self.canvas);
+        let fills = (w, h) == clip;
+        if self.layout.blur && !fills {
+            let background = match &mut self.background {
+                Some(background) if background.input == input => background,
+                slot => &mut *slot.insert(Background::new(input, clip)?),
+            };
+            background.draw(frame, &mut self.canvas)?;
+        } else if !fills {
+            paint_black(&mut self.canvas);
+        }
+        if placement.border > 0 {
+            let b = placement.border;
+            let outer = (x - b, y - b, w + 2 * b, h + 2 * b);
+            paint_rounded(&mut self.canvas, outer, placement.radius, FRAME_EDGE, false);
+            let edge = (b / 4).max(2) & !1;
+            let body = (
+                outer.0 + edge,
+                outer.1 + edge,
+                outer.2 - 2 * edge,
+                outer.3 - 2 * edge,
+            );
+            paint_rounded(
+                &mut self.canvas,
+                body,
+                placement.radius - edge,
+                FRAME_BODY,
+                false,
+            );
+        }
         blit(&self.scaled, &mut self.canvas, x, y);
+        if placement.border > 0 {
+            // The screen's corners are round too.
+            let inner = placement.radius - placement.border;
+            paint_rounded(&mut self.canvas, (x, y, w, h), inner, FRAME_BODY, true);
+        }
         self.canvas.set_pts(Some(time_ms));
         self.encoder.send_frame(&self.canvas)?;
         self.write_packets(out)
@@ -684,19 +986,33 @@ fn paint_black(frame: &mut ffmpeg::util::frame::Video) {
 
 /// Copies a YUV420P frame into `dst` at (`x`, `y`) (both even).
 fn blit(src: &ffmpeg::util::frame::Video, dst: &mut ffmpeg::util::frame::Video, x: u32, y: u32) {
+    let size = (src.width(), src.height());
+    copy_region(src, (0, 0), dst, (x, y), size);
+}
+
+/// Copies a `size` region of a YUV420P frame from `from` in `src` to `to` in
+/// `dst` (all even).
+fn copy_region(
+    src: &ffmpeg::util::frame::Video,
+    from: (u32, u32),
+    dst: &mut ffmpeg::util::frame::Video,
+    to: (u32, u32),
+    size: (u32, u32),
+) {
     for plane in 0..3 {
         let shift = u32::from(plane > 0); // chroma planes are half size
-        let (px, py) = ((x >> shift) as usize, (y >> shift) as usize);
-        let width = (src.width() >> shift) as usize;
-        let rows = (src.height() >> shift) as usize;
+        let (sx, sy) = ((from.0 >> shift) as usize, (from.1 >> shift) as usize);
+        let (dx, dy) = ((to.0 >> shift) as usize, (to.1 >> shift) as usize);
+        let width = (size.0 >> shift) as usize;
+        let rows = (size.1 >> shift) as usize;
         let (src_stride, dst_stride) = (src.stride(plane), dst.stride(plane));
         let src_data = src.data(plane);
         let dst_data = dst.data_mut(plane);
         for row in 0..rows {
-            let from = row * src_stride;
-            let to = (py + row) * dst_stride + px;
-            if from + width <= src_data.len() && to + width <= dst_data.len() {
-                dst_data[to..to + width].copy_from_slice(&src_data[from..from + width]);
+            let a = (sy + row) * src_stride + sx;
+            let b = (dy + row) * dst_stride + dx;
+            if a + width <= src_data.len() && b + width <= dst_data.len() {
+                dst_data[b..b + width].copy_from_slice(&src_data[a..a + width]);
             }
         }
     }
@@ -780,8 +1096,9 @@ pub fn run_export(
     let clips = segments.len();
     let mut files = Vec::new();
     for (clip, segment) in segments.into_iter().enumerate() {
-        let path = unique_path(&folder, &clip_file_name(clip, segment));
-        tracing::info!(clip, path = %path.display(), mode = ?request.mode, "exporting clip");
+        let format = request.style.format;
+        let path = unique_path(&folder, &clip_file_name(clip, segment, format));
+        tracing::info!(clip, path = %path.display(), mode = ?request.mode, style = ?request.style, "exporting clip");
         let mut last_reported = -1.0f32;
         let mut progress = |fraction: f32| {
             let overall = (clip as f32 + fraction) / clips as f32;
@@ -795,9 +1112,12 @@ pub fn run_export(
             }
             !cancel.load(Ordering::Relaxed)
         };
-        let result = match request.mode {
-            ExportMode::Fast => export_fast(&request.video, segment, &path, &mut progress),
-            ExportMode::Precise => export_precise(&request.video, segment, &path, &mut progress),
+        // A social network format is always re-encoded.
+        let result = match (request.mode, format) {
+            (ExportMode::Fast, ExportFormat::Original) => {
+                export_fast(&request.video, segment, &path, &mut progress)
+            }
+            _ => export_precise(&request.video, segment, &path, request.style, &mut progress),
         };
         match result {
             Ok(()) => files.push(path),
@@ -835,8 +1155,18 @@ mod tests {
             end_ms: 1000,
             export: true,
         };
-        assert_eq!(clip_file_name(0, &segment), "01 - Le but !.mp4");
-        assert_eq!(clip_file_name(11, &segment), "12 - Le but !.mp4");
+        assert_eq!(
+            clip_file_name(0, &segment, ExportFormat::Original),
+            "01 - Le but !.mp4"
+        );
+        assert_eq!(
+            clip_file_name(11, &segment, ExportFormat::Original),
+            "12 - Le but !.mp4"
+        );
+        assert_eq!(
+            clip_file_name(0, &segment, ExportFormat::Vertical),
+            "01 - Le but ! (9x16).mp4"
+        );
     }
 
     #[test]
@@ -853,6 +1183,33 @@ mod tests {
     }
 
     #[test]
+    fn phone_frame_leaves_room_and_stays_inside() {
+        // Portrait phone in a 16:9 clip.
+        let p = place((1080, 2400), (1920, 1080), true);
+        let (x, y) = p.at;
+        let (w, h) = p.size;
+        assert!(p.border >= 4);
+        assert!(x >= p.border && y >= p.border, "{p:?}");
+        assert!(
+            x + w + p.border <= 1920 && y + h + p.border <= 1080,
+            "{p:?}"
+        );
+        assert!(p.radius > p.border);
+        assert_eq!((w % 2, h % 2, x % 2, y % 2), (0, 0, 0, 0));
+        // Without a frame: the usual fit.
+        assert_eq!(place((1080, 2400), (1080, 1920), false).size.1, 1920);
+    }
+
+    #[test]
+    fn rounded_rows() {
+        let rect = (0.0, 0.0, 100.0, 50.0);
+        assert_eq!(rounded_span(rect, 10.0, 25.0), Some((0.0, 100.0)));
+        let (a, b) = rounded_span(rect, 10.0, 0.5).unwrap();
+        assert!(a > 5.0 && b < 95.0, "{a} {b}");
+        assert_eq!(rounded_span(rect, 10.0, 60.0), None);
+    }
+
+    #[test]
     fn nothing_selected_is_reported() {
         let request = ExportRequest {
             video: PathBuf::from("missing.mkv"),
@@ -863,6 +1220,7 @@ mod tests {
                 export: false,
             }],
             mode: ExportMode::Fast,
+            style: ExportStyle::default(),
         };
         let state = run_export(&request, &AtomicBool::new(false), &mut |_| {});
         assert_eq!(

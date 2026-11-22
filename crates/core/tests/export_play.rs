@@ -11,7 +11,10 @@ use std::time::Duration;
 
 use ffmpeg_next as ffmpeg;
 
-use phonycut_core::api::{Event, ExportMode, ExportRequest, ExportState, FrameSlot, PlayerEvent};
+use phonycut_core::api::{
+    Event, ExportFormat, ExportMode, ExportRequest, ExportState, ExportStyle, FrameSlot,
+    PlayerEvent,
+};
 use phonycut_core::export::{clips_folder, export_fast, export_precise, run_export};
 use phonycut_core::markers::{default_segments, Marker, Segment};
 use phonycut_core::player::{Control, Player, PlayerSetup};
@@ -104,10 +107,16 @@ fn precise_export_starts_on_the_in_point() {
     let out = dir.join("clip.mp4");
 
     let mut last = 0.0;
-    export_precise(&video, &segment(1_500, 2_500), &out, &mut |f| {
-        last = f;
-        true
-    })
+    export_precise(
+        &video,
+        &segment(1_500, 2_500),
+        &out,
+        ExportStyle::default(),
+        &mut |f| {
+            last = f;
+            true
+        },
+    )
     .unwrap();
     assert_eq!(last, 1.0, "progress reaches 100 %");
     let clip = inspect(&out);
@@ -142,7 +151,14 @@ fn clip_ending_on_a_static_screen_keeps_its_duration() {
     );
 
     let precise = dir.join("precise.mp4");
-    export_precise(&video, &segment(2_500, 4_000), &precise, &mut |_| true).unwrap();
+    export_precise(
+        &video,
+        &segment(2_500, 4_000),
+        &precise,
+        ExportStyle::default(),
+        &mut |_| true,
+    )
+    .unwrap();
     let clip = inspect(&precise);
     assert!(
         (clip.duration_ms - 1_500).abs() <= 40,
@@ -168,6 +184,7 @@ fn three_clips_from_two_markers() {
             video: video.clone(),
             segments: segments.clone(),
             mode,
+            style: ExportStyle::default(),
         };
         let mut progress = Vec::new();
         let state = run_export(&request, &AtomicBool::new(false), &mut |s| progress.push(s));
@@ -191,6 +208,54 @@ fn three_clips_from_two_markers() {
     fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Social network formats: the clip has the format's size whatever the
+/// recording's, with a blurred background and a phone frame.
+#[test]
+fn social_formats_have_their_size() {
+    let dir = workdir("formats");
+    let video = dir.join("rec.mkv");
+    common::write_test_recording(&video, 2);
+    for (format, size) in [
+        (ExportFormat::Vertical, (1080, 1920)),
+        (ExportFormat::Square, (1080, 1080)),
+    ] {
+        let request = ExportRequest {
+            video: video.clone(),
+            segments: vec![segment(0, 2_000)],
+            // A format is always re-encoded, even when "fast" is chosen.
+            mode: ExportMode::Fast,
+            style: ExportStyle {
+                format,
+                blur_background: true,
+                phone_frame: true,
+            },
+        };
+        let state = run_export(&request, &AtomicBool::new(false), &mut |_| {});
+        let ExportState::Finished { files, folder } = state else {
+            panic!("{format:?}: {state:?}");
+        };
+        let name = files[0].file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.contains(format.tag().unwrap()), "{name}");
+        let actual = {
+            let input = ffmpeg::format::input(&files[0]).unwrap();
+            let stream = input.streams().best(ffmpeg::media::Type::Video).unwrap();
+            let params = ffmpeg::codec::Context::from_parameters(stream.parameters())
+                .unwrap()
+                .decoder()
+                .video()
+                .unwrap();
+            (params.width(), params.height())
+        };
+        assert_eq!(actual, size, "{format:?}");
+        assert!(inspect(&files[0]).frames >= 50, "{format:?}");
+        if let Ok(keep) = std::env::var("PHONYCUT_KEEP_EXPORT") {
+            fs::copy(&files[0], std::path::Path::new(&keep).join(&name)).unwrap();
+        }
+        fs::remove_dir_all(&folder).unwrap();
+    }
+    fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn cancelled_export_leaves_no_file() {
     let dir = workdir("cancel");
@@ -200,6 +265,7 @@ fn cancelled_export_leaves_no_file() {
         video: video.clone(),
         segments: vec![segment(0, 2_000)],
         mode: ExportMode::Precise,
+        style: ExportStyle::default(),
     };
     let state = run_export(&request, &AtomicBool::new(true), &mut |_| {});
     assert_eq!(state, ExportState::Cancelled);
@@ -318,7 +384,14 @@ fn clips_keep_the_sound() {
     check_sound(&fast, inspect(&fast).duration_ms);
 
     let precise = dir.join("precise.mp4");
-    export_precise(&video, &segment(2_500, 5_000), &precise, &mut |_| true).unwrap();
+    export_precise(
+        &video,
+        &segment(2_500, 5_000),
+        &precise,
+        ExportStyle::default(),
+        &mut |_| true,
+    )
+    .unwrap();
     let clip = inspect(&precise);
     assert!(
         (clip.duration_ms - 2_500).abs() <= 40,
