@@ -38,7 +38,7 @@ export const fr: Dict = {
     features: [
       {
         title: "L'écran du téléphone en direct",
-        text: "Branchez votre téléphone avec un câble USB, ou connectez-le en Wi-Fi : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier, et l'afficher en plein écran.",
+        text: "Branchez votre téléphone avec un câble USB, ou connectez-le en Wi-Fi : son écran s'affiche sur l'ordinateur, de façon fluide et en temps réel. Vous pouvez même utiliser le téléphone avec la souris et le clavier, l'afficher en plein écran et copier ses photos et fichiers sur le PC.",
       },
       {
         title: "Un enregistrement sans perte de qualité",
@@ -347,6 +347,10 @@ export const fr: Dict = {
       {
         title: "Utiliser le téléphone depuis l'ordinateur",
         items: [
+          {
+            q: "Peut-on copier des photos et des fichiers entre le téléphone et le PC ?",
+            a: "<p>Oui, dans l'onglet <strong>Fichiers</strong>, en USB ou en Wi-Fi :</p><ul><li><strong>Téléphone → PC</strong> : ouvrez un dossier (raccourcis vers Photos et vidéos, Captures d'écran, Téléchargements, Musique), cochez des fichiers ou des dossiers entiers, même dans plusieurs dossiers, puis cliquez sur <strong>Copier vers le PC…</strong> et choisissez où les mettre.</li><li><strong>PC → téléphone</strong> : glissez des fichiers ou des dossiers depuis l'Explorateur sur la fenêtre PhonyCut. Ils arrivent dans le dossier ouvert, et les photos et vidéos apparaissent dans la galerie.</li></ul><p>Rien n'est écrasé (un nom déjà pris devient « photo (2).jpg ») et rien n'est supprimé du téléphone. Seul le stockage partagé est accessible : Android ne laisse aucun programme lire les données privées des applis (par exemple la musique téléchargée dans Spotify ou Deezer).</p>",
+          },
           {
             q: "Peut-on piloter le téléphone avec la souris et le clavier ?",
             a: "<p>Oui, dans l'aperçu en direct :</p><ul><li><strong>Clic gauche</strong> : toucher l'écran (maintenez et déplacez pour faire glisser).</li><li><strong>Clic droit</strong> : retour.</li><li><strong>Clic molette</strong> : accueil.</li><li><strong>Molette</strong> : défiler.</li><li><strong>Clavier</strong> : cliquez sur l'image du téléphone, puis tapez. Cliquez à côté de l'image pour arrêter. <kbd>Ctrl</kbd>+<kbd>V</kbd> colle le texte copié sur le PC.</li></ul><p>Des boutons au-dessus de l'image donnent aussi Retour, Accueil, Applis récentes et Volume −/+. Les raccourcis (<kbd>Ctrl</kbd>+<kbd>M</kbd> pour un cut, <kbd>Ctrl</kbd>+<kbd>R</kbd> pour le replay) marchent même quand le clavier écrit sur le téléphone. Pour une image plus grande, cliquez sur « Plein écran » ou appuyez sur <kbd>F11</kbd> (<kbd>Échap</kbd> pour sortir).</p>",

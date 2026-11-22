@@ -39,7 +39,7 @@ export const en = {
     features: [
       {
         title: "Mirror your phone live",
-        text: "Plug your phone in with a USB cable, or connect it over Wi-Fi, and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard, and show it full screen.",
+        text: "Plug your phone in with a USB cable, or connect it over Wi-Fi, and its screen appears on your computer, smooth and in real time. You can even use the phone with your mouse and keyboard, show it full screen, and copy its photos and files to the PC.",
       },
       {
         title: "Record without quality loss",
@@ -347,6 +347,10 @@ export const en = {
       {
         title: "Using the phone from the computer",
         items: [
+          {
+            q: "Can I copy photos and files between the phone and the PC?",
+            a: "<p>Yes, in the <strong>Files</strong> tab, over USB or Wi-Fi:</p><ul><li><strong>Phone → PC</strong>: open a folder (shortcuts to Photos and videos, Screenshots, Downloads, Music), tick files or whole folders, even in several folders, then click <strong>Copy to the PC…</strong> and choose where they go.</li><li><strong>PC → phone</strong>: drag files or folders from File Explorer onto the PhonyCut window. They go into the open folder, and photos and videos show up in the gallery.</li></ul><p>Nothing is overwritten (an existing name becomes “photo (2).jpg”) and nothing is deleted from the phone. Only the shared storage can be reached: Android does not let any program read apps' private data (for example the music downloaded in Spotify or Deezer).</p>",
+          },
           {
             q: "Can I control the phone with my mouse and keyboard?",
             a: "<p>Yes, in the live preview:</p><ul><li><strong>Left click</strong>: touch the screen (hold and move to swipe).</li><li><strong>Right click</strong>: Back.</li><li><strong>Middle click</strong>: Home.</li><li><strong>Mouse wheel</strong>: scroll.</li><li><strong>Keyboard</strong>: click the picture of the phone, then type. Click outside the picture to stop. <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes the text copied on the PC.</li></ul><p>Buttons above the picture also give you Back, Home, Recent apps and Volume −/+. The shortcuts (<kbd>Ctrl</kbd>+<kbd>M</kbd> for a cut, <kbd>Ctrl</kbd>+<kbd>R</kbd> for the replay) work even while the keyboard types on the phone. For a bigger picture, click “Full screen” or press <kbd>F11</kbd> (<kbd>Esc</kbd> to leave).</p>",
