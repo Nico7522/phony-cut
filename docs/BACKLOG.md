@@ -11,7 +11,7 @@ des clips**. Les fonctionnalités qui renforcent ça passent en premier.
 
 ## Priorité haute (ce qui démarque le logiciel)
 
-### Replay instantané
+### ✅ Replay instantané (0.5.0)
 - L'app garde en permanence les N dernières secondes (30 s par défaut, réglable) dans un
   tampon circulaire de **paquets H.264** (pas d'images décodées), qui commence toujours
   sur une keyframe.
@@ -20,13 +20,15 @@ des clips**. Les fonctionnalités qui renforcent ça passent en premier.
 - Points d'attention : mémoire (débit × durée), PTS à rebaser à zéro, paquet config
   (SPS/PPS) à garder en tête du tampon.
 
-### Export prêt pour les réseaux
+### ✅ Export prêt pour les réseaux (0.7.0)
 - Préréglages : **TikTok / Shorts / Reels** (9:16, 1080×1920, débit adapté),
   **YouTube** (16:9 avec fond flouté pour une vidéo verticale), **GIF** (README, Discord).
+- Fait : 9:16, 16:9, 1:1, 4:5 (fond flouté ou noir, cadre de téléphone en option) et GIF
+  (palette FFmpeg, 320/480/640 px, 15 i/s).
 - Réencodage nécessaire, donc `libopenh264` (BSD), jamais x264 (GPL). Voir les pièges du
   CLAUDE.md.
 
-### Barre de statut propre (« demo mode » Android)
+### ✅ Barre de statut propre (« demo mode » Android) (0.5.0, « Mode tournage »)
 - En un clic : batterie pleine, réseau au maximum, heure fixe, plus de notifications, via
   `settings put global sysui_demo_allowed 1` et les broadcasts
   `com.android.systemui.demo`.
@@ -37,11 +39,11 @@ des clips**. Les fonctionnalités qui renforcent ça passent en premier.
 
 ## Tutos et démos
 
-- **Affichage des touches à l'écran** (`settings put system show_touches 1`), restauré à
+- ✅ **Affichage des touches à l'écran** (Mode tournage, 0.5.0 ; ignoré par certains Xiaomi) (`settings put system show_touches 1`), restauré à
   la fermeture.
-- **« Ne pas déranger » automatique** pendant l'enregistrement, avec l'état d'origine
+- ✅ **« Ne pas déranger » automatique** (Mode tournage, 0.5.0) pendant l'enregistrement, avec l'état d'origine
   restauré à la fin.
-- **Cadre de téléphone** autour de la vidéo exportée, pour des visuels marketing.
+- ✅ **Cadre de téléphone** autour de la vidéo exportée (0.7.0), pour des visuels marketing.
 - **Webcam et micro en incrustation**, pour commenter par-dessus.
 
 ## Plus tard
@@ -50,9 +52,16 @@ des clips**. Les fonctionnalités qui renforcent ça passent en premier.
   de compte. Nécessite l'audio (phase 8).
 - **Détection des temps forts** (pics de son, changements de scène) avec des marqueurs
   suggérés.
-- **Raccourcis globaux et Stream Deck** pour marquer un cut sans quitter son jeu.
+- ❌ **Raccourcis globaux et Stream Deck** (écarté par le propriétaire) pour marquer un cut sans quitter son jeu.
 - **Plusieurs téléphones en grille** (pour les testeurs).
 - **Enregistrement et rejeu de macros** de clics (le contrôle existe déjà).
+
+## Fait hors backlog
+
+- ✅ **Onglet « Fichiers »** (0.6.0) : parcourir le téléphone et copier dans les deux sens
+  (USB ou Wi-Fi).
+- ✅ **Raccourcis modifiables** (Ctrl+M pour un cut, Ctrl+R pour le replay) et **plein
+  écran** (0.5.0).
 
 ## Positionnement (aucun code)
 
