@@ -46,7 +46,7 @@ export const fr: Dict = {
       },
       {
         title: "Des cuts pendant l'enregistrement, des clips à l'arrivée",
-        text: "Appuyez sur <kbd>Ctrl</kbd>+<kbd>M</kbd> (ou sur le bouton « Marquer un cut ») à chaque bon moment pendant l'enregistrement. Dans « Mes clips », ajustez le début et la fin, nommez les clips et exportez-les en MP4, lisibles partout. Un moment raté ? <kbd>Ctrl</kbd>+<kbd>R</kbd> sauve les dernières secondes à tout moment.",
+        text: "Appuyez sur <kbd>Ctrl</kbd>+<kbd>M</kbd> (ou sur le bouton « Marquer un cut ») à chaque bon moment pendant l'enregistrement. Dans « Mes clips », ajustez le début et la fin, nommez les clips et exportez-les en MP4, lisibles partout, prêts pour TikTok, YouTube ou Instagram, ou en GIF. Un moment raté ? <kbd>Ctrl</kbd>+<kbd>R</kbd> sauve les dernières secondes à tout moment.",
       },
     ],
     demoTitle: "PhonyCut en action",
@@ -313,6 +313,10 @@ export const fr: Dict = {
           {
             q: "À quoi sert le mode tournage ?",
             a: "<p>Le bouton <strong>🎬 Mode tournage</strong>, au-dessus de l'aperçu, prépare le téléphone pour la vidéo : barre d'état propre (12:00, batterie et réseau pleins, sans icônes de notification), <em>Ne pas déranger</em> et touches du doigt affichées. Choisissez ce qu'il change dans les Réglages. Tout est remis comme avant quand vous l'éteignez, arrêtez l'aperçu ou fermez PhonyCut (ou au prochain branchement, si le téléphone a été débranché entre-temps). Selon les téléphones, la barre d'état ou les touches peuvent ne pas changer (les touches, par exemple, sur certains Xiaomi).</p>",
+          },
+          {
+            q: "Peut-on exporter pour TikTok, YouTube, Instagram ou en GIF ?",
+            a: "<p>Oui. Dans « Mes clips », choisissez un <strong>Format</strong> avant d'exporter :</p><ul><li><strong>Vertical 9:16</strong> (TikTok, Shorts, Reels), <strong>Horizontal 16:9</strong> (YouTube), <strong>Carré 1:1</strong> (Instagram, X) ou <strong>Vertical 4:5</strong> (fil Instagram). L'image du téléphone est centrée sur une copie floutée d'elle-même (ou sur du noir), et vous pouvez ajouter un <strong>cadre de téléphone</strong> sobre autour.</li><li><strong>GIF animé</strong> (Discord, forums, README) : en boucle, sans son, 320, 480 ou 640 pixels de large. Idéal pour des clips courts : un GIF pèse bien plus lourd qu'un MP4.</li></ul><p>Ces formats sont recompressés : l'export prend un peu plus de temps que l'export rapide. Le format est ajouté au nom du fichier, par exemple <code>01 - Le but ! (9x16).mp4</code>.</p>",
           },
           {
             q: "Export rapide ou précis : lequel choisir ?",

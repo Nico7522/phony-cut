@@ -47,7 +47,7 @@ export const en = {
       },
       {
         title: "Mark cuts, export clips",
-        text: "Press <kbd>Ctrl</kbd>+<kbd>M</kbd> (or the “Mark a cut” button) at each good moment while you record. In “My clips”, adjust the start and end, name the clips and export them as MP4 files that play everywhere. Missed a moment? <kbd>Ctrl</kbd>+<kbd>R</kbd> saves the last seconds at any time.",
+        text: "Press <kbd>Ctrl</kbd>+<kbd>M</kbd> (or the “Mark a cut” button) at each good moment while you record. In “My clips”, adjust the start and end, name the clips and export them as MP4 files that play everywhere, ready for TikTok, YouTube or Instagram, or as GIFs. Missed a moment? <kbd>Ctrl</kbd>+<kbd>R</kbd> saves the last seconds at any time.",
       },
     ],
     demoTitle: "See it in action",
@@ -313,6 +313,10 @@ export const en = {
           {
             q: "What is the filming mode?",
             a: "<p>The <strong>🎬 Filming mode</strong> button, above the preview, gets the phone ready for video: a clean status bar (12:00, full battery and signal, no notification icons), <em>Do not disturb</em> and finger touches shown. Choose what it changes in the Settings. Everything is put back when you turn it off, stop the preview or close PhonyCut (or the next time the phone is connected, if it was unplugged meanwhile). Depending on the phone, the status bar or the touches may not change (the touches, for example, on some Xiaomi phones).</p>",
+          },
+          {
+            q: "Can I export for TikTok, YouTube, Instagram or as a GIF?",
+            a: "<p>Yes. In “My clips”, choose a <strong>Format</strong> before exporting:</p><ul><li><strong>Vertical 9:16</strong> (TikTok, Shorts, Reels), <strong>Landscape 16:9</strong> (YouTube), <strong>Square 1:1</strong> (Instagram, X) or <strong>Portrait 4:5</strong> (Instagram feed). The phone's picture is centred over a blurred copy of itself (or black), and you can add a plain <strong>phone frame</strong> around it.</li><li><strong>Animated GIF</strong> (Discord, forums, READMEs): looping, without sound, 320, 480 or 640 pixels wide. Best for short clips: a GIF is much heavier than an MP4.</li></ul><p>These formats are re-encoded, so they take a little longer than the fast export. The format is added to the file name, for example <code>01 - Goal (9x16).mp4</code>.</p>",
           },
           {
             q: "Fast or precise export: which one should I choose?",
