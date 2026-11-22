@@ -13,7 +13,9 @@
   before touching the protocol code.
 - Updating any file here: update this table (version, URL, hash) and the license file in
   the same commit.
-- Platform-tools redistribution terms must be checked before the first public release.
+- Platform-tools: redistribution checked in `docs/decisions/0013-adb-redistribution.md`
+  (ship only `adb.exe`, `AdbWinApi.dll`, `AdbWinUsbApi.dll`, unmodified, with the zip's
+  `NOTICE.txt`).
 - FFmpeg: only `lgpl-shared` builds (the fetch script refuses anything else). BtbN
   prunes old autobuilds; when the pinned URL disappears, pick a newer autobuild of the
   same FFmpeg major and update the script, this table and the hash together.
