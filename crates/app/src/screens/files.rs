@@ -279,6 +279,7 @@ impl FilesScreen {
                         format!("{STORAGE_ROOT}/DCIM/Screenshots"),
                     ),
                     (t::place_downloads(), format!("{STORAGE_ROOT}/Download")),
+                    (t::place_music(), format!("{STORAGE_ROOT}/Music")),
                 ] {
                     if ui.selectable_label(self.dir == dir, label).clicked() {
                         actions.extend(self.open(dir));

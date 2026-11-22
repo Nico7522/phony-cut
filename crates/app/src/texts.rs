@@ -1239,6 +1239,9 @@ pub mod files {
     pub fn place_downloads() -> &'static str {
         tr("⬇ Téléchargements", "⬇ Downloads")
     }
+    pub fn place_music() -> &'static str {
+        tr("🎵 Musique", "🎵 Music")
+    }
     pub fn up() -> &'static str {
         tr("⬆ Dossier parent", "⬆ Parent folder")
     }
