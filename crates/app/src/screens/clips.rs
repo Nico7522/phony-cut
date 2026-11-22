@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText, TextureHandle};
 use phonycut_core::api::{
-    ExportFormat, ExportMode, ExportRequest, ExportState, ExportStyle, LoadedVideo, PlayerEvent,
-    RecordingEntry, VideoFrame,
+    ExportFormat, ExportMode, ExportRequest, ExportState, ExportStyle, GifSize, LoadedVideo,
+    PlayerEvent, RecordingEntry, VideoFrame,
 };
 use phonycut_core::markers::{default_segments, CutFile, Segment, MIN_SEGMENT_MS};
 
@@ -409,7 +409,15 @@ impl ClipsScreen {
             mode: self.mode,
             style: self.style,
         };
+        let gif = self.style.format == ExportFormat::Gif;
         let social = self.style.format != ExportFormat::Original;
+        let longest_ms = editing
+            .segments
+            .iter()
+            .filter(|s| s.export)
+            .map(|s| s.end_ms.saturating_sub(s.start_ms))
+            .max()
+            .unwrap_or(0);
         ui.horizontal_wrapped(|ui| {
             ui.label(texts::export_format());
             egui::ComboBox::from_id_salt("export-format")
@@ -422,6 +430,7 @@ impl ClipsScreen {
                         ExportFormat::Landscape,
                         ExportFormat::Square,
                         ExportFormat::Portrait,
+                        ExportFormat::Gif,
                     ] {
                         ui.selectable_value(
                             &mut self.style.format,
@@ -430,7 +439,11 @@ impl ClipsScreen {
                         );
                     }
                 });
-            if social {
+            if gif {
+                for size in [GifSize::Small, GifSize::Medium, GifSize::Large] {
+                    ui.radio_value(&mut self.style.gif_size, size, texts::gif_size(size));
+                }
+            } else if social {
                 ui.checkbox(&mut self.style.blur_background, texts::export_blur())
                     .on_hover_text(texts::export_blur_hint());
                 ui.checkbox(&mut self.style.phone_frame, texts::export_phone_frame())
@@ -467,12 +480,19 @@ impl ClipsScreen {
         });
         ui.label(
             RichText::new(match (social, self.mode) {
+                _ if gif => texts::export_gif_hint(),
                 (true, _) => texts::export_social_hint(),
                 (false, ExportMode::Fast) => texts::export_fast_hint(),
                 (false, ExportMode::Precise) => texts::export_precise_hint(),
             })
             .small(),
         );
+        if gif && longest_ms > 20_000 {
+            ui.colored_label(
+                Color32::from_rgb(214, 120, 0),
+                texts::gif_too_long(longest_ms / 1000),
+            );
+        }
         self.export_status(ui, actions);
     }
 

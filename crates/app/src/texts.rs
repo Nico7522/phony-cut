@@ -773,6 +773,38 @@ pub fn export_format_name(format: phonycut_core::api::ExportFormat) -> &'static 
             "Vertical 4:5 (fil Instagram)",
             "Portrait 4:5 (Instagram feed)",
         ),
+        ExportFormat::Gif => tr(
+            "GIF animé (Discord, forums, README)",
+            "Animated GIF (Discord, forums, README)",
+        ),
+    }
+}
+pub fn gif_size(size: phonycut_core::api::GifSize) -> &'static str {
+    use phonycut_core::api::GifSize;
+    match size {
+        GifSize::Small => tr("Petit (320 px)", "Small (320 px)"),
+        GifSize::Medium => tr("Moyen (480 px)", "Medium (480 px)"),
+        GifSize::Large => tr("Grand (640 px)", "Large (640 px)"),
+    }
+}
+pub fn export_gif_hint() -> &'static str {
+    tr(
+        "GIF : animation en boucle, sans son, 15 images par seconde. Idéal pour des clips \
+         courts (3 à 15 s) : un GIF pèse bien plus lourd qu'un MP4.",
+        "GIF: looping animation, no sound, 15 frames per second. Best for short clips (3 to \
+         15 s): a GIF is much heavier than an MP4.",
+    )
+}
+pub fn gif_too_long(seconds: u64) -> String {
+    match language() {
+        Language::French => format!(
+            "Un clip dure {seconds} s : le GIF risque d'être très lourd (Discord limite à \
+             10 Mo sans Nitro). Raccourcissez-le ou choisissez « Petit »."
+        ),
+        Language::English => format!(
+            "A clip lasts {seconds} s: the GIF may be very heavy (Discord limits files to \
+             10 MB without Nitro). Shorten it or choose \"Small\"."
+        ),
     }
 }
 pub fn export_blur() -> &'static str {

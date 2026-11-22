@@ -12,7 +12,7 @@ use std::time::Duration;
 use ffmpeg_next as ffmpeg;
 
 use phonycut_core::api::{
-    Event, ExportFormat, ExportMode, ExportRequest, ExportState, ExportStyle, FrameSlot,
+    Event, ExportFormat, ExportMode, ExportRequest, ExportState, ExportStyle, FrameSlot, GifSize,
     PlayerEvent,
 };
 use phonycut_core::export::{clips_folder, export_fast, export_precise, run_export};
@@ -228,6 +228,7 @@ fn social_formats_have_their_size() {
                 format,
                 blur_background: true,
                 phone_frame: true,
+                ..ExportStyle::default()
             },
         };
         let state = run_export(&request, &AtomicBool::new(false), &mut |_| {});
@@ -253,6 +254,64 @@ fn social_formats_have_their_size() {
         }
         fs::remove_dir_all(&folder).unwrap();
     }
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+/// GIF: a looping animation at 15 frames per second, at most the chosen
+/// width (never wider than the recording), without sound.
+#[test]
+fn gif_export_loops_at_15_fps() {
+    let dir = workdir("gif");
+    let video = dir.join("rec.mkv");
+    common::write_recording_with_sound(&video);
+    let request = ExportRequest {
+        video: video.clone(),
+        segments: vec![segment(1_000, 3_000)],
+        mode: ExportMode::Fast,
+        style: ExportStyle {
+            format: ExportFormat::Gif,
+            gif_size: GifSize::Small,
+            ..ExportStyle::default()
+        },
+    };
+    let state = run_export(&request, &AtomicBool::new(false), &mut |_| {});
+    let ExportState::Finished { files, folder } = state else {
+        panic!("{state:?}");
+    };
+    let gif = &files[0];
+    assert_eq!(gif.extension().unwrap(), "gif");
+    if let Ok(keep) = std::env::var("PHONYCUT_KEEP_EXPORT") {
+        fs::copy(gif, std::path::Path::new(&keep).join("look.gif")).unwrap();
+    }
+    let (size, frames, has_audio) = {
+        let mut input = ffmpeg::format::input(gif).unwrap();
+        assert_eq!(input.format().name(), "gif");
+        let has_audio = input.streams().best(ffmpeg::media::Type::Audio).is_some();
+        let stream = input.streams().best(ffmpeg::media::Type::Video).unwrap();
+        let index = stream.index();
+        let mut decoder = ffmpeg::codec::Context::from_parameters(stream.parameters())
+            .unwrap()
+            .decoder()
+            .video()
+            .unwrap();
+        let mut frame = ffmpeg::util::frame::Video::empty();
+        let mut frames = 0;
+        for (s, packet) in input.packets() {
+            if s.index() == index {
+                decoder.send_packet(&packet).unwrap();
+                while decoder.receive_frame(&mut frame).is_ok() {
+                    frames += 1;
+                }
+            }
+        }
+        ((decoder.width(), decoder.height()), frames, has_audio)
+    };
+    // The recording is 214x480: smaller than 320, so kept (even) at 214.
+    assert_eq!(size.0, 214);
+    assert!(!has_audio);
+    // 2 s at 15 fps.
+    assert!((28..=32).contains(&frames), "{frames} frames");
+    fs::remove_dir_all(&folder).unwrap();
     fs::remove_dir_all(&dir).unwrap();
 }
 

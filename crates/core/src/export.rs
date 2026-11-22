@@ -78,9 +78,10 @@ pub fn clips_folder(video: &Path) -> PathBuf {
 /// `01 - Mon clip.mp4`, `01 - Mon clip (9x16).mp4`
 pub fn clip_file_name(index: usize, segment: &Segment, format: ExportFormat) -> String {
     let name = file_safe_name(&segment.name);
+    let ext = format.extension();
     match format.tag() {
-        Some(tag) => format!("{:02} - {name} ({tag}).mp4", index + 1),
-        None => format!("{:02} - {name}.mp4", index + 1),
+        Some(tag) => format!("{:02} - {name} ({tag}).{ext}", index + 1),
+        None => format!("{:02} - {name}.{ext}", index + 1),
     }
 }
 
@@ -796,7 +797,7 @@ struct ScalerInput {
 
 /// Largest size with the source aspect ratio that fits in the clip, rounded
 /// to even dimensions (YUV 4:2:0), and its offset to be centered.
-fn fit_inside(src: (u32, u32), clip: (u32, u32)) -> ((u32, u32), (u32, u32)) {
+pub(crate) fn fit_inside(src: (u32, u32), clip: (u32, u32)) -> ((u32, u32), (u32, u32)) {
     let (sw, sh) = (f64::from(src.0.max(1)), f64::from(src.1.max(1)));
     let (cw, ch) = (f64::from(clip.0), f64::from(clip.1));
     let scale = (cw / sw).min(ch / sh);
@@ -978,14 +979,19 @@ impl EncodeSink {
 }
 
 /// Fills a YUV420P frame with black (limited range: Y=16, U=V=128).
-fn paint_black(frame: &mut ffmpeg::util::frame::Video) {
+pub(crate) fn paint_black(frame: &mut ffmpeg::util::frame::Video) {
     for (plane, value) in [(0, 16u8), (1, 128), (2, 128)] {
         frame.data_mut(plane).fill(value);
     }
 }
 
 /// Copies a YUV420P frame into `dst` at (`x`, `y`) (both even).
-fn blit(src: &ffmpeg::util::frame::Video, dst: &mut ffmpeg::util::frame::Video, x: u32, y: u32) {
+pub(crate) fn blit(
+    src: &ffmpeg::util::frame::Video,
+    dst: &mut ffmpeg::util::frame::Video,
+    x: u32,
+    y: u32,
+) {
     let size = (src.width(), src.height());
     copy_region(src, (0, 0), dst, (x, y), size);
 }
@@ -1114,6 +1120,13 @@ pub fn run_export(
         };
         // A social network format is always re-encoded.
         let result = match (request.mode, format) {
+            (_, ExportFormat::Gif) => crate::gif::export_gif(
+                &request.video,
+                segment,
+                &path,
+                request.style.gif_size.width(),
+                &mut progress,
+            ),
             (ExportMode::Fast, ExportFormat::Original) => {
                 export_fast(&request.video, segment, &path, &mut progress)
             }
@@ -1166,6 +1179,10 @@ mod tests {
         assert_eq!(
             clip_file_name(0, &segment, ExportFormat::Vertical),
             "01 - Le but ! (9x16).mp4"
+        );
+        assert_eq!(
+            clip_file_name(0, &segment, ExportFormat::Gif),
+            "01 - Le but !.gif"
         );
     }
 

@@ -502,13 +502,34 @@ pub enum ExportFormat {
     Square,
     /// 4:5, 1080×1350: Instagram feed.
     Portrait,
+    /// Looping animation without sound (Discord, forums, READMEs).
+    Gif,
+}
+
+/// Width of a GIF.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GifSize {
+    Small,
+    #[default]
+    Medium,
+    Large,
+}
+
+impl GifSize {
+    pub fn width(self) -> u32 {
+        match self {
+            Self::Small => 320,
+            Self::Medium => 480,
+            Self::Large => 640,
+        }
+    }
 }
 
 impl ExportFormat {
     /// Picture size, `None` for the original one.
     pub fn size(self) -> Option<(u32, u32)> {
         match self {
-            Self::Original => None,
+            Self::Original | Self::Gif => None,
             Self::Vertical => Some((1080, 1920)),
             Self::Landscape => Some((1920, 1080)),
             Self::Square => Some((1080, 1080)),
@@ -524,6 +545,15 @@ impl ExportFormat {
             Self::Landscape => Some("16x9"),
             Self::Square => Some("1x1"),
             Self::Portrait => Some("4x5"),
+            Self::Gif => None,
+        }
+    }
+
+    /// File extension of the clips.
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Gif => "gif",
+            _ => "mp4",
         }
     }
 }
@@ -536,6 +566,8 @@ pub struct ExportStyle {
     pub blur_background: bool,
     /// A plain dark phone frame around the picture.
     pub phone_frame: bool,
+    /// Width of a GIF.
+    pub gif_size: GifSize,
 }
 
 impl Default for ExportStyle {
@@ -544,6 +576,7 @@ impl Default for ExportStyle {
             format: ExportFormat::Original,
             blur_background: true,
             phone_frame: false,
+            gif_size: GifSize::default(),
         }
     }
 }
