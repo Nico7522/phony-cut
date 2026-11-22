@@ -1,16 +1,19 @@
-## Nouveautés de la 0.6.0 / What's new in 0.6.0
+## Nouveautés de la 0.7.0 / What's new in 0.7.0
 
-- **Onglet « Fichiers »** : parcourez le téléphone (photos et vidéos, captures d'écran,
-  téléchargements, musique…), cochez des fichiers ou des dossiers, même dans plusieurs
-  dossiers, et copiez-les sur le PC. Pour envoyer des fichiers au téléphone, glissez-les
-  depuis l'Explorateur sur la fenêtre. Ça marche aussi en Wi-Fi ; rien n'est écrasé ni
-  supprimé. / **"Files" tab**: browse the phone (photos and videos, screenshots, downloads,
-  music…), tick files or folders, even across several folders, and copy them to the PC. To
-  send files to the phone, drag them from File Explorer onto the window. Works over Wi-Fi
-  too; nothing is overwritten or deleted.
+- **Export pour les réseaux** : dans « Mes clips », choisissez un format **vertical 9:16**
+  (TikTok, Shorts, Reels), **horizontal 16:9** (YouTube), **carré 1:1** ou **4:5**
+  (Instagram). L'image est centrée sur un fond flouté (ou noir), avec un **cadre de
+  téléphone** en option. / **Export for social networks**: in "My clips", choose a
+  **vertical 9:16** (TikTok, Shorts, Reels), **landscape 16:9** (YouTube), **square 1:1**
+  or **4:5** (Instagram) format. The picture is centred over a blurred (or black)
+  background, with an optional **phone frame**.
+- **GIF animé** (Discord, forums, README) : en boucle, 320, 480 ou 640 px, avec une palette
+  calculée sur tout le clip pour des couleurs propres. / **Animated GIF** (Discord, forums,
+  READMEs): looping, 320, 480 or 640 px, with a palette computed over the whole clip for
+  clean colours.
 
-Depuis la 0.5 / Since 0.5: replay instantané (Ctrl+R), mode tournage, cut avec Ctrl+M,
-plein écran. / instant replay (Ctrl+R), filming mode, cut with Ctrl+M, full screen.
+Depuis la 0.6 / Since 0.6: l'onglet « Fichiers » pour copier entre le téléphone et le PC.
+/ the "Files" tab to copy between the phone and the PC.
 
 ## Installer PhonyCut
 
