@@ -51,7 +51,7 @@ export const fr: Dict = {
     ],
     demoTitle: "PhonyCut en action",
     demoAlt:
-      "PhonyCut affiche en direct l'écran d'un téléphone Android : on l'utilise à la souris et au clavier, puis un enregistrement démarre et un cut est posé.",
+      "PhonyCut en 36 secondes : l'écran d'un téléphone Android en direct sur le PC, un enregistrement avec des cuts posés par Ctrl+M, les clips ajustés puis exportés pour TikTok, YouTube, Instagram ou en GIF, le replay instantané et l'onglet Fichiers.",
     stepsTitle: "Prêt en trois étapes",
     steps: [
       {

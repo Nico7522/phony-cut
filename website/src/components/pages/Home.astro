@@ -45,16 +45,54 @@ const home = text.home;
     <section aria-labelledby="demo-title">
       <h2 id="demo-title">{home.demoTitle}</h2>
       <figure class="demo">
-        <img
-          src={assetUrl("shared/demo.gif")}
-          alt={home.demoAlt}
-          width="600"
-          height="417"
-          loading="lazy"
-          decoding="async"
-        />
+        <video
+          data-promo
+          src={assetUrl("shared/promo.mp4")}
+          poster={assetUrl("shared/promo-poster.jpg")}
+          aria-label={home.demoAlt}
+          width="1920"
+          height="1080"
+          preload="none"
+          controls
+          muted
+          loop
+          playsinline
+        >
+          <img src={assetUrl("shared/demo.gif")} alt={home.demoAlt} width="600" height="417" />
+        </video>
       </figure>
     </section>
+    <script is:inline>
+      // Plays the muted promo while it is on screen and pauses it otherwise, so the video
+      // is only downloaded when the visitor reaches it. Nothing plays by itself for
+      // visitors who ask for reduced motion: the controls are there.
+      (function () {
+        var video = document.querySelector("[data-promo]");
+        if (!video || !("IntersectionObserver" in window)) return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        var pausedByVisitor = false;
+        video.addEventListener("pause", function () {
+          if (video.dataset.auto !== "1") pausedByVisitor = true;
+          video.dataset.auto = "";
+        });
+        video.addEventListener("play", function () {
+          pausedByVisitor = false;
+        });
+        new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                if (!pausedByVisitor) video.play().catch(function () {});
+              } else if (!video.paused) {
+                video.dataset.auto = "1";
+                video.pause();
+              }
+            });
+          },
+          { threshold: 0.5 },
+        ).observe(video);
+      })();
+    </script>
 
     <section aria-labelledby="steps-title">
       <h2 id="steps-title">{home.stepsTitle}</h2>

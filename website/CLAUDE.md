@@ -53,7 +53,7 @@ npm run preview    # servir dist/ en local
 - **Langues** : anglais à `/`, français sous `/fr/`, même slug dans les deux langues.
   Une nouvelle page = une entrée dans `pages` (`src/config.ts`), un composant dans
   `src/components/pages/`, et deux routes (`src/pages/x.astro`, `src/pages/fr/x.astro`).
-- **Images à source unique** : les captures du tutoriel (`assets/tutorial/`), celles de SmartScreen (`assets/smartscreen/`), la démo (`assets/demo.gif`) et le logo
+- **Images à source unique** : les captures du tutoriel (`assets/tutorial/`), celles de SmartScreen (`assets/smartscreen/`), la démo (vidéo `assets/phonycut_promo.mp4`, sa couverture `assets/promo-poster.jpg` et le GIF `assets/demo.gif` en secours) et le logo
   (`assets/icon/PhyCut_logo_software.svg`) sont partagés avec l'application. **Ne jamais
   les copier dans `website/`** : `scripts/copy-shared-assets.mjs` les copie dans
   `public/shared/` (ignoré par git) avant `dev`, `build` et `preview`.

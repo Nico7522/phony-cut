@@ -52,7 +52,7 @@ export const en = {
     ],
     demoTitle: "See it in action",
     demoAlt:
-      "PhonyCut showing an Android phone's screen live: the phone is used with the mouse and keyboard, then a recording starts and a cut is marked.",
+      "PhonyCut in 36 seconds: an Android phone's screen live on the PC, a recording with cuts marked by Ctrl+M, the clips adjusted then exported for TikTok, YouTube, Instagram or as a GIF, the instant replay and the Files tab.",
     stepsTitle: "Up and running in three steps",
     steps: [
       {

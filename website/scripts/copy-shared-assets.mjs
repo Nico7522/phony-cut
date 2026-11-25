@@ -2,7 +2,8 @@
 //
 // The tutorial screenshots (`assets/tutorial/`), the SmartScreen screenshots
 // (`assets/smartscreen/`), the logo (`assets/icon/`) and
-// the demo (`assets/demo.gif`)
+// the demo (`assets/demo.gif`, the fallback of the promo video
+// `assets/phonycut_promo.mp4` and its cover `assets/promo-poster.jpg`)
 // live once in the repository and are used by both the app and the website.
 // They are never committed under `website/`: this script copies them before
 // `dev`, `build` and `preview` into `public/shared/`, which is git-ignored.
@@ -37,12 +38,18 @@ for (const name of warnings) {
   cpSync(join(smartscreen, name), join(out, "smartscreen", name));
 }
 
-const demo = join(repoAssets, "demo.gif");
-if (!existsSync(demo)) {
-  throw new Error(`Demo not found: ${demo}`);
+for (const [name, target] of [
+  ["demo.gif", "demo.gif"],
+  ["phonycut_promo.mp4", "promo.mp4"],
+  ["promo-poster.jpg", "promo-poster.jpg"],
+]) {
+  const source = join(repoAssets, name);
+  if (!existsSync(source)) {
+    throw new Error(`Demo not found: ${source}`);
+  }
+  cpSync(source, join(out, target));
 }
-cpSync(demo, join(out, "demo.gif"));
 
 console.log(
-  `Copied ${pictures.length} tutorial pictures, the SmartScreen screenshots, the logo and the demo into public/shared/`,
+  `Copied ${pictures.length} tutorial pictures, the SmartScreen screenshots, the logo and the demo video into public/shared/`,
 );
